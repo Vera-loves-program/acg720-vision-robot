@@ -173,7 +173,8 @@ module vision_robot_top (
         else frame_seen_pixel <= {frame_seen_pixel[0], camera_frame_seen};
     end
 
-    // Copy chapter 45's DDR PLL dynamic-phase interface unchanged.
+    // Chapter 45's DDR PLL dynamic-phase interface. Reset the control
+    // registers and mDRP controller together with the PLL on an S0 reset.
     wire ddr_pll_locked, ddr_clk400, pll_stop;
     wire mdrp_inc;
     wire [1:0] mdrp_op;
@@ -181,14 +182,21 @@ module vision_robot_top (
     reg ddr_lock_meta = 0, ddr_lock_sync = 0;
     reg pll_stop_d = 0, mdrp_wr = 0;
     always @(posedge clk50M) begin
-        ddr_lock_meta <= ddr_pll_locked;
-        ddr_lock_sync <= ddr_lock_meta;
-        pll_stop_d <= pll_stop;
-        if (!ddr_lock_sync) mdrp_wr <= 1'b0;
-        else mdrp_wr <= pll_stop ^ pll_stop_d;
+        if (!reset_sync) begin
+            ddr_lock_meta <= 1'b0;
+            ddr_lock_sync <= 1'b0;
+            pll_stop_d <= 1'b0;
+            mdrp_wr <= 1'b0;
+        end else begin
+            ddr_lock_meta <= ddr_pll_locked;
+            ddr_lock_sync <= ddr_lock_meta;
+            pll_stop_d <= pll_stop;
+            if (!ddr_lock_sync) mdrp_wr <= 1'b0;
+            else mdrp_wr <= pll_stop ^ pll_stop_d;
+        end
     end
     pll_mDRP_intf u_ddr_phase_control (
-        .clk(clk50M), .rst_n(1'b1), .pll_lock(ddr_lock_sync),
+        .clk(clk50M), .rst_n(reset_sync), .pll_lock(ddr_lock_sync),
         .wr(mdrp_wr), .mdrp_inc(mdrp_inc), .mdrp_op(mdrp_op),
         .mdrp_wdata(mdrp_wdata), .mdrp_rdata(mdrp_rdata)
     );
@@ -210,19 +218,21 @@ module vision_robot_top (
     reg [1:0] stop_pixel_sync = 2'b00;
     reg [1:0] camera_pixel_sync = 2'b00;
     reg [1:0] ddr_pixel_sync = 2'b00;
+    reg [1:0] ddr_pll_pixel_sync = 2'b00;
     reg [1:0] net_pixel_sync = 2'b00;
     wire net_ready;
     always @(posedge pixel_clk or negedge pixel_reset_n) begin
         if (!pixel_reset_n) begin
             gaussian_pixel_sync<=2'b11; debug_pixel_sync<=0;
             stop_pixel_sync<=0; camera_pixel_sync<=0;
-            ddr_pixel_sync<=0; net_pixel_sync<=0;
+            ddr_pixel_sync<=0; ddr_pll_pixel_sync<=0; net_pixel_sync<=0;
         end else begin
             gaussian_pixel_sync<={gaussian_pixel_sync[0],gaussian_active};
             debug_pixel_sync<={debug_pixel_sync[0],debug_requested};
             stop_pixel_sync<={stop_pixel_sync[0],stop_latched};
             camera_pixel_sync<={camera_pixel_sync[0],camera_init_done};
             ddr_pixel_sync<={ddr_pixel_sync[0],init_calib_complete};
+            ddr_pll_pixel_sync<={ddr_pll_pixel_sync[0],ddr_pll_locked};
             net_pixel_sync<={net_pixel_sync[0],net_ready};
         end
     end
@@ -232,6 +242,7 @@ module vision_robot_top (
         .camera_pixel_valid(!rdfifo_empty && frame_seen_pixel[1]),
         .camera_ready(camera_pixel_sync[1]),
         .ddr_ready(ddr_pixel_sync[1]),
+        .ddr_pll_ready(ddr_pll_pixel_sync[1]),
         .net_ready(net_pixel_sync[1]),
         .filter_active(gaussian_pixel_sync[1]),
         .debug_mode(debug_pixel_sync[1]),

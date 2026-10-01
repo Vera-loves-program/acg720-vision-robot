@@ -21,7 +21,7 @@ if /i "%~1"=="probe" (
 )
 .venv\Scripts\python.exe -c "import cv2, numpy" >nul 2>nul
 if not errorlevel 1 goto view
-.venv\Scripts\python.exe -m pip install -r pc\requirements.txt
+.venv\Scripts\python.exe -m pip install -i https://mirrors.aliyun.com/pypi/simple/ -r pc\requirements.txt
 if errorlevel 1 goto failed
 :view
 .venv\Scripts\python.exe pc\udp_video_viewer.py --bind 192.168.10.3

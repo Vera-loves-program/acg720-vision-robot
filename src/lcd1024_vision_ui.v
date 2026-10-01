@@ -7,6 +7,7 @@ module lcd1024_vision_ui (
     input  wire        camera_pixel_valid,
     input  wire        camera_ready,
     input  wire        ddr_ready,
+    input  wire        ddr_pll_ready,
     input  wire        net_ready,
     input  wire        filter_active,
     input  wire        debug_mode,
@@ -93,8 +94,9 @@ module lcd1024_vision_ui (
             label_x=11'd838; label_y=10'd102;
             label_color=camera_ready ? GREEN : RED;
         end else if (ay>=10'd130 && ay<10'd146) begin
-            label_text = ddr_ready ? {"DDR READY", "       "} :
-                                     {"DDR WAIT", "        "};
+            label_text = !ddr_pll_ready ? {"DDR PLL WAIT", "    "} :
+                         ddr_ready ? {"DDR READY", "       "} :
+                                     {"DDR CAL WAIT", "    "};
             label_x=11'd838; label_y=10'd130;
             label_color=ddr_ready ? GREEN : RED;
         end else if (ay>=10'd158 && ay<10'd174) begin
