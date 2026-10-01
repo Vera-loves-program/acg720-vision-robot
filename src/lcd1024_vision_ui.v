@@ -40,7 +40,8 @@ module lcd1024_vision_ui (
     assign frame_restart = run && h==H_TOTAL-1'b1 && v==V_TOTAL-1'b1;
     assign camera_pop = run && video_area && camera_pixel_valid && !camera_underflow;
 
-    // Column-major five-pixel font. The low seven bits of each byte are rows.
+    // Five columns, left to right from the most-significant byte.
+    // Within each column bit 0 is the top row and bit 6 is the bottom row.
     function [39:0] glyph;
         input [7:0] c;
         begin
@@ -155,7 +156,7 @@ module lcd1024_vision_ui (
     wire [7:0] character = label_text[127-(char_ix*8) -: 8];
     wire [39:0] font = glyph(character);
     wire text_pixel = in_label && glyph_x<4'd5 && glyph_y<4'd7 &&
-                      font[39-(glyph_x*8)-glyph_y];
+                      font[32-(glyph_x*8)+glyph_y];
 
     reg [15:0] base_color;
     always @* begin

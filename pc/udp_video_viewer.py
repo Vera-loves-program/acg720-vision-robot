@@ -84,12 +84,21 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=6102)
     parser.add_argument("--command-address", default=COMMAND_BROADCAST)
     parser.add_argument("--byte-order", choices=("big", "little"), default="big")
+    parser.add_argument("--row-byte-order", choices=("big", "little"), default="big",
+                        help="byte order of the two-byte row header")
     args = parser.parse_args()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # Keep complete rows during bursts while the GUI draws the next frame.
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4 * 1024 * 1024)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    sock.bind((args.bind, args.port))
+    try:
+        sock.bind((args.bind, args.port))
+    except OSError as exc:
+        sock.close()
+        parser.error(f"Cannot bind {args.bind}:{args.port}: {exc}. "
+                     "Check the Ethernet IPv4 address and close other receivers.")
     sock.setblocking(False)
 
     frame = np.zeros((HEIGHT, WIDTH), dtype=np.uint16)
@@ -117,7 +126,7 @@ def main() -> None:
                 if len(payload) != PAYLOAD_BYTES:
                     bad += 1
                     continue
-                row = int.from_bytes(payload[:2], "big")
+                row = int.from_bytes(payload[:2], args.row_byte_order)
                 if row >= HEIGHT:
                     bad += 1
                     continue
@@ -146,6 +155,8 @@ def main() -> None:
             stats = {"source": source, "fps": fps, "frames": frames, "lost": lost, "bad": bad}
             cv2.imshow("VERA Vision Lab - FPGA UDP Viewer", render(latest, stats))
             key = cv2.waitKey(1) & 0xFF
+            if ord("A") <= key <= ord("Z"):
+                key += ord("a") - ord("A")
             command: tuple[int, int] | None = None
             if key in (ord("q"), 27):
                 break

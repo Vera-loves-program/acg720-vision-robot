@@ -2,7 +2,9 @@
 
 这是一个从已上板正常显示的 `lcd_camera_switch` 独立出来的新工程。原来的静态图片、图片 ROM 和构建产物没有进入本工程；原工程保留作已验证的回退版本。目标器件为 ACG720-60K / `GW5AT-LV60PG484AC1/I0`，OV5640 的实际采集尺寸为 **800×480 RGB565**，LCD 扫描尺寸为 **1024×600**。
 
-> 本版本已写好 HDL 与电脑接收程序，**尚未综合、布局布线、烧录或做实板收包验证**。因此“已写入工程”不等于“网口已联通”。用户此前希望自己编译，本次没有替用户运行 Gowin。首次上板请先看 LED、LCD 和 UDP 包，再调整 PHY/时序。UI 参考了[个人主页仓库](https://github.com/Vera-loves-program/zhengjitongxue-portfolio)的奶油白波点背景、黑色粗边框/硬阴影、蓝色 `#0062AD` 与黄色 `#FFD15C`；FPGA 的位图文字和 RGB565 调色板做了简化。
+> 用户已在实板验证本工程的摄像头采集和 LCD 显示正常。现已修正 UI 字库上下颠倒的行位序，**字体修正版及 FPGA 网口链路仍待实板验证**。本次未代替用户运行 Gowin 编译或烧录。UI 参考了[个人主页仓库](https://github.com/Vera-loves-program/zhengjitongxue-portfolio)的奶油白波点背景、黑色粗边框/硬阴影、蓝色 `#0062AD` 与黄色 `#FFD15C`；FPGA 的位图文字和 RGB565 调色板做了简化。
+
+第一次使用网线，请先阅读 [电脑网线连接与运行指南](docs/电脑网线连接与运行指南.md)：包含接线、静态 IPv4、Python 安装、收包检查、视频窗口、反向控制和 WSL 的完整步骤。Windows 可双击 `pc/run_windows.cmd` 启动，或使用 `pc/run_windows.cmd probe` 检查收包。
 
 ## 现在的功能
 
@@ -64,6 +66,8 @@ LCD 右栏的 `PHY INIT` 与 D5 含义相同；没有读取 PHY Link Status，�
 - `src/udp_command_parser.v`：反向 UDP 控制命令解析。
 - `src/vendor/`：高云教材第 45、59 章例程与生成的 Gowin IP；PHY、FIFO、DDR、摄像头初始化沿用相应教学代码。`eth_udp_rx_gmii.v` 增加了本地 `/24` 广播地址的接收条件。这些第三方代码请保留原始声明；公开发布前应确认其再分发许可，建议 GitHub 仓库先设为**私有**。
 - `pc/udp_video_viewer.py`：Windows/WSL 通用的 Python/OpenCV UDP 接收与控制程序。
+- `pc/udp_probe.py`：仅使用 Python 标准库的收包检查器，报告包长度、完整帧与行头字节序。
+- `pc/run_windows.cmd`：Windows 虚拟环境准备及视频/检查器启动入口。
 
 原工程使用图片 ROM 时的布线报告为 96/118 BSRAM，其中静态图片占约 61 块。本工程去掉了图片 ROM，为网络 FIFO 和图像行缓存留出资源；**实际资源及时序仍须以新工程布线报告为准**。
 
