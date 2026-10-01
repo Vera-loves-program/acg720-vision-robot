@@ -39,7 +39,7 @@ localparam IDLE       = 4'b0001,
            WAIT_DONE  = 4'b0100,
            DELAY      = 4'b1000;
 
-localparam TX_DATA_BYTE = PAYLOAD_LENGTH * PAYLOAD_DATA_BYTE - 2'd2;
+localparam TX_DATA_BYTE = PAYLOAD_LENGTH * PAYLOAD_DATA_BYTE;
 
 wire [13:0] rd_data_count;
 reg  [3:0]  eth_interval_cnt;

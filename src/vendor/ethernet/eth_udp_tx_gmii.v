@@ -440,7 +440,8 @@ module eth_udp_tx_gmii(
   end
 
   //payload_req_o
-  assign payload_req_o = (curr_state == TX_DATA) ? 1'b1 : 1'b0;
+  // TX_DATA is bit 5 of this one-hot FSM. Avoid an eight-bit decoder on the FIFO read-enable path.
+  assign payload_req_o = curr_state[5];
 
   always@(posedge clk125m or posedge reset_p)
   if(reset_p)

@@ -146,6 +146,7 @@ module vision_robot_top (
     wire gaussian_valid;
     wire [15:0] gaussian_pixel;
     wire [10:0] gaussian_x, gaussian_y;
+    wire gaussian_frame_start;
     wire gaussian_active;
     reg [1:0] filter_camera_sync = 2'b11;
     always @(posedge camera_pclk or negedge camera_capture_reset_n) begin
@@ -160,6 +161,7 @@ module vision_robot_top (
         .in_x(camera_x), .in_y(camera_y),
         .out_valid(gaussian_valid), .out_pixel(gaussian_pixel),
         .out_x(gaussian_x), .out_y(gaussian_y),
+        .out_frame_start(gaussian_frame_start),
         .active_filter(gaussian_active)
     );
     reg camera_frame_seen = 1'b0;
@@ -173,30 +175,35 @@ module vision_robot_top (
         else frame_seen_pixel <= {frame_seen_pixel[0], camera_frame_seen};
     end
 
-    // Chapter 45's DDR PLL dynamic-phase interface. Reset the control
-    // registers and mDRP controller together with the PLL on an S0 reset.
+    // DDR initialization owns mDRP first. Hand it to pll_mDRP_intf only
+    // AFTER initialization has reported LOCK. Keep ownership latched until
+    // S0 reset: a temporary LOCK drop must not restart PLL_INIT mid-command.
     wire ddr_pll_locked, ddr_clk400, pll_stop;
     wire mdrp_inc;
     wire [1:0] mdrp_op;
     wire [7:0] mdrp_wdata, mdrp_rdata;
     reg ddr_lock_meta = 0, ddr_lock_sync = 0;
     reg pll_stop_d = 0, mdrp_wr = 0;
+    reg ddr_mdrp_user_mode = 1'b0;
     always @(posedge clk50M) begin
         if (!reset_sync) begin
             ddr_lock_meta <= 1'b0;
             ddr_lock_sync <= 1'b0;
             pll_stop_d <= 1'b0;
             mdrp_wr <= 1'b0;
+            ddr_mdrp_user_mode <= 1'b0;
         end else begin
             ddr_lock_meta <= ddr_pll_locked;
             ddr_lock_sync <= ddr_lock_meta;
             pll_stop_d <= pll_stop;
-            if (!ddr_lock_sync) mdrp_wr <= 1'b0;
+            if (!ddr_lock_sync || !ddr_mdrp_user_mode) mdrp_wr <= 1'b0;
             else mdrp_wr <= pll_stop ^ pll_stop_d;
+            if (ddr_lock_sync) ddr_mdrp_user_mode <= 1'b1;
         end
     end
     pll_mDRP_intf u_ddr_phase_control (
-        .clk(clk50M), .rst_n(reset_sync), .pll_lock(ddr_lock_sync),
+        .clk(clk50M), .rst_n(reset_sync && ddr_mdrp_user_mode),
+        .pll_lock(ddr_lock_sync),
         .wr(mdrp_wr), .mdrp_inc(mdrp_inc), .mdrp_op(mdrp_op),
         .mdrp_wdata(mdrp_wdata), .mdrp_rdata(mdrp_rdata)
     );
@@ -204,7 +211,8 @@ module vision_robot_top (
         .clkin(clk50M), .clkout0(), .clkout1(), .clkout2(ddr_clk400),
         .lock(ddr_pll_locked), .mdopc(mdrp_op), .mdainc(mdrp_inc),
         .mdwdi(mdrp_wdata), .mdrdo(mdrp_rdata),
-        .pll_init_bypass(1'b0), .mdclk(clk50M), .reset(~reset_sync)
+        .pll_init_bypass(ddr_mdrp_user_mode),
+        .mdclk(clk50M), .reset(~reset_sync)
     );
 
     wire [15:0] camera_pixel_read;
@@ -259,9 +267,9 @@ module vision_robot_top (
 
     ddr3_ctrl_2port u_framebuffer (
         .clk(clk50M), .pll_stop(pll_stop), .pll_lock(ddr_pll_locked),
-        .clk_200m(ddr_clk400), .sys_rst_n(ready),
+        .clk_200m(ddr_clk400), .sys_rst_n(ready && ddr_mdrp_user_mode),
         .init_calib_complete(init_calib_complete),
-        .rd_load(frame_restart), .wr_load(camera_frame_start),
+        .rd_load(frame_restart), .wr_load(gaussian_frame_start),
         .app_addr_rd_min(28'd0), .app_addr_rd_max(IMAGE_PIXELS),
         .rd_bust_len(DDR_BURST),
         .app_addr_wr_min(28'd0), .app_addr_wr_max(IMAGE_PIXELS),
@@ -300,7 +308,7 @@ module vision_robot_top (
     wire net_frame_sent;
     video_400x240_packetizer u_video_packets (
         .clk(camera_pclk), .reset_n(camera_run_pipe[1]),
-        .frame_start(camera_frame_start),
+        .frame_start(gaussian_frame_start),
         .pixel_valid(gaussian_valid), .pixel(gaussian_pixel),
         .x(gaussian_x), .y(gaussian_y),
         .word_out(net_word), .word_valid(net_word_valid),

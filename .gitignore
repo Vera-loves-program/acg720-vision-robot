@@ -1,6 +1,7 @@
 # Gowin generated outputs, often hundreds of MB and reproducible from source.
 impl/**
 !impl/vision_robot_process_config.json
+!impl/vision_robot_netfix_process_config.json
 *.gprj.user
 *.fs
 *.bin

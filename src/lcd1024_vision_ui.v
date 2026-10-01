@@ -83,7 +83,7 @@ module lcd1024_vision_ui (
         label_color = INK;
         label_enable = 1'b1;
         if (ay>=10'd14 && ay<10'd30) begin
-            label_text = "VERA VISION LAB "; label_x=11'd20; label_y=10'd14;
+            label_text = "VERA NET FIX R2 "; label_x=11'd20; label_y=10'd14;
             label_color=WHITE;
         end else if (ay>=10'd72 && ay<10'd88) begin
             label_text = {"SYSTEM", "          "}; label_x=11'd838; label_y=10'd72;
@@ -153,11 +153,26 @@ module lcd1024_vision_ui (
     wire in_label = label_enable && ax>=label_x && dx<11'd256 &&
                     ay>=label_y && dy<10'd16;
     wire [3:0] char_ix = dx[7:4];
-    wire [3:0] glyph_x = dx[3:1];
-    wire [3:0] glyph_y = dy[3:1];
+    wire [3:0] glyph_x_now = dx[3:1];
+    wire [3:0] glyph_y_now = dy[3:1];
     wire [7:0] character = label_text[127-(char_ix*8) -: 8];
-    wire [39:0] font = glyph(character);
-    wire text_pixel = in_label && glyph_x<4'd5 && glyph_y<4'd7 &&
+
+    // Three registered display stages: character/background -> glyph -> RGB.
+    // Capture the FWFT camera pixel in the FIRST stage, on camera_pop's edge.
+    // Delay DE/HS/VS with RGB so the image geometry stays aligned.
+    reg [7:0] character_a = 0;
+    reg [3:0] glyph_x_a = 0, glyph_y_a = 0;
+    reg [3:0] glyph_x_b = 0, glyph_y_b = 0;
+    reg [39:0] font_b = 0;
+    reg in_label_a = 0, in_label_b = 0;
+    reg [15:0] label_color_a = 0, label_color_b = 0;
+    reg [15:0] base_color_a = BLACK, base_color_b = BLACK;
+    reg de_a = 0, de_b = 0;
+    reg hs_a = 1, hs_b = 1, vs_a = 1, vs_b = 1;
+    wire [39:0] font = font_b;
+    wire [3:0] glyph_x = glyph_x_b;
+    wire [3:0] glyph_y = glyph_y_b;
+    wire text_pixel = in_label_b && glyph_x<4'd5 && glyph_y<4'd7 &&
                       font[32-(glyph_x*8)+glyph_y];
 
     reg [15:0] base_color;
@@ -197,7 +212,6 @@ module lcd1024_vision_ui (
                 base_color = ORANGE;
             if (stop_latched && ax>=11'd828 && ax<11'd1018 &&
                 ay>=10'd516 && ay<10'd536) base_color = RED;
-            if (text_pixel) base_color = label_color;
         end
     end
 
@@ -207,6 +221,12 @@ module lcd1024_vision_ui (
             de<=0; hs<=1; vs<=1;
             frame_div<=0; frame_heartbeat<=0;
             camera_underflow<=0;
+            character_a<=0; font_b<=0;
+            glyph_x_a<=0; glyph_y_a<=0; glyph_x_b<=0; glyph_y_b<=0;
+            in_label_a<=0; in_label_b<=0;
+            label_color_a<=0; label_color_b<=0;
+            base_color_a<=BLACK; base_color_b<=BLACK;
+            de_a<=0; de_b<=0; hs_a<=1; hs_b<=1; vs_a<=1; vs_b<=1;
         end else begin
             if (frame_restart) camera_underflow<=0;
             else if (video_area && !camera_pixel_valid)
@@ -220,10 +240,21 @@ module lcd1024_vision_ui (
                     end else frame_div<=frame_div+1'b1;
                 end else v<=v+1'b1;
             end else h<=h+1'b1;
-            de<=active;
-            hs<=(h>=H_SYNC);
-            vs<=(v>=V_SYNC);
-            rgb<=base_color;
+            character_a<=character;
+            glyph_x_a<=glyph_x_now; glyph_y_a<=glyph_y_now;
+            in_label_a<=active && in_label;
+            label_color_a<=label_color;
+            base_color_a<=base_color;
+            de_a<=active; hs_a<=(h>=H_SYNC); vs_a<=(v>=V_SYNC);
+
+            font_b<=glyph(character_a);
+            glyph_x_b<=glyph_x_a; glyph_y_b<=glyph_y_a;
+            in_label_b<=in_label_a; label_color_b<=label_color_a;
+            base_color_b<=base_color_a;
+            de_b<=de_a; hs_b<=hs_a; vs_b<=vs_a;
+
+            de<=de_b; hs<=hs_b; vs<=vs_b;
+            rgb<=text_pixel ? label_color_b : base_color_b;
         end
     end
 endmodule

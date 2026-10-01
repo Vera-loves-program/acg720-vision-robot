@@ -2,13 +2,15 @@
 
 这是一个从已上板正常显示的 `lcd_camera_switch` 独立出来的新工程。原来的静态图片、图片 ROM 和构建产物没有进入本工程；原工程保留作已验证的回退版本。目标器件为 ACG720-60K / `GW5AT-LV60PG484AC1/I0`，OV5640 的实际采集尺寸为 **800×480 RGB565**，LCD 扫描尺寸为 **1024×600**。
 
-> 用户曾在实板验证本工程的摄像头画面正常，目前已确认字体修正有效；最近一次重新编译后出现 `CAM READY / DDR WAIT` 黑屏，DDR 校准没有完成。当前增加 DDR PLL/校准分阶段显示，并完善动态相位控制的系统复位，**这些改动及 FPGA 网口链路仍待实板验证**。本次未代替用户运行 Gowin 编译或烧录。UI 参考了[个人主页仓库](https://github.com/Vera-loves-program/zhengjitongxue-portfolio)的奶油白波点背景、黑色粗边框/硬阴影、蓝色 `#0062AD` 与黄色 `#FFD15C`；FPGA 的位图文字和 RGB565 调色板做了简化。
+> 用户曾在实板验证本工程的摄像头画面正常，字体修正也已确认有效，但后来重新编译出现 `CAM READY / DDR WAIT` 黑屏。用户再次烧录保留的旧工程后摄像头正常，确认应继续排查新工程。现已修正 DDR PLL 的 mDRP 控制权交接、LCD PLL 初始化倍率、高斯/UI 过长组合路径和 UDP FIFO 长度条件；**R2 修正版及 FPGA 网口链路仍待实板验证**。本次未代替用户运行 Gowin 编译或烧录。UI 参考了[个人主页仓库](https://github.com/Vera-loves-program/zhengjitongxue-portfolio)的奶油白波点背景、黑色粗边框/硬阴影、蓝色 `#0062AD` 与黄色 `#FFD15C`；FPGA 的位图文字和 RGB565 调色板做了简化。
+
+**当前编译入口为 `vision_robot_netfix.gprj`**，顶层仍为 `vision_robot_top`，输出名为 `vision_robot_netfix`。LCD 标题应显示 `VERA NET FIX R2`。原因、修复范围与烧录步骤见 [网口集成检查与 R2 修正版](docs/网口集成检查与R2修正版.md)。
 
 第一次使用网线，请先阅读 [电脑网线连接与运行指南](docs/电脑网线连接与运行指南.md)：包含接线、静态 IPv4、Python 安装、收包检查、视频窗口、反向控制和 WSL 的完整步骤。Windows 可双击 `pc/run_windows.cmd` 启动，或使用 `pc/run_windows.cmd probe` 检查收包。
 
 WSL 中 `py` 不存在、使用阿里源准备 Python 环境，以及本次 DDR 黑屏的具体步骤，见 [Python 阿里源与 DDR 黑屏排查](docs/Python阿里源与DDR黑屏排查.md)。
 
-当前先回退到保留的 `lcd_camera_switch` 工程检查摄像头，直接使用原位流，不重新编译。完整路径、S4 切换步骤和 LED 判断见 [摄像头回退检查](docs/摄像头回退检查.md)。
+保留的 `lcd_camera_switch` 已由用户再次验证摄像头工作正常。需要对照时，可直接使用原位流；完整路径、S4 切换步骤和 LED 判断见 [摄像头回退检查](docs/摄像头回退检查.md)。
 
 ## 现在的功能
 
@@ -40,7 +42,7 @@ WSL 中 `py` 不存在、使用阿里源准备 Python 环境，以及本次 DDR 
 
 1. 用网线连接 ACG720 的 RJ45 和电脑有线网口；两端也可以通过普通千兆交换机连接。保持两板正常供电，不通过 LCD 排线给网口供电。
 2. 把电脑**有线网卡**配置为 `192.168.10.3`、子网掩码 `255.255.255.0`。不要把这个地址配到 Wi-Fi 上。测试时关闭阻止 UDP 6102 入站的防火墙规则，或只为 Python 程序/该端口放行。
-3. 在 Windows Gowin FPGA Designer 中打开 [`vision_robot.gprj`](<vision_robot.gprj>)，顶层是 `vision_robot_top`。SSPI、CPU 复用脚作为普通 IO 的配置复制自原工程的 `impl/vision_robot_process_config.json`；若 GUI 未读取配置，应在 Place & Route 的 Dual-Purpose Pin 页面确认相应选项。由你执行综合、布局布线和 SRAM 烧录。
+3. 在 Windows Gowin FPGA Designer 中打开 [`vision_robot_netfix.gprj`](<vision_robot_netfix.gprj>)，顶层是 `vision_robot_top`。SSPI、CPU 复用脚作为普通 IO 的配置位于 `impl/vision_robot_netfix_process_config.json`；若 GUI 未读取配置，应在 Place & Route 的 Dual-Purpose Pin 页面确认相应选项。由你执行综合、布局布线，烧录新生成的 `impl/pnr/vision_robot_netfix.fs`，标题应为 `VERA NET FIX R2`。
 4. 电脑上使用 Python 虚拟环境安装依赖：`python -m pip install -r pc/requirements.txt`。Windows 可直接运行 `python pc/udp_video_viewer.py --bind 192.168.10.3`。窗口应显示视频与完整帧/丢帧计数。收包时如出现红蓝/字节顺序异常，可试 `--byte-order little` 并回查 FIFO 输出顺序。
 5. 若一定从 **WSL2** 收包，请先确保 WSL 能从该有线网口收到局域网入站 UDP。Windows 11 可参考 [微软 WSL 网络文档](https://learn.microsoft.com/en-us/windows/wsl/networking) 将 `%USERPROFILE%\.wslconfig` 配置为 `[wsl2]` 下 `networkingMode=mirrored`，随后运行 `wsl --shutdown` 再进入 WSL。还需检查 Windows/Hyper-V 防火墙。WSL 内用 `python3 -m pip install -r pc/requirements.txt`、`python3 pc/udp_video_viewer.py --bind 0.0.0.0`。若 WSL 图形窗口无法出现，可先在 Windows 原生 Python 中运行同一脚本；FPGA 协议无需更改。
 

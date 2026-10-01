@@ -52,7 +52,9 @@ wire pll_rst;
         .MDWDI(8'h0)
     );
     defparam u_pll_init.CLK_PERIOD = 20;
-    defparam u_pll_init.MULTI_FAC = 36;
+    // VCO/input = MDIV * FBDIV / IDIV = 36 / 2 = 18.
+    // PLL_INIT selects its analog initialization range from this ratio.
+    defparam u_pll_init.MULTI_FAC = 18;
 
 
 endmodule

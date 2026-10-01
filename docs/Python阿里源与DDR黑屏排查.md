@@ -2,6 +2,8 @@
 
 适用于你的 WSL Ubuntu 22.04，以及 `D:\GOWIN_PROJECTS\acg720_vision_robot` 工程。下列 Linux 命令都在出现 `Vera@...$` 的 WSL 终端执行。
 
+更新：用户已验证旧工程摄像头工作正常。目前 FPGA 编译入口是 `vision_robot_netfix.gprj`，本轮代码检查与修复见 [网口集成检查与 R2 修正版](网口集成检查与R2修正版.md)。下方保留黑屏诊断过程，Python 环境准备命令仍适用。
+
 ## 1. 你已经有 Python
 
 本机检查得到：WSL 中有 **Python 3.10.12** 和 **pip 22.0.2**。`py -3` 是 Windows Python 启动器的命令；进入 Ubuntu 后应使用 `python3`。Windows 找不到 `py` 只能说明启动器没有安装或没有加入 PATH，不能证明整个电脑没有 Python。
@@ -83,17 +85,17 @@ python3 pc/udp_probe.py --bind 0.0.0.0 --seconds 10
 
 我读取了你在 2026-10-01 23:55 左右生成的布局/时序报告：有 150 个 setup 和 164 个 hold 违例。跨时钟路径需要分别判断，不能把总数都当作硬件故障；其中摄像头高斯滤波路径报告也存在同一时钟域的负裕量。因此仍有时序问题需要处理，**这次复位调整不能宣称已经解决全部问题**。
 
-## 6. 这次代码改动与下一次烧录
+## 6. 前一轮诊断与当前烧录入口
 
-这次保留字体修正，增加 DDR PLL 锁定状态显示，并让 DDR 动态相位控制寄存器和 mDRP 控制器随 S0 系统复位重新启动。这是复位完善和定位手段；具体黑屏根因仍待上板确认，没有运行 Gowin 编译或 FPGA 仿真。
+前一轮保留字体修正，增加 DDR PLL 锁定状态显示，并让 DDR 动态相位控制寄存器和 mDRP 控制器随 S0 系统复位重新启动；用户反馈仍未恢复。当前 R2 进一步修正 PLL 控制权交接、初始化倍率与高斯/UI/UDP 路径，详见上述修复文档。没有运行 Gowin 编译或 FPGA 仿真，仍需上板确认。
 
 按以下顺序操作：
 
-1. 先保存工作，关闭并重新打开 `D:\GOWIN_PROJECTS\acg720_vision_robot\vision_robot.gprj`，使修改后的工程配置重新加载。顶层应是 `vision_robot_top`。
-2. 重新运行 Synthesize、Place & Route；两步成功后再烧录。原配置继承了旧工程的输出名 `lcd_camera_switch`，现在已改为 `vision_robot`。
-3. Programmer 中手动核对选择的是 **这次刚生成的** `D:\GOWIN_PROJECTS\acg720_vision_robot\impl\pnr\vision_robot.fs`，以及它的修改时间。不要继续使用先前的 `lcd_camera_switch.fs`。
+1. 先保存工作，关闭当前工程，打开 `D:\GOWIN_PROJECTS\acg720_vision_robot\vision_robot_netfix.gprj`。顶层应是 `vision_robot_top`。
+2. 重新运行 Synthesize、Place & Route；两步成功后再烧录。R2 使用独立输出名 `vision_robot_netfix`。
+3. Programmer 中手动核对选择的是 **这次刚生成的** `D:\GOWIN_PROJECTS\acg720_vision_robot\impl\pnr\vision_robot_netfix.fs`，以及它的修改时间。
 4. 烧录后等待几秒。如果仍未出现画面，按住 **S0** 一秒再松开，等待几秒。S4 是滤波切换按钮，不是系统复位。
-5. 观察右栏的 DDR 状态，以及 D4/D6/D7。若右栏依然只写 `DDR WAIT`，说明没有运行本次新版本。
+5. 标题应为 `VERA NET FIX R2`；观察右栏的 DDR 状态，以及 D4/D6/D7。若没有该标题，先核对工程与烧录文件。
 
 新版本的三种 DDR 状态：
 
