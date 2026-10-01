@@ -40,18 +40,26 @@ def command_packet(opcode: int, value: int, sequence: int) -> bytes:
 
 
 def render(frame: np.ndarray | None, stats: dict[str, float | int | str]) -> np.ndarray:
-    canvas = np.full((660, 1060, 3), (33, 18, 7), dtype=np.uint8)
-    cyan, mint, white, muted, red = (255, 225, 27), (160, 245, 120), (242, 245, 245), (177, 157, 145), (100, 100, 250)
-    cv2.rectangle(canvas, (0, 0), (1059, 60), (65, 32, 16), -1)
-    cv2.putText(canvas, "VERA / VISION LAB", (24, 39), cv2.FONT_HERSHEY_SIMPLEX, 0.86, cyan, 2, cv2.LINE_AA)
+    # Match the owner's neo-brutalist portfolio: cream dots, thick black
+    # borders, hard offset shadows, blue #0062AD and yellow #FFD15C.
+    cream, ink, blue, yellow = (240, 244, 244), (23, 23, 23), (173, 98, 0), (92, 209, 255)
+    white, red = (255, 255, 255), (77, 77, 255)
+    canvas = np.full((660, 1060, 3), cream, dtype=np.uint8)
+    canvas[4::30, 4::30] = (204, 204, 204)
+    cv2.rectangle(canvas, (0, 0), (1059, 60), blue, -1)
+    cv2.rectangle(canvas, (0, 59), (1059, 63), ink, -1)
+    cv2.putText(canvas, "VERA / VISION LAB", (24, 39), cv2.FONT_HERSHEY_SIMPLEX, 0.86, white, 2, cv2.LINE_AA)
     cv2.putText(canvas, "ACG720  /  LIVE UDP", (730, 38), cv2.FONT_HERSHEY_SIMPLEX, 0.48, white, 1, cv2.LINE_AA)
-    cv2.rectangle(canvas, (14, 78), (826, 570), cyan, 1)
+    cv2.rectangle(canvas, (22, 86), (834, 578), ink, -1)
+    cv2.rectangle(canvas, (14, 78), (826, 570), ink, 4)
     if frame is None:
-        cv2.putText(canvas, "WAITING FOR FPGA VIDEO", (205, 325), cv2.FONT_HERSHEY_SIMPLEX, 0.8, muted, 2, cv2.LINE_AA)
+        cv2.putText(canvas, "WAITING FOR FPGA VIDEO", (205, 325), cv2.FONT_HERSHEY_SIMPLEX, 0.8, ink, 2, cv2.LINE_AA)
     else:
         canvas[84:564, 20:820] = cv2.resize(frame, (800, 480), interpolation=cv2.INTER_NEAREST)
-    cv2.rectangle(canvas, (842, 78), (1046, 570), (65, 32, 16), -1)
-    cv2.putText(canvas, "LINK / STATUS", (852, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.52, cyan, 1, cv2.LINE_AA)
+    cv2.rectangle(canvas, (850, 86), (1054, 578), ink, -1)
+    cv2.rectangle(canvas, (842, 78), (1046, 570), yellow, -1)
+    cv2.rectangle(canvas, (842, 78), (1046, 570), ink, 4)
+    cv2.putText(canvas, "LINK / STATUS", (852, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.52, blue, 2, cv2.LINE_AA)
     for y, label, value in (
         (151, "SOURCE", str(stats["source"])),
         (194, "VIDEO", "400 x 240 RGB565"),
@@ -60,13 +68,13 @@ def render(frame: np.ndarray | None, stats: dict[str, float | int | str]) -> np.
         (323, "LOST FRAMES", str(stats["lost"])),
         (366, "BAD PACKETS", str(stats["bad"])),
     ):
-        cv2.putText(canvas, label, (852, y), cv2.FONT_HERSHEY_SIMPLEX, 0.41, muted, 1, cv2.LINE_AA)
-        cv2.putText(canvas, value[:19], (852, y + 19), cv2.FONT_HERSHEY_SIMPLEX, 0.45, white, 1, cv2.LINE_AA)
-    cv2.putText(canvas, "F: GAUSS  D: DEBUG", (852, 442), cv2.FONT_HERSHEY_SIMPLEX, 0.39, white, 1, cv2.LINE_AA)
+        cv2.putText(canvas, label, (852, y), cv2.FONT_HERSHEY_SIMPLEX, 0.41, blue, 1, cv2.LINE_AA)
+        cv2.putText(canvas, value[:19], (852, y + 19), cv2.FONT_HERSHEY_SIMPLEX, 0.45, ink, 1, cv2.LINE_AA)
+    cv2.putText(canvas, "F: GAUSS  D: DEBUG", (852, 442), cv2.FONT_HERSHEY_SIMPLEX, 0.39, ink, 1, cv2.LINE_AA)
     cv2.putText(canvas, "E: STOP   R: CLEAR", (852, 468), cv2.FONT_HERSHEY_SIMPLEX, 0.39, red, 1, cv2.LINE_AA)
-    cv2.putText(canvas, "Q: QUIT", (852, 494), cv2.FONT_HERSHEY_SIMPLEX, 0.39, white, 1, cv2.LINE_AA)
+    cv2.putText(canvas, "Q: QUIT", (852, 494), cv2.FONT_HERSHEY_SIMPLEX, 0.39, ink, 1, cv2.LINE_AA)
     cv2.putText(canvas, "STOP is a protocol/UI latch; motor cut-off is not wired in this revision.",
-                (20, 624), cv2.FONT_HERSHEY_SIMPLEX, 0.48, muted, 1, cv2.LINE_AA)
+                (20, 624), cv2.FONT_HERSHEY_SIMPLEX, 0.48, ink, 1, cv2.LINE_AA)
     return canvas
 
 

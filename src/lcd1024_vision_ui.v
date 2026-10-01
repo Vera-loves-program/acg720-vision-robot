@@ -22,10 +22,13 @@ module lcd1024_vision_ui (
 );
     localparam [10:0] H_SYNC=20, H_START=160, H_END=1184, H_TOTAL=1344;
     localparam [9:0] V_SYNC=3, V_START=23, V_END=623, V_TOTAL=635;
-    localparam [15:0] NAVY=16'h0843, PANEL=16'h10a5,
-                      CYAN=16'h07ff, MINT=16'h77f3,
-                      WHITE=16'hefff, MUTED=16'h73ae,
-                      RED=16'hf9e7, BLACK=16'h0000;
+    // Portfolio palette: cream #F4F4F0, blue #0062AD, yellow #FFD15C,
+    // orange #FF7F00, thick near-black borders and offset shadows.
+    localparam [15:0] CREAM=16'hf7be, PANEL=16'hfe8b,
+                      BLUE=16'h0315, ORANGE=16'hfbe0,
+                      WHITE=16'hffff, MUTED=16'he73b,
+                      GREEN=16'h4ded, RED=16'hfa69,
+                      INK=16'h10a2, BLACK=16'h0000;
     reg [10:0] h = 0;
     reg [9:0] v = 0;
     reg [4:0] frame_div = 0;
@@ -75,70 +78,70 @@ module lcd1024_vision_ui (
     always @* begin
         label_text = 128'd0;
         label_x = 0; label_y = 0;
-        label_color = WHITE;
+        label_color = INK;
         label_enable = 1'b1;
         if (ay>=10'd14 && ay<10'd30) begin
             label_text = "VERA VISION LAB "; label_x=11'd20; label_y=10'd14;
-            label_color=CYAN;
+            label_color=WHITE;
         end else if (ay>=10'd72 && ay<10'd88) begin
             label_text = {"SYSTEM", "          "}; label_x=11'd838; label_y=10'd72;
-            label_color=CYAN;
+            label_color=BLUE;
         end else if (ay>=10'd102 && ay<10'd118) begin
             label_text = camera_ready ? {"CAM READY", "       "} :
                                         {"CAM WAIT", "        "};
             label_x=11'd838; label_y=10'd102;
-            label_color=camera_ready ? MINT : RED;
+            label_color=camera_ready ? GREEN : RED;
         end else if (ay>=10'd130 && ay<10'd146) begin
             label_text = ddr_ready ? {"DDR READY", "       "} :
                                      {"DDR WAIT", "        "};
             label_x=11'd838; label_y=10'd130;
-            label_color=ddr_ready ? MINT : RED;
+            label_color=ddr_ready ? GREEN : RED;
         end else if (ay>=10'd158 && ay<10'd174) begin
             label_text = net_ready ? {"PHY INIT", "        "} :
                                      {"PHY WAIT", "        "};
             label_x=11'd838; label_y=10'd158;
-            label_color=net_ready ? MINT : MUTED;
+            label_color=net_ready ? GREEN : INK;
         end else if (ay>=10'd202 && ay<10'd218) begin
             label_text = {"PIPELINE", "        "};
-            label_x=11'd838; label_y=10'd202; label_color=CYAN;
+            label_x=11'd838; label_y=10'd202; label_color=BLUE;
         end else if (ay>=10'd230 && ay<10'd246) begin
             label_text = filter_active ? {"GAUSS ON", "        "} :
                                          {"GAUSS OFF", "       "};
             label_x=11'd838; label_y=10'd230;
-            label_color=filter_active ? MINT : MUTED;
+            label_color=filter_active ? GREEN : INK;
         end else if (ay>=10'd258 && ay<10'd274) begin
             label_text = {"2X SAMPLE", "       "};
-            label_x=11'd838; label_y=10'd258; label_color=WHITE;
+            label_x=11'd838; label_y=10'd258; label_color=INK;
         end else if (ay>=10'd286 && ay<10'd302) begin
             label_text = {"RGB565", "          "};
-            label_x=11'd838; label_y=10'd286; label_color=WHITE;
+            label_x=11'd838; label_y=10'd286; label_color=INK;
         end else if (ay>=10'd330 && ay<10'd346) begin
             label_text = {"CONTROLS", "        "};
-            label_x=11'd838; label_y=10'd330; label_color=CYAN;
+            label_x=11'd838; label_y=10'd330; label_color=BLUE;
         end else if (ay>=10'd358 && ay<10'd374) begin
             label_text = {"S4 FILTER", "       "};
-            label_x=11'd838; label_y=10'd358; label_color=WHITE;
+            label_x=11'd838; label_y=10'd358; label_color=INK;
         end else if (ay>=10'd386 && ay<10'd402) begin
             label_text = {"D DEBUG", "         "};
-            label_x=11'd838; label_y=10'd386; label_color=WHITE;
+            label_x=11'd838; label_y=10'd386; label_color=INK;
         end else if (ay>=10'd414 && ay<10'd430) begin
             label_text = {"E STOP", "          "};
             label_x=11'd838; label_y=10'd414; label_color=RED;
         end else if (ay>=10'd442 && ay<10'd458) begin
             label_text = {"R CLEAR", "         "};
-            label_x=11'd838; label_y=10'd442; label_color=WHITE;
+            label_x=11'd838; label_y=10'd442; label_color=INK;
         end else if (ay>=10'd490 && ay<10'd506) begin
             label_text = stop_latched ? {"STOP LATCH", "      "} :
                                         {"STOP IDLE", "       "};
             label_x=11'd838; label_y=10'd490;
-            label_color=stop_latched ? RED : MINT;
+            label_color=stop_latched ? RED : GREEN;
         end else if (ay>=10'd555 && ay<10'd571) begin
             label_text = {"UDP 400X240", "     "};
-            label_x=11'd20; label_y=10'd555; label_color=CYAN;
+            label_x=11'd20; label_y=10'd555; label_color=BLUE;
         end else if (ay>=10'd577 && ay<10'd593) begin
             label_text = debug_mode ? "DEBUG OVERLAY ON" :
                                       {"CAMERA 800X480", "  "};
-            label_x=11'd20; label_y=10'd577; label_color=MUTED;
+            label_x=11'd20; label_y=10'd577; label_color=INK;
         end else label_enable = 1'b0;
     end
 
@@ -156,25 +159,39 @@ module lcd1024_vision_ui (
 
     reg [15:0] base_color;
     always @* begin
-        base_color = NAVY;
+        base_color = CREAM;
         if (active) begin
-            if (ay<10'd46) base_color = PANEL;
-            else if (ay>=10'd546) base_color = PANEL;
+            if (ax[4:0]==5'd2 && ay[4:0]==5'd2) base_color=MUTED;
+            if (ay<10'd46) base_color = BLUE;
+            else if (ay>=10'd546) base_color = CREAM;
             else if (ax>=11'd828 && ax<11'd1018 &&
                      ay>=10'd56 && ay<10'd536) base_color = PANEL;
             if (video_area) base_color = camera_pixel_valid && !camera_underflow
                                          ? camera_pixel : BLACK;
-            if ((ax>=11'd12 && ax<11'd820 && (ay==10'd52 || ay==10'd540)) ||
-                (ay>=10'd52 && ay<=10'd540 && (ax==11'd12 || ax==11'd820)))
-                base_color = CYAN;
-            if (ay==10'd46 || ay==10'd545) base_color = CYAN;
+            // Black frame and offset shadow echo the portfolio's bold cards.
+            if ((ax>=11'd17 && ax<11'd825 && ay>=10'd540 && ay<10'd545) ||
+                (ax>=11'd820 && ax<11'd825 && ay>=10'd57 && ay<10'd545))
+                base_color = INK;
+            if ((ax>=11'd12 && ax<11'd820 &&
+                 ((ay>=10'd52 && ay<10'd56) ||
+                  (ay>=10'd536 && ay<10'd540))) ||
+                (ay>=10'd52 && ay<10'd540 &&
+                 ((ax>=11'd12 && ax<11'd16) ||
+                  (ax>=11'd816 && ax<11'd820))))
+                base_color = INK;
+            if (ay>=10'd46 && ay<10'd50) base_color = INK;
+            if (ay>=10'd545 && ay<10'd549) base_color = INK;
+            if (ax>=11'd824 && ax<11'd828 && ay>=10'd56 && ay<10'd536)
+                base_color = INK;
+            if (ax>=11'd1018 && ax<11'd1022 && ay>=10'd56 && ay<10'd536)
+                base_color = INK;
             if (ax>=11'd828 && ax<11'd1018 &&
                 (ay==10'd190 || ay==10'd318 || ay==10'd478))
-                base_color = CYAN;
+                base_color = INK;
             if (debug_mode && video_area &&
                 ((ax==11'd416 && ay>=10'd270 && ay<10'd322) ||
                  (ay==10'd296 && ax>=11'd390 && ax<11'd442)))
-                base_color = CYAN;
+                base_color = ORANGE;
             if (stop_latched && ax>=11'd828 && ax<11'd1018 &&
                 ay>=10'd516 && ay<10'd536) base_color = RED;
             if (text_pixel) base_color = label_color;
