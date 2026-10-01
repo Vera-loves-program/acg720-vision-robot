@@ -1,0 +1,14 @@
+# Gowin generated outputs, often hundreds of MB and reproducible from source.
+impl/**
+!impl/vision_robot_process_config.json
+*.gprj.user
+*.fs
+*.bin
+*.binx
+*.db
+
+# Python/VS Code local state.
+__pycache__/
+*.py[cod]
+.venv/
+.vscode/

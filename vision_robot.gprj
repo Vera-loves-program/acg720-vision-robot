@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+  <Template>FPGA</Template>
+  <Version>5</Version>
+  <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
+  <FileList>
+    <File path="src/vision_robot_top.v" type="file.verilog" enable="1"/>
+    <File path="src/lcd1024_vision_ui.v" type="file.verilog" enable="1"/>
+    <File path="src/gaussian3x3_rgb565.v" type="file.verilog" enable="1"/>
+    <File path="src/video_400x240_packetizer.v" type="file.verilog" enable="1"/>
+    <File path="src/udp_command_parser.v" type="file.verilog" enable="1"/>
+    <File path="src/gowin_pll_45/gowin_pll.v" type="file.verilog" enable="1"/>
+    <File path="src/gowin_pll_45/gowin_pll_mod.v" type="file.verilog" enable="1"/>
+    <File path="src/gowin_pll_45/pll_init.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/net_pll/gowin_pll.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/net_pll/gowin_pll_mod.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/camera_init/camera_init.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/camera_init/ov5640_init_table_rgb.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/camera_init/i2c_control/i2c_control.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/camera_init/i2c_control/i2c_bit_shift.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/DVP_Capture/DVP_Capture.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ddr3_ctrl_2port/ddr3_ctrl_2port.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ddr3_ctrl_2port/fifo_ddr3_adapter.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ddr3_memory_interface/ddr3_memory_interface.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ddr_pll/ddr_pll.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ddr_pll/ddr_pll_mod.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/pll_mDRP_intf.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/wr_data_fifo/wr_data_fifo.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/rd_data_fifo/rd_data_fifo.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ethernet/eth_tx_ctrl.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ethernet/eth_tx_fifo.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ethernet/crc32_d8.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ethernet/eth_udp_tx_gmii.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ethernet/eth_udp_rx_gmii.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ethernet/ip_checksum.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ethernet/gmii_to_rgmii.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ethernet/rgmii_to_gmii.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ethernet/mdio_bit_shift.v" type="file.verilog" enable="1"/>
+    <File path="src/vendor/ethernet/phy_reg_config.v" type="file.verilog" enable="1"/>
+    <File path="src/lcd_camera.cst" type="file.cst" enable="1"/>
+    <File path="src/lcd_camera.sdc" type="file.sdc" enable="1"/>
+  </FileList>
+</Project>
