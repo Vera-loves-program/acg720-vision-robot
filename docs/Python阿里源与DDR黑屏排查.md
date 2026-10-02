@@ -2,7 +2,7 @@
 
 适用于你的 WSL Ubuntu 22.04，以及 `D:\GOWIN_PROJECTS\acg720_vision_robot` 工程。下列 Linux 命令都在出现 `Vera@...$` 的 WSL 终端执行。
 
-更新：用户已验证旧工程摄像头工作正常。目前 FPGA 编译入口是 `vision_robot_netfix.gprj`，本轮代码检查与修复见 [网口集成检查与 R2 修正版](网口集成检查与R2修正版.md)。下方保留黑屏诊断过程，Python 环境准备命令仍适用。
+2026-10-02 更新：用户确认 R2 修正版摄像头画面恢复，不需要继续执行下方黑屏排查与重新烧录步骤。当前电脑连接、补齐不完整虚拟环境的完整操作见 [WSL 专用连接指南](电脑网线连接与运行指南.md)。下方保留此前诊断记录。
 
 ## 1. 你已经有 Python
 
@@ -53,7 +53,7 @@ sudo apt-get -o Dir::Etc::sourcelist=/tmp/acg720-aliyun-jammy.list -o Dir::Etc::
 
 ## 4. 启动电脑接收程序
 
-先按 [电脑网线连接与运行指南](电脑网线连接与运行指南.md) 设置有线网卡 `192.168.10.3/24`、防火墙，以及第 11 节的 **WSL 镜像网络**。你当前显示的 `172.28.58.92` 是 NAT 环境地址；仅安装 Python 还不能让 FPGA 发给 Windows 网卡的 UDP 自动进入 WSL。网络模式说明见 [微软 WSL 网络文档](https://learn.microsoft.com/en-us/windows/wsl/networking)。
+先按 [电脑网线连接与运行指南](电脑网线连接与运行指南.md) 第 2～4 节核对有线网卡 `192.168.10.3/24`、镜像网络和防火墙。此前的 `172.28.58.92` 是 NAT 环境地址；仅安装 Python 不能让 FPGA 发给 Windows 网卡的 UDP 自动进入 WSL。网络模式说明见 [微软 WSL 网络文档](https://learn.microsoft.com/en-us/windows/wsl/networking)。
 
 网络配置完成、摄像头采集恢复后，先检查收包：
 
