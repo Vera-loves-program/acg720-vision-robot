@@ -227,6 +227,12 @@ module vision_robot_ui_top (
     wire [15:0] rgb_out;
     wire frame_heartbeat;
     wire camera_underflow;
+    wire lcd_zoom_2x;
+    reg [1:0] lcd_zoom_sync=0;
+    always @(posedge clk50M or negedge ready) begin
+        if (!ready) lcd_zoom_sync<=0;
+        else lcd_zoom_sync<={lcd_zoom_sync[0],lcd_zoom_2x};
+    end
     reg [1:0] gaussian_pixel_sync = 2'b11;
     reg [1:0] debug_pixel_sync = 2'b00;
     reg [1:0] stop_pixel_sync = 2'b00;
@@ -262,12 +268,14 @@ module vision_robot_ui_top (
         .debug_mode(ui_lcd_data[209]),
         .touch_ready(ui_lcd_data[211]),
         .touch_error(ui_lcd_data[107:104]),
+        .touch_count(ui_lcd_data[193:192]),
         .selection_valid(ui_lcd_data[210]),
         .selection_x(ui_lcd_data[137:128]),
         .selection_y(ui_lcd_data[121:112]),
         .zoom_level(ui_lcd_data[201:200]),
         .stop_latched(stop_pixel_sync[1]),
         .camera_pop(camera_pop), .frame_restart(frame_restart),
+        .display_zoom_2x(lcd_zoom_2x),
         .rgb(rgb_out), .de(TFT_de), .hs(TFT_hs), .vs(TFT_vs),
         .frame_heartbeat(frame_heartbeat), .camera_underflow(camera_underflow)
     );
@@ -454,6 +462,7 @@ module vision_robot_ui_top (
         .contact_count(touch_count),
         .x0(touch_x0), .y0(touch_y0), .x1(touch_x1), .y1(touch_y1),
         .id0(touch_id0), .id1(touch_id1),
+        .view_zoom_2x(lcd_zoom_sync[1]),
         .debug_toggle_pulse(host_debug_toggle), .clear_pulse(host_clear),
         .zoom_reset_pulse(host_zoom_reset),
         .debug_mode(debug_requested), .selection_valid(selection_valid),
@@ -486,6 +495,12 @@ module vision_robot_ui_top (
         clear_count,{6'd0,selection_x},{6'd0,selection_y},
         {4'd0,touch_error},8'd0,ui_sequence,ui_ticks,32'd0
     };
+    // The LCD mailbox carries requested zoom; network observers get the
+    // actual frame-latched view. Feeding actual zoom into the LCD request
+    // mailbox would prevent the request from ever taking effect.
+    wire [255:0] ui_observed_now = {
+        ui_snapshot_now[255:208],7'd0,lcd_zoom_sync[1],ui_snapshot_now[199:0]
+    };
     always @(posedge clk50M) begin
         ui_ack_sync<={ui_ack_sync[1:0],ui_mailbox_ack};
         actual_filter_sync<={actual_filter_sync[0],gaussian_active};
@@ -509,7 +524,7 @@ module vision_robot_ui_top (
                 ui_lcd_mailbox_data<=ui_snapshot_now;
                 ui_lcd_mailbox_request<=~ui_lcd_mailbox_request;
                 if (ui_mailbox_request==ui_ack_sync[2]) begin
-                    ui_mailbox_data<=ui_snapshot_now;
+                    ui_mailbox_data<=ui_observed_now;
                     ui_sequence<=ui_sequence+1'b1;
                     ui_mailbox_request<=~ui_mailbox_request;
                 end

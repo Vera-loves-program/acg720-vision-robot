@@ -109,6 +109,15 @@ class InteractionTests(unittest.TestCase):
         self.assertIn("synchronized", state.notice)
         self.assertNotIn("CAPTURE pressed", state.notice)
 
+    def test_lcd_zoom_uses_central_crop_with_off_center_target(self):
+        state = ViewerState(debug_mode=True, has_frame=True)
+        state.apply_telemetry(telemetry())
+        target = state.select_source_target(20, 30)
+        state.apply_telemetry(telemetry(tx_sequence=11, zoom_code=1))
+        self.assertEqual(state.crop_bounds(), (100, 60, 300, 180))
+        self.assertEqual(state.source_point(420, 324), (200, 120))
+        self.assertEqual(state.target, target)
+
     def test_r3_cancel_and_reset_request_only_with_recent_telemetry(self):
         state = ViewerState()
         state.action("cancel_target")
