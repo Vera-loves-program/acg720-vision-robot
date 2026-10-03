@@ -134,7 +134,7 @@ module lcd1024_interaction_ui (
             label_color=INK;
         end else if (ay>=10'd518 && ay<10'd534) begin
             label_text=stop_latched ? {"STOP FLAG","       "} : {"NO MOTOR","        "}; label_x=11'd838; label_y=10'd518;
-            label_color=stop_latched ? RED : INK;
+            label_color=stop_latched ? WHITE : INK;
         end else if (ay>=10'd555 && ay<10'd571) begin
             label_text={"UDP 400X240","     "}; label_x=11'd20; label_y=10'd555;
             label_color=BLUE;
