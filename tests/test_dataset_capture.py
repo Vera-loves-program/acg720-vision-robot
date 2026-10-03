@@ -12,7 +12,7 @@ import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pc"))
-from capture_dataset import BurstSchedule, Receiver, SessionWriter, encode_png
+from capture_dataset import BurstSchedule, Receiver, SessionWriter, build_parser, encode_png
 from ui_telemetry import parse_ui_telemetry
 from video_stream import CompleteFrame, FrameAssembler, HEIGHT, WIDTH
 
@@ -55,6 +55,50 @@ def decode_png_pixels(png: bytes) -> tuple[tuple[int, int], bytes]:
 
 
 class DatasetCaptureTests(unittest.TestCase):
+    def test_default_auto_detects_both_transports_without_locking_on_row_zero(self) -> None:
+        args = build_parser().parse_args([])
+        self.assertEqual((args.row_byte_order, args.byte_order), ("auto", "auto"))
+        for order in ("big", "little"):
+            assembler = FrameAssembler()
+            self.assertIsNone(assembler.consume(row_payload(0, order), "192.168.10.2", 0))
+            self.assertIsNone(assembler.detected_row_byte_order)
+            frame = None
+            for row in range(1, HEIGHT):
+                frame = assembler.consume(row_payload(row, order), "192.168.10.2", row / 10000)
+            self.assertIsNotNone(frame)
+            self.assertEqual(frame.row_byte_order, order)
+            self.assertEqual(assembler.detected_row_byte_order, order)
+            self.assertEqual(assembler.snapshot_stats()["bad_packets"], 0)
+
+    def test_wrong_forced_order_reproduces_only_row_zero_valid_and_reports_conflicts(self) -> None:
+        assembler = FrameAssembler(row_byte_order="big")
+        for row in range(HEIGHT):
+            self.assertIsNone(assembler.consume(row_payload(row, "little"),
+                                               "192.168.10.2", row / 10000))
+        stats = assembler.snapshot_stats()
+        self.assertEqual((stats["valid_rows"], stats["complete_frames"]), (1, 0))
+        self.assertEqual((stats["bad_packets"], stats["invalid_row_headers"],
+                          stats["row_order_conflicts"]), (239, 239, 239))
+        self.assertEqual(stats["bad_packet_sizes"], 0)
+
+    def test_auto_little_transport_saves_correct_pixels_and_resolved_metadata(self) -> None:
+        assembler = FrameAssembler()
+        for row in range(HEIGHT):
+            frame = assembler.consume(row_payload(row, "little", b"\x00\xf8"),
+                                      "192.168.10.2", row / 10000)
+        with tempfile.TemporaryDirectory(prefix=".capture_test_", dir=ROOT) as temp:
+            config = {"pixel_byte_order": "auto", "fpga_profile_manual": "unconfirmed",
+                      "filter_state_manual": "unknown", "pipeline_note": "auto regression"}
+            writer = SessionWriter(Path(temp) / "session", config)
+            target = writer.save(frame, BurstSchedule(0, 5, 3, "vera", 1), assembler.snapshot_stats())
+            writer.close()
+            dimensions, rgb = decode_png_pixels(target.read_bytes())
+            self.assertEqual(dimensions, (WIDTH, HEIGHT))
+            self.assertEqual(rgb, b"\xff\x00\x00" * WIDTH * HEIGHT)
+            record = json.loads((target.parent.parent / "metadata.jsonl").read_text())
+            self.assertEqual((record["row_byte_order_resolved"],
+                              record["pixel_byte_order_resolved"]), ("little", "little"))
+
     def test_ui_telemetry_validation_and_capture_counter_baseline(self) -> None:
         ui = parse_ui_telemetry(ui_payload())
         self.assertIsNotNone(ui)
@@ -217,7 +261,7 @@ class DatasetCaptureTests(unittest.TestCase):
                         self.fail("capture exited before listening")
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender:
                     for row in range(HEIGHT):
-                        sender.sendto(row_payload(row), ("127.0.0.1", port))
+                        sender.sendto(row_payload(row, "little", b"\x00\xf8"), ("127.0.0.1", port))
                 output, _ = process.communicate(timeout=5)
                 metadata_text = (Path(temp) / "loopback" / "metadata.jsonl").read_text()
                 self.assertEqual(process.returncode, 0, output + "\n" + metadata_text)

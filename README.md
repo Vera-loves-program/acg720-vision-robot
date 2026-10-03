@@ -41,10 +41,12 @@ R3 在相同视频端口增加 32 字节 `VUI1` UI 遥测，包含实际滤波�
 | 电脑有线网口 IPv4 | `192.168.10.3/24` |
 | FPGA → 电脑视频 | UDP，目的 `192.168.10.3:6102`，广播目的 MAC |
 | 电脑 → FPGA 命令 | UDP，目的广播 `192.168.10.255:5001` |
-| 视频包 | 恰好 802 字节：2 字节**大端**行号 `0..239`，随后 400 个**大端** RGB565 像素 |
+| 视频包 | 恰好 802 字节：2 字节行号 `0..239`，随后 400 个 RGB565 像素；主机自动判断行号顺序，当前 16 位视频通道的像素使用同一顺序 |
 | 帧边界 | 行号 0 开始新帧；接收端只显示 240 行均到齐的帧 |
 
 广播控制包免去了当前版本尚未实现的 ARP 应答；请在隔离的测试网段使用。UDP 本身可能丢包，所以接收程序会丢弃残帧。此协议只适合当前的 400×240/单机链路，未来如改尺寸或跨网段，需要增加帧号、协议版本和路由/ARP 设计。
+
+2026-10-03 拍照排查：旧拍照／查看器默认固定大端，而收包检查器会自动判断。用户记录呈现几乎每 240 包仅行号 0 合法，符合实际视频通道为小端的特征。主机现默认 `--row-byte-order auto --byte-order auto`，保留手动覆盖，打印判断出的格式，在照片元数据记录实际顺序。尚需用户重新启动确认真实画面；无需修改或烧录 FPGA。
 
 命令包是 `ASCII "VRB1" | opcode | value | sequence | XOR(前 7 字节)`，共 8 字节。`opcode=1` 设置滤波（`value=0/1`），`2` 设置调试叠加，`3` 锁存停止状态，`4` 清除停止状态。电脑接收程序的快捷键为 **F、D、E、R、Q**。若用 S4 改过滤波，电脑端的本地 F 状态并不知道按键结果；以 LCD 上的 `GAUSS ON/OFF` 为准。
 
@@ -53,8 +55,8 @@ R3 在相同视频端口增加 32 字节 `VUI1` UI 遥测，包含实际滤波�
 1. 用网线连接 ACG720 的 RJ45 和电脑有线网口；两端也可以通过普通千兆交换机连接。保持两板正常供电，不通过 LCD 排线给网口供电。
 2. 把电脑**有线网卡**配置为 `192.168.10.3`、子网掩码 `255.255.255.0`。不要把这个地址配到 Wi-Fi 上。测试时关闭阻止 UDP 6102 入站的防火墙规则，或只为 Python 程序/该端口放行。
 3. 在 Windows Gowin FPGA Designer 中打开 [`vision_robot_netfix.gprj`](<vision_robot_netfix.gprj>)，顶层是 `vision_robot_top`。SSPI、CPU 复用脚作为普通 IO 的配置位于 `impl/vision_robot_netfix_process_config.json`；若 GUI 未读取配置，应在 Place & Route 的 Dual-Purpose Pin 页面确认相应选项。由你执行综合、布局布线，烧录新生成的 `impl/pnr/vision_robot_netfix.fs`，标题应为 `VERA NET FIX R2`。
-4. 电脑上使用 Python 虚拟环境安装依赖：`python -m pip install -r pc/requirements.txt`。Windows 可直接运行 `python pc/udp_video_viewer.py --bind 192.168.10.3`。窗口应显示视频与完整帧/丢帧计数。收包时如出现红蓝/字节顺序异常，可试 `--byte-order little` 并回查 FIFO 输出顺序。
-5. 若一定从 **WSL2** 收包，请先确保 WSL 能从该有线网口收到局域网入站 UDP。Windows 11 可参考 [微软 WSL 网络文档](https://learn.microsoft.com/en-us/windows/wsl/networking) 将 `%USERPROFILE%\.wslconfig` 配置为 `[wsl2]` 下 `networkingMode=mirrored`，随后运行 `wsl --shutdown` 再进入 WSL。还需检查 Windows/Hyper-V 防火墙。WSL 内用 `python3 -m pip install -r pc/requirements.txt`、`python3 pc/udp_video_viewer.py --bind 0.0.0.0`。若 WSL 图形窗口无法出现，可先在 Windows 原生 Python 中运行同一脚本；FPGA 协议无需更改。
+4. Vera 本机使用已有 WSL 环境：`/home/Vera/.venvs/acg720-vision/bin/python pc/udp_video_viewer.py --bind 192.168.10.3`。窗口应显示视频与完整帧/丢帧计数。拍照前退出查看器，再按 [数据采集操作](docs/数据采集操作.md) 运行拍照脚本。
+5. 本机 WSL 网线收包已验证，不必重装 Python 或重配网络。首次在其他电脑接入时，按 [WSL 网线连接指南](docs/电脑网线连接与运行指南.md) 逐步配置有线地址、镜像网络和防火墙。另有 Windows Python 的电脑也可运行同一主机脚本。
 
 该脚本需要有图形桌面（Windows 或 WSLg）。它并不模拟 RK3588 NPU，只负责当前的网络视频/控制链路。
 

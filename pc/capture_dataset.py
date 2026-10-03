@@ -11,6 +11,7 @@ import argparse
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 import queue
 import re
@@ -104,6 +105,7 @@ class Receiver:
         self.capture_requests: queue.Queue[tuple[UITelemetry, float]] = queue.Queue(maxsize=8)
         self.latest_ui: tuple[UITelemetry, float, str] | None = None
         self.error: OSError | None = None
+        self.last_complete_at = 0.0
         self.thread = threading.Thread(target=self._run, daemon=True)
 
     def consume_telemetry(self, payload: bytes, source: str, now: float | None = None) -> bool:
@@ -160,6 +162,7 @@ class Receiver:
             frame = self.assembler.consume(payload, peer[0])
             if frame is None:
                 continue
+            self.last_complete_at = frame.received_at
             try:
                 self.frames.put_nowait(frame)
             except queue.Full:
@@ -221,8 +224,10 @@ class SessionWriter:
         filename = f"burst{burst.number:03d}_{self.index:06d}.png"
         target = label_dir / filename
         temporary = target.with_suffix(".png.tmp")
+        pixel_order = (frame.row_byte_order if self.config["pixel_byte_order"] == "auto"
+                       else self.config["pixel_byte_order"])
         with temporary.open("xb") as image:
-            image.write(encode_png(frame.pixels, self.config["pixel_byte_order"]))
+            image.write(encode_png(frame.pixels, pixel_order))
         temporary.replace(target)
         self.record({"event": "image", "path": str(target.relative_to(self.directory)).replace("\\", "/"),
                      "label": burst.label, "burst": burst.number,
@@ -233,6 +238,8 @@ class SessionWriter:
                      "burst_elapsed_seconds": frame.received_at - burst.started_at,
                      "receiver_frame_number": frame.frame_number,
                      "source_ip": frame.source, "width": WIDTH, "height": HEIGHT,
+                     "row_byte_order_resolved": frame.row_byte_order,
+                     "pixel_byte_order_resolved": pixel_order,
                      "fpga_profile_manual": self.config["fpga_profile_manual"],
                      "filter_state_manual": self.config["filter_state_manual"],
                      "fpga_ui_recent_observation": observed_ui,
@@ -249,8 +256,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--bind", default="192.168.10.3", help="This machine's Ethernet IPv4 address.")
     parser.add_argument("--port", type=int, default=6102)
     parser.add_argument("--expected-source", default="192.168.10.2")
-    parser.add_argument("--byte-order", choices=("big", "little"), default="big")
-    parser.add_argument("--row-byte-order", choices=("big", "little"), default="big")
+    parser.add_argument("--byte-order", choices=("auto", "big", "little"), default="auto",
+                        help="Pixel order; auto follows the detected row transport order.")
+    parser.add_argument("--row-byte-order", choices=("auto", "big", "little"), default="auto",
+                        help="Auto detects headers from the FPGA (recommended).")
     parser.add_argument("--output", type=Path, default=Path("dataset/captures"))
     parser.add_argument("--session", type=safe_name,
                         default=datetime.now().strftime("%Y%m%d_%H%M%S_") + uuid.uuid4().hex[:6])
@@ -289,6 +298,14 @@ def main() -> int:
         try:
             import cv2
             import numpy as np
+            # The Linux OpenCV wheel can set a nonexistent bundled font path.
+            # Use already installed fonts, without changing the WSL environment.
+            if not Path(os.environ.get("QT_QPA_FONTDIR", "/nonexistent")).is_dir():
+                for fonts in ("/usr/share/fonts/truetype/dejavu",
+                              "/usr/share/fonts/truetype/liberation2"):
+                    if Path(fonts).is_dir():
+                        os.environ["QT_QPA_FONTDIR"] = fonts
+                        break
         except ImportError as exc:
             print(f"GUI dependencies missing: {exc}. Install pc/requirements.txt, or use --burst.")
             return 1
@@ -327,13 +344,20 @@ def main() -> int:
     burst: BurstSchedule | None = None
     burst_number = 0
     exit_code = 0
+    last_diagnostic_at = 0.0
+    announced_order = None
+    window = "VERA - Dataset Capture (PNG excludes this UI)"
     print(f"Listening on {args.bind}:{args.port}, source {args.expected_source}")
     print(f"Saving clean {WIDTH}x{HEIGHT} PNG to {session_dir.resolve()}")
     print(f"Manual profile={args.fpga_profile}, filter={args.filter}; R3 UI observations have no per-frame ACK.")
     print("Close other UDP receivers. 1/2/3 select class; Space/C starts burst; Q/Esc exits.")
 
-    def start_burst(trigger: str = "keyboard") -> BurstSchedule:
+    def start_burst(trigger: str = "keyboard") -> BurstSchedule | None:
         nonlocal burst_number
+        if not args.burst and (receiver.last_complete_at == 0 or
+                time.monotonic() - receiver.last_complete_at > args.max_age):
+            print("NOT READY: wait for a fresh complete camera image before pressing SPACE/C.", flush=True)
+            return None
         burst_number += 1
         started = BurstSchedule(time.monotonic(), args.duration, args.fps, label, burst_number)
         writer.record({"event": "burst_start", "burst": burst_number, "label": label,
@@ -348,6 +372,8 @@ def main() -> int:
     if args.burst:
         burst = start_burst("command_line")
     try:
+        if not args.burst:
+            cv2.namedWindow(window, cv2.WINDOW_AUTOSIZE | getattr(cv2, "WINDOW_GUI_NORMAL", 0))
         while True:
             if receiver.error:
                 raise receiver.error
@@ -375,11 +401,26 @@ def main() -> int:
                     break
                 now = time.monotonic()
                 if not args.burst and now - frame.received_at <= args.max_age:
-                    latest = rgb565_bytes_to_bgr(frame.pixels, args.byte_order)
+                    pixel_order = frame.row_byte_order if args.byte_order == "auto" else args.byte_order
+                    latest = rgb565_bytes_to_bgr(frame.pixels, pixel_order)
                 if burst and burst.select(frame, now, args.max_age):
                     target = writer.save(frame, burst, receiver.stats(), receiver.observed_ui())
                     print(f"SAVED {burst.label} {burst.saved}: {target.name}", flush=True)
             now = time.monotonic()
+            detected_order = receiver.assembler.detected_row_byte_order
+            if detected_order and detected_order != announced_order:
+                announced_order = detected_order
+                pixel_order = detected_order if args.byte_order == "auto" else args.byte_order
+                print(f"FORMAT: row={detected_order}, pixels={pixel_order}", flush=True)
+            stats = receiver.stats()
+            if now - last_diagnostic_at >= 3:
+                last_diagnostic_at = now
+                print(f"RX: packets={stats['packets']} valid_rows={stats['valid_rows']} "
+                      f"complete={stats['complete_frames']} incomplete={stats['incomplete_frames']} "
+                      f"bad={stats['bad_packets']} row={detected_order or 'detecting'} "
+                      f"order_conflicts={stats['row_order_conflicts']}", flush=True)
+                if stats['row_order_conflicts']:
+                    print("ROW ORDER MISMATCH: retry without explicit byte-order options (auto).", flush=True)
             if burst and now >= burst.ends_at:
                 writer.record({"event": "burst_end", "burst": burst.number, "label": burst.label,
                                "saved_images": burst.saved, "skipped_cadence": burst.skipped_cadence,
@@ -397,19 +438,20 @@ def main() -> int:
             if args.burst:
                 time.sleep(0.005)
                 continue
-            canvas = np.full((600, 800, 3), (244, 244, 240), dtype=np.uint8)
+            canvas = np.full((660, 800, 3), (244, 244, 240), dtype=np.uint8)
             if latest is not None:
                 canvas[:480] = cv2.resize(latest, (800, 480), interpolation=cv2.INTER_NEAREST)
             else:
                 cv2.putText(canvas, "WAITING FOR COMPLETE FPGA FRAME", (75, 240),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.65, (23, 23, 23), 2)
             active = "IDLE" if burst is None else f"CAPTURING {burst.saved} / {max(0, burst.ends_at-now):.1f}s left"
-            stats = receiver.stats()
             for y, text in ((508, f"CLASS: {label}  |  {active}"),
                             (538, f"1/2/3: class   SPACE/C: {args.duration:g}s burst   Q: quit"),
-                            (568, f"PNG 400x240  |  complete {stats['complete_frames']}  incomplete {stats['incomplete_frames']}")):
+                            (568, f"RX {stats['packets']}  complete {stats['complete_frames']}  incomplete {stats['incomplete_frames']}"),
+                            (598, f"ROWS {detected_order or 'detecting'}  BAD {stats['bad_packets']}  FORMAT CONFLICTS {stats['row_order_conflicts']}"),
+                            (628, "PNG: full FPGA frame, no UI. Wait for image, then SPACE/C.")):
                 cv2.putText(canvas, text, (14, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (23, 23, 23), 1)
-            cv2.imshow("VERA - Dataset Capture (PNG excludes this UI)", canvas)
+            cv2.imshow(window, canvas)
             key = cv2.waitKey(1) & 0xFF
             if key in (27, ord("q"), ord("Q")):
                 break
@@ -424,7 +466,7 @@ def main() -> int:
                     burst = start_burst()
                 else:
                     print("Burst already running.")
-            if cv2.getWindowProperty("VERA - Dataset Capture (PNG excludes this UI)", cv2.WND_PROP_VISIBLE) < 1:
+            if cv2.getWindowProperty(window, cv2.WND_PROP_VISIBLE) < 1:
                 break
     except KeyboardInterrupt:
         print("Capture stopped by user.")
