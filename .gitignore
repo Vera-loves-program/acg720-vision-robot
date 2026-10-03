@@ -1,0 +1,21 @@
+# Gowin generated outputs, often hundreds of MB and reproducible from source.
+impl/**
+!impl/vision_robot_process_config.json
+!impl/vision_robot_netfix_process_config.json
+!impl/vision_robot_ui_process_config.json
+*.gprj.user
+*.fs
+*.bin
+*.binx
+*.db
+
+# Python/VS Code local state.
+__pycache__/
+*.py[cod]
+.venv/
+.vscode/
+
+# Camera photos / personal datasets are shared separately, never in source Git.
+dataset/
+datasets/
+captures/

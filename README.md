@@ -1,1 +1,92 @@
-# acg720-vision-robot
+# ACG720 Vision Robot · FPGA 摄像头、LCD UI 与 UDP 视频
+
+这是一个从已上板正常显示的 `lcd_camera_switch` 独立出来的新工程。原来的静态图片、图片 ROM 和构建产物没有进入本工程；原工程保留作已验证的回退版本。目标器件为 ACG720-60K / `GW5AT-LV60PG484AC1/I0`，OV5640 的实际采集尺寸为 **800×480 RGB565**，LCD 扫描尺寸为 **1024×600**。
+
+> 2026-10-03，用户确认电脑 WSL 成功收到 FPGA 图像；R2 的 LCD 摄像头恢复与字体方向此前也已验证。R2 修正了 DDR PLL 的 mDRP 控制权交接、LCD PLL 初始化倍率、高斯/UI 过长组合路径和 UDP FIFO 长度条件。**香橙派移植、反向控制和传感器接入仍待验证**。UI 参考了[个人主页仓库](https://github.com/Vera-loves-program/zhengjitongxue-portfolio)的奶油白波点背景、黑色粗边框/硬阴影、蓝色 `#0062AD` 与黄色 `#FFD15C`；FPGA 的位图文字和 RGB565 调色板做了简化。
+
+**已验证的 R2 编译入口为 `vision_robot_netfix.gprj`**，顶层为 `vision_robot_top`，输出名为 `vision_robot_netfix`。LCD 标题应显示 `VERA NET FIX R2`。本次触摸交互使用下面新增的独立 R3 工程。R2 原因、修复范围与烧录步骤见 [网口集成检查与 R2 修正版](docs/网口集成检查与R2修正版.md)。
+
+GitHub 发布范围是自编源码、主机脚本、工程入口与文档；`src/vendor/`、生成的 Gowin IP、位流和采集照片使用本地文件，不在当前公开源码中。主机工具可独立使用；FPGA 工程在 Vera 已有完整本地目录内编译。范围与后续同步方式见 [GitHub 与本地工程](docs/GitHub与本地工程.md)。
+
+第一次使用网线，请阅读 [电脑网线连接与运行指南：WSL 专用版](docs/电脑网线连接与运行指南.md)。本机 Windows 没有 Python，全部接收程序在已有的 **Ubuntu-22.04** 中运行；指南逐步区分普通 PowerShell、管理员 PowerShell、WSL，包含镜像网络、防火墙、阿里源补齐环境、收包和视频窗口。`pc/run_windows.cmd` 是仅供另有 Windows Python 的电脑使用的入口，不适用于本机当前环境。
+
+以前的 Python 与 DDR 黑屏诊断过程保留在 [Python 阿里源与 DDR 黑屏排查](docs/Python阿里源与DDR黑屏排查.md)；当前电脑连接操作以新的 WSL 专用指南为准。
+
+下一阶段见 [香橙派移植与传感器接入方案](docs/香橙派移植与传感器接入方案.md)：先查看香橙派环境，移植 Python 接收器，再依据实际模块手册确认电平与接线，逐个验证传感器，之后进入电机与闭环控制。
+
+保留的 `lcd_camera_switch` 已由用户再次验证摄像头工作正常。需要对照时，可直接使用原位流；完整路径、S4 切换步骤和 LED 判断见 [摄像头回退检查](docs/摄像头回退检查.md)。
+
+## 现在的功能
+
+2026-10-03 新增：完整建议见 [数据集与视觉交互方案](docs/数据集与视觉交互方案.md)，拍照步骤见 [数据采集操作](docs/数据采集操作.md)。`pc/capture_dataset.py` 支持空格/C 启动 5 秒连拍，保存不含 UI 的完整 400×240 PNG；旧 R2 固件无需改动即可采集。主机查看器增加双击选点和数字缩放，暂未接入检测/跟踪算法。
+
+新增独立 [`vision_robot_ui.gprj`](vision_robot_ui.gprj)（顶层 `vision_robot_ui_top`，标题 `VERA VISION R3`）准备 GT911 触摸、侧栏视觉调试、ROI 请求、拍照事件和主机缩放请求；由用户编译与上板验证。SDA 使用原理图核实的 T20，修正旧触摸工程误写 W21 的约束。R3 与 R2 分开，触摸初始化不会阻塞摄像头；LCD 相机像素仍保持 800×480、1×。双指请求使主机预览切换 1×/2×，尚未实现 LCD 本地像素缩放。参见 [触摸驱动说明](docs/GT911触摸驱动说明.md) 和 [主机交互](docs/视觉交互预览.md)。
+
+R3 在相同视频端口增加 32 字节 `VUI1` UI 遥测，包含实际滤波状态、选点坐标与事件计数，新主机工具会与 802 字节图像包分流。旧 R2 原始文件保留，新增工程不修改摄像头、DDR、高斯或网络降采样逻辑。照片目录被 Git 忽略，独立备份与分享。
+
+- 摄像头常驻显示：原尺寸 800×480 放在 1024×600 LCD 左侧，右侧由 FPGA 实时绘制状态和控制提示，没有图片 ROM。
+- [UI 示意图](<docs/ui_preview.svg>)展示排版与临时配色；其中中间的抽象画面只是占位示意，不会烧入 FPGA。
+- 真正的 FPGA **3×3 RGB565 高斯滤波**：默认开启，作用于摄像头画面写入 DDR3 之前；LCD 与网络流都使用滤波后的像素。S4 短按（20 ms 消抖）切换滤波启停，状态在下一次摄像头帧起点生效。核为因果 3×3 窗口，画面效果相对原图左上偏约 1 像素；边界两行/两列透传。
+- 网络降采样：在 FPGA 内每隔一行/一列取样，将 800×480 转为 400×240，保留 RGB565 彩色；每个 UDP 包承载一行，低于标准以太网 MTU。
+- FPGA → 电脑：OV5640 → 滤波 → 行取样 → 异步 FIFO → UDP/RGMII → RJ45。电脑端 `pc/udp_video_viewer.py` 拼帧和显示。
+- 电脑 → FPGA：向 `192.168.10.255:5001` 发送 8 字节 UDP 命令，可远程设置滤波、调试十字线和停止状态锁存。命令在以太网 CRC 和应用层 XOR 校验通过后才执行。
+
+`STOP LATCH` 目前**只是 FPGA/界面的状态位**，因为项目尚未连接电机驱动器和硬件急停回路，不能把它当成实际的紧急制动。未来驱动电机时，需要独立的物理急停按钮直接切断驱动使能，同时让 FPGA 状态机也响应急停；网络按钮可作为补充控制，不能承担唯一安全功能。
+
+## 地址与图像格式
+
+| 项目 | 值 |
+| --- | --- |
+| FPGA IPv4 | `192.168.10.2/24` |
+| 电脑有线网口 IPv4 | `192.168.10.3/24` |
+| FPGA → 电脑视频 | UDP，目的 `192.168.10.3:6102`，广播目的 MAC |
+| 电脑 → FPGA 命令 | UDP，目的广播 `192.168.10.255:5001` |
+| 视频包 | 恰好 802 字节：2 字节**大端**行号 `0..239`，随后 400 个**大端** RGB565 像素 |
+| 帧边界 | 行号 0 开始新帧；接收端只显示 240 行均到齐的帧 |
+
+广播控制包免去了当前版本尚未实现的 ARP 应答；请在隔离的测试网段使用。UDP 本身可能丢包，所以接收程序会丢弃残帧。此协议只适合当前的 400×240/单机链路，未来如改尺寸或跨网段，需要增加帧号、协议版本和路由/ARP 设计。
+
+命令包是 `ASCII "VRB1" | opcode | value | sequence | XOR(前 7 字节)`，共 8 字节。`opcode=1` 设置滤波（`value=0/1`），`2` 设置调试叠加，`3` 锁存停止状态，`4` 清除停止状态。电脑接收程序的快捷键为 **F、D、E、R、Q**。若用 S4 改过滤波，电脑端的本地 F 状态并不知道按键结果；以 LCD 上的 `GAUSS ON/OFF` 为准。
+
+## 上板和电脑连接
+
+1. 用网线连接 ACG720 的 RJ45 和电脑有线网口；两端也可以通过普通千兆交换机连接。保持两板正常供电，不通过 LCD 排线给网口供电。
+2. 把电脑**有线网卡**配置为 `192.168.10.3`、子网掩码 `255.255.255.0`。不要把这个地址配到 Wi-Fi 上。测试时关闭阻止 UDP 6102 入站的防火墙规则，或只为 Python 程序/该端口放行。
+3. 在 Windows Gowin FPGA Designer 中打开 [`vision_robot_netfix.gprj`](<vision_robot_netfix.gprj>)，顶层是 `vision_robot_top`。SSPI、CPU 复用脚作为普通 IO 的配置位于 `impl/vision_robot_netfix_process_config.json`；若 GUI 未读取配置，应在 Place & Route 的 Dual-Purpose Pin 页面确认相应选项。由你执行综合、布局布线，烧录新生成的 `impl/pnr/vision_robot_netfix.fs`，标题应为 `VERA NET FIX R2`。
+4. 电脑上使用 Python 虚拟环境安装依赖：`python -m pip install -r pc/requirements.txt`。Windows 可直接运行 `python pc/udp_video_viewer.py --bind 192.168.10.3`。窗口应显示视频与完整帧/丢帧计数。收包时如出现红蓝/字节顺序异常，可试 `--byte-order little` 并回查 FIFO 输出顺序。
+5. 若一定从 **WSL2** 收包，请先确保 WSL 能从该有线网口收到局域网入站 UDP。Windows 11 可参考 [微软 WSL 网络文档](https://learn.microsoft.com/en-us/windows/wsl/networking) 将 `%USERPROFILE%\.wslconfig` 配置为 `[wsl2]` 下 `networkingMode=mirrored`，随后运行 `wsl --shutdown` 再进入 WSL。还需检查 Windows/Hyper-V 防火墙。WSL 内用 `python3 -m pip install -r pc/requirements.txt`、`python3 pc/udp_video_viewer.py --bind 0.0.0.0`。若 WSL 图形窗口无法出现，可先在 Windows 原生 Python 中运行同一脚本；FPGA 协议无需更改。
+
+该脚本需要有图形桌面（Windows 或 WSLg）。它并不模拟 RK3588 NPU，只负责当前的网络视频/控制链路。
+
+## LED 与 LCD
+
+| LED | 含义 |
+| --- | --- |
+| D0 | 50 MHz 板载时钟每 0.5 秒翻转 |
+| D1 | 上电等待完成 |
+| D2 | LCD 帧扫描心跳 |
+| D3 | OV5640 SCCB 初始化完成 |
+| D4 | DDR3 校准完成 |
+| D5 | 以太网 PLL 与 PHY 初始化完成，**不代表网线已经协商成功** |
+| D6 | 收到摄像头场同步 |
+| D7 | LCD 相机 FIFO 欠读 |
+
+LCD 右栏的 `PHY INIT` 与 D5 含义相同；没有读取 PHY Link Status，因此不能据此判断网线是否真的连通。`GAUSS ON/OFF` 来自滤波器当前帧的真实状态。`2X SAMPLE` 和 `RGB565` 描述网络视频格式。调试模式仅在画面中心绘制十字线；以后可增加边缘图、红色候选框、丢包/延迟/测距等信息。停止栏现为协议状态预览。
+
+## 工程结构与来源
+
+- `src/vision_robot_top.v`：摄像头/DDR/LCD/以太网顶层集成。
+- `src/gaussian3x3_rgb565.v`：自行编写的实时 3×3 高斯流水线。
+- `src/video_400x240_packetizer.v`：降采样与逐行包格式。
+- `src/lcd1024_vision_ui.v`：RGB565 面板与 5×7 英文字形绘制。
+- `src/udp_command_parser.v`：反向 UDP 控制命令解析。
+- `src/vendor/`：高云教材第 45、59 章例程与生成的 Gowin IP；PHY、FIFO、DDR、摄像头初始化沿用相应教学代码。`eth_udp_rx_gmii.v` 增加了本地 `/24` 广播地址的接收条件。这些第三方代码请保留原始声明；公开发布前应确认其再分发许可，建议 GitHub 仓库先设为**私有**。
+- `pc/udp_video_viewer.py`：Windows/WSL 通用的 Python/OpenCV UDP 接收与控制程序。
+- `pc/udp_probe.py`：仅使用 Python 标准库的收包检查器，报告包长度、完整帧与行头字节序。
+- `pc/run_windows.cmd`：Windows 虚拟环境准备及视频/检查器启动入口。
+
+原工程使用图片 ROM 时的布线报告为 96/118 BSRAM，其中静态图片占约 61 块。本工程去掉了图片 ROM，为网络 FIFO 和图像行缓存留出资源；**实际资源及时序仍须以新工程布线报告为准**。
+
+## 版本管理
+
+本地完整工程保留 Git 提交和厂商依赖；公开仓库保留自编代码与文档。Windows PowerShell 可运行 `./tools/sync_github.ps1 -Message "描述这次修改"`，通过独立发布目录先拉取、再同步自编文件、提交和推送；不会把本地完整工程历史中的厂商文件一起推上公开仓库。出现冲突或发布目录有未提交修改时停止并保留现场。GitHub 不代替本地构建缓存，也不自动备份个人照片；实际可烧录位流和采集数据需要单独备份。

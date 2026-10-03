@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="600" viewBox="0 0 1024 600">
+  <defs>
+    <pattern id="dots" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="3" r="2" fill="#cccccc"/>
+    </pattern>
+    <linearGradient id="feed" x2="0" y2="1">
+      <stop stop-color="#4a83a2"/><stop offset=".65" stop-color="#7fb1b4"/><stop offset="1" stop-color="#376e72"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="600" fill="#F4F4F0"/>
+  <rect width="1024" height="600" fill="url(#dots)"/>
+  <rect width="1024" height="46" fill="#0062AD"/>
+  <rect y="46" width="1024" height="4" fill="#171717"/>
+  <text x="20" y="30" font-family="Consolas, monospace" font-size="24" font-weight="bold" fill="#fff">VERA VISION LAB</text>
+  <text x="720" y="29" font-family="Consolas, monospace" font-size="14" letter-spacing="2" fill="#fff">FPGA FIRST  /  ACG720</text>
+  <rect x="20" y="61" width="808" height="487" fill="#171717"/>
+  <rect x="12" y="52" width="808" height="488" fill="#171717"/>
+  <rect x="16" y="56" width="800" height="480" fill="url(#feed)"/>
+  <path d="M16 415 C130 350 220 455 320 375 S540 330 650 390 S750 325 816 355 V536 H16Z" fill="#365c73" opacity=".55"/>
+  <path d="M16 449 C110 415 230 480 347 424 S570 390 673 428 S758 404 816 432 V536 H16Z" fill="#578e72" opacity=".7"/>
+  <rect x="29" y="69" width="207" height="31" fill="#FFD15C" stroke="#171717" stroke-width="3"/>
+  <circle cx="48" cy="84" r="5" fill="#4CBF6A" stroke="#171717" stroke-width="2"/>
+  <text x="62" y="90" font-family="Consolas, monospace" font-size="14" font-weight="bold" fill="#171717">LIVE CAMERA 800×480</text>
+  <path d="M406 296h20m-10-10v20" stroke="#FF7F00" stroke-width="3"/>
+  <text x="30" y="523" font-family="Consolas, monospace" font-size="12" font-weight="bold" fill="#171717">FPGA GAUSSIAN 3×3  ·  RGB565  ·  RAW / FILTERED</text>
+  <rect x="836" y="64" width="190" height="480" fill="#171717"/>
+  <rect x="826" y="54" width="192" height="482" fill="#FFD15C" stroke="#171717" stroke-width="4"/>
+  <text x="841" y="86" font-family="Consolas, monospace" font-size="18" font-weight="bold" fill="#0062AD">SYSTEM</text>
+  <g font-family="Consolas, monospace" font-size="15" font-weight="bold" fill="#171717">
+    <text x="842" y="116">CAM  <tspan fill="#247a35">READY</tspan></text>
+    <text x="842" y="144">DDR  <tspan fill="#247a35">READY</tspan></text>
+    <text x="842" y="172">PHY  <tspan fill="#247a35">INIT</tspan></text>
+  </g>
+  <path d="M828 190H1018M828 318H1018M828 478H1018" stroke="#171717" stroke-width="3"/>
+  <text x="841" y="217" font-family="Consolas, monospace" font-size="17" font-weight="bold" fill="#0062AD">PIPELINE</text>
+  <g font-family="Consolas, monospace" font-size="15" font-weight="bold" fill="#171717">
+    <text x="842" y="245">GAUSS <tspan fill="#247a35">ON</tspan></text>
+    <text x="842" y="273">2X SAMPLE</text>
+    <text x="842" y="301">RGB565</text>
+  </g>
+  <text x="841" y="345" font-family="Consolas, monospace" font-size="17" font-weight="bold" fill="#0062AD">CONTROLS</text>
+  <g font-family="Consolas, monospace" font-size="15" font-weight="bold" fill="#171717">
+    <text x="842" y="373">S4 FILTER</text><text x="842" y="401">D DEBUG</text>
+    <text x="842" y="429" fill="#e33434">E STOP</text>
+    <text x="842" y="457">R CLEAR</text>
+    <text x="842" y="505" fill="#247a35">STOP IDLE</text>
+  </g>
+  <rect y="545" width="1024" height="4" fill="#171717"/>
+  <text x="20" y="568" font-family="Consolas, monospace" font-size="17" font-weight="bold" fill="#0062AD">UDP 400×240</text>
+  <text x="20" y="590" font-family="Consolas, monospace" font-size="14" font-weight="bold" fill="#171717">CAMERA 800×480  /  NETWORK PORT 6102</text>
+</svg>
