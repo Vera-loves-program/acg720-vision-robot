@@ -2,13 +2,15 @@
 
 这是一个从已上板正常显示的 `lcd_camera_switch` 独立出来的新工程。原来的静态图片、图片 ROM 和构建产物没有进入本工程；原工程保留作已验证的回退版本。目标器件为 ACG720-60K / `GW5AT-LV60PG484AC1/I0`，OV5640 的实际采集尺寸为 **800×480 RGB565**，LCD 扫描尺寸为 **1024×600**。
 
-> 2026-10-02，用户确认 R2 修正版的 LCD 摄像头画面已经恢复，字体方向此前也已验证。R2 修正了 DDR PLL 的 mDRP 控制权交接、LCD PLL 初始化倍率、高斯/UI 过长组合路径和 UDP FIFO 长度条件。**FPGA 网口视频与反向控制仍待实板验证**，不能由 LCD 恢复推断网口已通。UI 参考了[个人主页仓库](https://github.com/Vera-loves-program/zhengjitongxue-portfolio)的奶油白波点背景、黑色粗边框/硬阴影、蓝色 `#0062AD` 与黄色 `#FFD15C`；FPGA 的位图文字和 RGB565 调色板做了简化。
+> 2026-10-03，用户确认电脑 WSL 成功收到 FPGA 图像；R2 的 LCD 摄像头恢复与字体方向此前也已验证。R2 修正了 DDR PLL 的 mDRP 控制权交接、LCD PLL 初始化倍率、高斯/UI 过长组合路径和 UDP FIFO 长度条件。**香橙派移植、反向控制和传感器接入仍待验证**。UI 参考了[个人主页仓库](https://github.com/Vera-loves-program/zhengjitongxue-portfolio)的奶油白波点背景、黑色粗边框/硬阴影、蓝色 `#0062AD` 与黄色 `#FFD15C`；FPGA 的位图文字和 RGB565 调色板做了简化。
 
 **当前编译入口为 `vision_robot_netfix.gprj`**，顶层仍为 `vision_robot_top`，输出名为 `vision_robot_netfix`。LCD 标题应显示 `VERA NET FIX R2`。原因、修复范围与烧录步骤见 [网口集成检查与 R2 修正版](docs/网口集成检查与R2修正版.md)。
 
 第一次使用网线，请阅读 [电脑网线连接与运行指南：WSL 专用版](docs/电脑网线连接与运行指南.md)。本机 Windows 没有 Python，全部接收程序在已有的 **Ubuntu-22.04** 中运行；指南逐步区分普通 PowerShell、管理员 PowerShell、WSL，包含镜像网络、防火墙、阿里源补齐环境、收包和视频窗口。`pc/run_windows.cmd` 是仅供另有 Windows Python 的电脑使用的入口，不适用于本机当前环境。
 
 以前的 Python 与 DDR 黑屏诊断过程保留在 [Python 阿里源与 DDR 黑屏排查](docs/Python阿里源与DDR黑屏排查.md)；当前电脑连接操作以新的 WSL 专用指南为准。
+
+下一阶段见 [香橙派移植与传感器接入方案](docs/香橙派移植与传感器接入方案.md)：先查看香橙派环境，移植 Python 接收器，再依据实际模块手册确认电平与接线，逐个验证传感器，之后进入电机与闭环控制。
 
 保留的 `lcd_camera_switch` 已由用户再次验证摄像头工作正常。需要对照时，可直接使用原位流；完整路径、S4 切换步骤和 LED 判断见 [摄像头回退检查](docs/摄像头回退检查.md)。
 
