@@ -19,3 +19,5 @@ __pycache__/
 dataset/
 datasets/
 captures/
+diagnostics/
+*.probe.json

@@ -37,6 +37,20 @@ class HostToolsTests(unittest.TestCase):
         self.assertEqual((probe.complete, probe.other_source, probe.bad), (1, 1, 1))
         self.assertEqual(probe.orders["little"], 239)
 
+    def test_pixel_prefix_is_not_evidence_of_valid_frame(self) -> None:
+        probe = VideoProbe("192.168.10.2")
+        for _ in range(20):
+            probe.consume(b"\x61\x00" * 401, "192.168.10.2")
+        probe.consume(b"\xff\xff" * 401, "192.168.10.2")
+        report = probe.report()
+        self.assertEqual(report["row_counts"], {97: 20})
+        self.assertEqual(report["complete_frames"], 0)
+        self.assertEqual(report["incomplete_frames"], 0)
+        self.assertIn(0, report["missing_row_numbers"])
+        self.assertEqual(report["bad_header_counts"], {"ff ff": 1})
+        self.assertEqual(len(report["raw_examples"]), 16)
+        self.assertEqual(bytes.fromhex(report["raw_examples"][0]["payload_hex"]), b"\x61\x00" * 401)
+
     def test_real_loopback_socket(self) -> None:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as reserve:
             reserve.bind(("127.0.0.1", 0))
