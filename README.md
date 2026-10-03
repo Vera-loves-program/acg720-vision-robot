@@ -4,7 +4,9 @@
 
 > 2026-10-03，用户确认电脑 WSL 成功收到 FPGA 图像；R2 的 LCD 摄像头恢复与字体方向此前也已验证。R2 修正了 DDR PLL 的 mDRP 控制权交接、LCD PLL 初始化倍率、高斯/UI 过长组合路径和 UDP FIFO 长度条件。**香橙派移植、反向控制和传感器接入仍待验证**。UI 参考了[个人主页仓库](https://github.com/Vera-loves-program/zhengjitongxue-portfolio)的奶油白波点背景、黑色粗边框/硬阴影、蓝色 `#0062AD` 与黄色 `#FFD15C`；FPGA 的位图文字和 RGB565 调色板做了简化。
 
-**当前编译入口为 `vision_robot_netfix.gprj`**，顶层仍为 `vision_robot_top`，输出名为 `vision_robot_netfix`。LCD 标题应显示 `VERA NET FIX R2`。原因、修复范围与烧录步骤见 [网口集成检查与 R2 修正版](docs/网口集成检查与R2修正版.md)。
+**已验证的 R2 编译入口为 `vision_robot_netfix.gprj`**，顶层为 `vision_robot_top`，输出名为 `vision_robot_netfix`。LCD 标题应显示 `VERA NET FIX R2`。本次触摸交互使用下面新增的独立 R3 工程。R2 原因、修复范围与烧录步骤见 [网口集成检查与 R2 修正版](docs/网口集成检查与R2修正版.md)。
+
+GitHub 发布范围是自编源码、主机脚本、工程入口与文档；`src/vendor/`、生成的 Gowin IP、位流和采集照片使用本地文件，不在当前公开源码中。主机工具可独立使用；FPGA 工程在 Vera 已有完整本地目录内编译。范围与后续同步方式见 [GitHub 与本地工程](docs/GitHub与本地工程.md)。
 
 第一次使用网线，请阅读 [电脑网线连接与运行指南：WSL 专用版](docs/电脑网线连接与运行指南.md)。本机 Windows 没有 Python，全部接收程序在已有的 **Ubuntu-22.04** 中运行；指南逐步区分普通 PowerShell、管理员 PowerShell、WSL，包含镜像网络、防火墙、阿里源补齐环境、收包和视频窗口。`pc/run_windows.cmd` 是仅供另有 Windows Python 的电脑使用的入口，不适用于本机当前环境。
 
@@ -15,6 +17,12 @@
 保留的 `lcd_camera_switch` 已由用户再次验证摄像头工作正常。需要对照时，可直接使用原位流；完整路径、S4 切换步骤和 LED 判断见 [摄像头回退检查](docs/摄像头回退检查.md)。
 
 ## 现在的功能
+
+2026-10-03 新增：完整建议见 [数据集与视觉交互方案](docs/数据集与视觉交互方案.md)，拍照步骤见 [数据采集操作](docs/数据采集操作.md)。`pc/capture_dataset.py` 支持空格/C 启动 5 秒连拍，保存不含 UI 的完整 400×240 PNG；旧 R2 固件无需改动即可采集。主机查看器增加双击选点和数字缩放，暂未接入检测/跟踪算法。
+
+新增独立 [`vision_robot_ui.gprj`](vision_robot_ui.gprj)（顶层 `vision_robot_ui_top`，标题 `VERA VISION R3`）准备 GT911 触摸、侧栏视觉调试、ROI 请求、拍照事件和主机缩放请求；由用户编译与上板验证。SDA 使用原理图核实的 T20，修正旧触摸工程误写 W21 的约束。R3 与 R2 分开，触摸初始化不会阻塞摄像头；LCD 相机像素仍保持 800×480、1×。双指请求使主机预览切换 1×/2×，尚未实现 LCD 本地像素缩放。参见 [触摸驱动说明](docs/GT911触摸驱动说明.md) 和 [主机交互](docs/视觉交互预览.md)。
+
+R3 在相同视频端口增加 32 字节 `VUI1` UI 遥测，包含实际滤波状态、选点坐标与事件计数，新主机工具会与 802 字节图像包分流。旧 R2 原始文件保留，新增工程不修改摄像头、DDR、高斯或网络降采样逻辑。照片目录被 Git 忽略，独立备份与分享。
 
 - 摄像头常驻显示：原尺寸 800×480 放在 1024×600 LCD 左侧，右侧由 FPGA 实时绘制状态和控制提示，没有图片 ROM。
 - [UI 示意图](<docs/ui_preview.svg>)展示排版与临时配色；其中中间的抽象画面只是占位示意，不会烧入 FPGA。
@@ -81,4 +89,4 @@ LCD 右栏的 `PHY INIT` 与 D5 含义相同；没有读取 PHY Link Status，�
 
 ## 版本管理
 
-该目录就是准备上传的独立 Git 仓库，不包含 `impl` 的构建/布线/位流产物，避免仓库膨胀。上传并配置 `origin` 后，Windows PowerShell 可运行 `./tools/sync_github.ps1 -Message "描述这次修改"`；脚本先 fetch/pull --rebase，再提交和推送。若拉取出现冲突，脚本停止并保留现场，不会强制覆盖。GitHub 不代替本地构建缓存；若要保留某次可烧录位流，可作为有版本号的发布附件，而不要把每次构建产物都提交进 Git。
+本地完整工程保留 Git 提交和厂商依赖；公开仓库保留自编代码与文档。Windows PowerShell 可运行 `./tools/sync_github.ps1 -Message "描述这次修改"`，通过独立发布目录先拉取、再同步自编文件、提交和推送；不会把本地完整工程历史中的厂商文件一起推上公开仓库。出现冲突或发布目录有未提交修改时停止并保留现场。GitHub 不代替本地构建缓存，也不自动备份个人照片；实际可烧录位流和采集数据需要单独备份。

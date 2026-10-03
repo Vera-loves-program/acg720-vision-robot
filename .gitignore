@@ -2,6 +2,7 @@
 impl/**
 !impl/vision_robot_process_config.json
 !impl/vision_robot_netfix_process_config.json
+!impl/vision_robot_ui_process_config.json
 *.gprj.user
 *.fs
 *.bin
@@ -13,3 +14,8 @@ __pycache__/
 *.py[cod]
 .venv/
 .vscode/
+
+# Camera photos / personal datasets are shared separately, never in source Git.
+dataset/
+datasets/
+captures/

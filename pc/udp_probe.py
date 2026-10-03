@@ -6,6 +6,7 @@ import argparse
 from collections import Counter
 import socket
 import time
+from ui_telemetry import MAGIC as UI_MAGIC, parse_ui_telemetry
 
 HEIGHT = 240
 PAYLOAD_BYTES = 802
@@ -15,6 +16,7 @@ class VideoProbe:
     def __init__(self, expected_source: str) -> None:
         self.expected_source = expected_source
         self.packets = self.valid = self.other_source = self.bad = 0
+        self.ui_packets = self.ui_bad_packets = 0
         self.complete = self.incomplete = 0
         self.sources: Counter[str] = Counter()
         self.lengths: Counter[int] = Counter()
@@ -28,6 +30,12 @@ class VideoProbe:
         self.lengths[len(payload)] += 1
         if source != self.expected_source:
             self.other_source += 1
+            return
+        if payload.startswith(UI_MAGIC):
+            if parse_ui_telemetry(payload) is None:
+                self.ui_bad_packets += 1
+            else:
+                self.ui_packets += 1
             return
         if len(payload) != PAYLOAD_BYTES:
             self.bad += 1
@@ -92,6 +100,7 @@ def main() -> int:
     print(f"Sources: {dict(probe.sources)}")
     print(f"UDP payload lengths: {dict(probe.lengths)}")
     print(f"Valid video rows: {probe.valid}; bad packets: {probe.bad}; other sources: {probe.other_source}")
+    print(f"R3 UI observations: {probe.ui_packets}; invalid UI packets: {probe.ui_bad_packets}")
     print(f"Complete frames: {probe.complete}; incomplete frames: {probe.incomplete}")
     print(f"Row header byte order votes: {dict(probe.orders)}")
     if probe.first_header:
