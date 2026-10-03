@@ -22,6 +22,9 @@ def main():
     args = parser.parse_args()
     entries = {name: (ROOT / name).read_bytes() for name in FILES}
     entries["香橙派操作指南.md"] = (ROOT / GUIDE).read_bytes()
+    interaction_guide = ROOT / "docs/UI分区与LCD缩放R4.md"
+    if interaction_guide.exists():
+        entries["UI分区与LCD缩放R4.md"] = interaction_guide.read_bytes()
     manifest = {"client_bundle_version": 2, "minimum_python": "3.10",
                 "root_folder": PREFIX,
                 "sha256": {name: hashlib.sha256(data).hexdigest() for name, data in entries.items()}}

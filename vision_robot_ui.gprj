@@ -10,6 +10,7 @@
     <File path="src/ui_video_tx_mux.v" type="file.verilog" enable="1"/>
     <File path="src/vision_robot_ui_top.v" type="file.verilog" enable="1"/>
     <File path="src/lcd1024_interaction_ui.v" type="file.verilog" enable="1"/>
+    <File path="src/lcd_camera_zoom.v" type="file.verilog" enable="1"/>
     <File path="src/gaussian3x3_rgb565.v" type="file.verilog" enable="1"/>
     <File path="src/video_400x240_packetizer.v" type="file.verilog" enable="1"/>
     <File path="src/udp_ui_command_parser.v" type="file.verilog" enable="1"/>
@@ -45,5 +46,4 @@
     <File path="src/lcd_interaction.sdc" type="file.sdc" enable="1"/>
   </FileList>
 </Project>
-
 

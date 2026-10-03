@@ -173,8 +173,11 @@ module gt911_touch #(
                         wait_count<=0; state<=RETRY_WAIT;
                     end else if (!read_data[7]) begin
                         wait_count<=0; state<=POLL_DELAY;
-                    end else if (read_data[3:0]>5 || read_data[6:5]!=0) begin
-                        // Ignore invalid count, palm/large-area and proximity.
+                    end else if (read_data[3:0]>2 || read_data[6:5]!=0) begin
+                        // This host handles one or two fingers. A 3..5-finger
+                        // report must cancel, not be truncated into a false
+                        // two-finger pinch with an unstable contact pair.
+                        // Also ignore palm/large-area and proximity reports.
                         pending_count<=0; pending_cancel<=1;
                         error_code<=4'd9; state<=CLEAR_REQ;
                     end else if (read_data[3:0]==0) begin
@@ -196,7 +199,8 @@ module gt911_touch #(
                         error_code<=bus_error_code; ready<=0;
                         contact_count<=0; snapshot_valid<=1; snapshot_cancel<=1;
                         wait_count<=0; state<=RETRY_WAIT;
-                    end else if ({read_data[23:16],read_data[15:8]}>=resolution_x ||
+                    end else if ((pending_count==2 && read_data[3:0]==read_data[67:64]) ||
+                                 {read_data[23:16],read_data[15:8]}>=resolution_x ||
                                  {read_data[39:32],read_data[31:24]}>=resolution_y ||
                                  (pending_count==2 &&
                                  ({read_data[87:80],read_data[79:72]}>=resolution_x ||

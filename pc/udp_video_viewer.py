@@ -147,8 +147,11 @@ class ViewerState:
         self.debug_mode = packet.debug
         if baseline or previous.zoom_code != packet.zoom_code:
             self.zoom = 1.0 if packet.zoom_code == 0 else 2.0
-            self.center_x = self.target.point[0] if self.target else WIDTH / 2
-            self.center_y = self.target.point[1] if self.target else HEIGHT / 2
+            # R4's FPGA LCD enlarges the central 400x240 camera rectangle.
+            # Match that crop in the half-resolution network view, even if a
+            # selected target is off-centre. Mouse-wheel zoom remains separate.
+            self.center_x = WIDTH / 2
+            self.center_y = HEIGHT / 2
         if baseline:
             self.target = None
             if packet.selected:
@@ -179,7 +182,7 @@ class ViewerState:
             self.notice = "Preview view reset. Source image and target coordinates are unchanged."
             if self.has_recent_ui():
                 self.pending_commands.append((6, 0))
-                self.notice = "Preview reset; LCD zoom-intent reset requested without acknowledgement."
+                self.notice = "Preview reset; LCD view reset requested without acknowledgement."
         elif name == "cancel_target":
             self.target = None
             self.notice = "Target selection cancelled. Tracker is not connected."
