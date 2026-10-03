@@ -108,7 +108,8 @@ def main() -> int:
     if probe.complete:
         print("PASS: complete video frames reached this computer.")
         if probe.orders["little"] > probe.orders["big"]:
-            print("Use viewer options: --row-byte-order little --byte-order little")
+            print("Little-endian transport detected. Current viewer/capture defaults auto-detect it.")
+            print("For older scripts, use: --row-byte-order little --byte-order little")
         return 0
     if probe.valid:
         print("PARTIAL: video packets arrive, but no complete frame was observed. Check loss/order.")

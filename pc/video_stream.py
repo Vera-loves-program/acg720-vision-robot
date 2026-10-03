@@ -28,17 +28,19 @@ class CompleteFrame:
     started_at: float
     received_at: float
     received_utc: str
+    row_byte_order: str = "big"  # Actual transport order, inferred or explicit.
 
 
 class FrameAssembler:
     def __init__(self, expected_source: str = "192.168.10.2",
-                 row_byte_order: str = "big", frame_timeout: float = 0.5) -> None:
-        if row_byte_order not in ("big", "little"):
-            raise ValueError("row_byte_order must be big or little")
+                 row_byte_order: str = "auto", frame_timeout: float = 0.5) -> None:
+        if row_byte_order not in ("auto", "big", "little"):
+            raise ValueError("row_byte_order must be auto, big or little")
         if frame_timeout <= 0:
             raise ValueError("frame_timeout must be positive")
         self.expected_source = expected_source
         self.row_byte_order = row_byte_order
+        self._detected_order: str | None = None
         self.frame_timeout = frame_timeout
         self._pixels = bytearray(WIDTH * HEIGHT * 2)
         self._next_row: int | None = None
@@ -46,7 +48,13 @@ class FrameAssembler:
         self._stats = dict(packets=0, valid_rows=0, complete_frames=0,
                            incomplete_frames=0, bad_packets=0,
                            other_source_packets=0, out_of_order_packets=0,
-                           duplicate_rows=0, ignored_rows=0, timed_out_frames=0)
+                           duplicate_rows=0, ignored_rows=0, timed_out_frames=0,
+                           bad_packet_sizes=0, invalid_row_headers=0,
+                           row_order_conflicts=0)
+
+    @property
+    def detected_row_byte_order(self) -> str | None:
+        return self._detected_order if self.row_byte_order == "auto" else self.row_byte_order
 
     def _discard(self) -> None:
         if self._next_row is not None:
@@ -70,10 +78,23 @@ class FrameAssembler:
             return None
         if len(payload) != PAYLOAD_BYTES:
             self._stats["bad_packets"] += 1
+            self._stats["bad_packet_sizes"] += 1
             return None
-        row = int.from_bytes(payload[:2], self.row_byte_order)
+        big = int.from_bytes(payload[:2], "big")
+        little = int.from_bytes(payload[:2], "little")
+        unambiguous_order = ("big" if big < HEIGHT <= little else
+                             "little" if little < HEIGHT <= big else None)
+        if self.row_byte_order == "auto" and self._detected_order is None:
+            self._detected_order = unambiguous_order
+        order = self.detected_row_byte_order
+        if order and unambiguous_order and order != unambiguous_order:
+            self._stats["row_order_conflicts"] += 1
+        # Row zero is 00 00 in either order. Preserve it while waiting for
+        # the first nonzero header to establish the transport byte order.
+        row = big if order in (None, "big") else little
         if row >= HEIGHT:
             self._stats["bad_packets"] += 1
+            self._stats["invalid_row_headers"] += 1
             return None
         self._stats["valid_rows"] += 1
         if row == 0:
@@ -101,6 +122,7 @@ class FrameAssembler:
             frame_number=self._stats["complete_frames"],
             started_at=self._started_at, received_at=now,
             received_utc=utc_time or datetime.now(timezone.utc).isoformat(),
+            row_byte_order=order or "big",
         )
 
     def snapshot_stats(self) -> dict[str, int]:

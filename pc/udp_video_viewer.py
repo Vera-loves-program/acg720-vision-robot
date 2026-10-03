@@ -312,8 +312,9 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=6102)
     parser.add_argument("--command-address", default=COMMAND_BROADCAST)
     parser.add_argument("--expected-source", default="192.168.10.2")
-    parser.add_argument("--byte-order", choices=("big", "little"), default="big")
-    parser.add_argument("--row-byte-order", choices=("big", "little"), default="big")
+    parser.add_argument("--byte-order", choices=("auto", "big", "little"), default="auto",
+                        help="Pixel order; auto follows the detected row transport order.")
+    parser.add_argument("--row-byte-order", choices=("auto", "big", "little"), default="auto")
     args = parser.parse_args()
     try:
         import cv2
@@ -341,6 +342,7 @@ def main() -> None:
     fps_window_frames = 0
     sequence = 0
     bad_telemetry = 0
+    announced_order = None
 
     def mouse_event(event: int, x: int, y: int, flags: int, _userdata) -> None:
         if event == cv2.EVENT_LBUTTONDOWN:
@@ -378,7 +380,11 @@ def main() -> None:
                     continue
                 complete = assembler.consume(payload, peer[0])
                 if complete is not None:
-                    latest = rgb565_bytes_to_bgr(complete.pixels, byte_order=args.byte_order)
+                    pixel_order = complete.row_byte_order if args.byte_order == "auto" else args.byte_order
+                    if complete.row_byte_order != announced_order:
+                        announced_order = complete.row_byte_order
+                        print(f"FORMAT: row={announced_order}, pixels={pixel_order}", flush=True)
+                    latest = rgb565_bytes_to_bgr(complete.pixels, byte_order=pixel_order)
                     source = complete.source
                     state.has_frame = True
                     fps_window_frames += 1
