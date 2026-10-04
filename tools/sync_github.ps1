@@ -65,6 +65,10 @@ foreach ($name in @('vision_robot_ui_process_config.json')) {
 }
 
 foreach ($relativeFile in $publishFiles) {
+    # Local operational notes include actual campus/host settings. Maintain the
+    # reviewed public README and guide separately; never overwrite them here.
+    if ($relativeFile -in @('README.md', 'docs\香橙派使用说明.md',
+                            'docs/香橙派使用说明.md')) { continue }
     $sourceFile = Join-Path $projectRoot $relativeFile
     $targetFile = Join-Path $publicationRoot $relativeFile
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $targetFile) | Out-Null
