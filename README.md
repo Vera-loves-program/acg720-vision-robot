@@ -14,7 +14,7 @@ GitHub 发布范围是自编源码、主机脚本、工程入口与文档；`src
 
 下一阶段见 [香橙派移植与传感器接入方案](docs/香橙派移植与传感器接入方案.md)：先查看香橙派环境，移植 Python 接收器，再依据实际模块手册确认电平与接线，逐个验证传感器，之后进入电机与闭环控制。
 
-香橙派环境已确认：Ubuntu 22.04.5，NetworkManager 1.36.6，eth0 有线、wlan0 无线。实际解压和收图请按 [香橙派解压配置 IP 与收图指南](docs/香橙派解压配置IP与收图指南.md) 操作；香橙派为 .3，电脑有线口改为 .4，Wi-Fi 不改。完整新版接收包可运行 `python tools/package_orangepi_client.py` 生成，包含查看器、拍照工具和全部辅助模块。
+香橙派环境已确认：Ubuntu 22.04.5，NetworkManager 1.36.6，eth0 有线、wlan0 无线。当前统一使用 [香橙派使用说明](docs/香橙派使用说明.md) 和 `acg720-orangepi.zip`：固定目录 `~/acg720_vision`，统一入口 `python3 client.py view` / `capture`，配合已烧录的 R4。电脑通过 Windows 移动热点共享校园网给香橙派，不使用手机套餐流量；有线接收地址仍为香橙派 .3、FPGA .2。运行 `python tools/package_orangepi_client.py` 生成完整包；更新程序不改变照片目录或重建环境。旧版解压、V2 与对照指南保留为历史记录，日常不再按它们操作。
 
 2026-10-04：香橙派已收到 R3 的 UDP 包，但尚未组成完整帧；目前不能据此宣称香橙派收图成功。下一步按 [收图排查、Flash 固化与 SSH 操作](docs/香橙派收图排查_Flash固化与SSH操作.md) 做同一接收端的 R2/R3 对照。新版 `udp_probe.py --report ~/fpga-r3.probe.json` 记录行号分布与原始包样本，不需要 OpenCV；`tools/fix_orangepi_apt.py` 可先预览、再备份并替换 Ubuntu ARM 软件源。报告包含像素数据，已加入 Git 忽略规则。指南同时提供外部 Flash 下载、阿里源安装和 Windows VS Code Remote-SSH 的完整步骤。
 
