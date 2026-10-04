@@ -40,7 +40,7 @@ Invoke-PublishGit fetch origin main
 Invoke-PublishGit pull --ff-only origin main
 
 $publishFiles = [Collections.Generic.List[string]]::new()
-foreach ($name in @('README.md', '.gitignore', 'client.py')) {
+foreach ($name in @('README.md', '.gitignore', 'client.py', 'build.tcl')) {
     $publishFiles.Add($name)
 }
 Get-ChildItem -LiteralPath $projectRoot -File -Filter '*.gprj' |
@@ -58,9 +58,7 @@ foreach ($folder in @('pc', 'docs', 'tests', 'tools')) {
 Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -File |
     Where-Object { $_.Extension -in @('.v', '.cst', '.sdc') } |
     ForEach-Object { $publishFiles.Add('src\' + $_.Name) }
-foreach ($name in @('vision_robot_process_config.json',
-                    'vision_robot_netfix_process_config.json',
-                    'vision_robot_ui_process_config.json')) {
+foreach ($name in @('vision_robot_ui_process_config.json')) {
     if (Test-Path -LiteralPath (Join-Path $projectRoot ('impl\' + $name))) {
         $publishFiles.Add('impl\' + $name)
     }
