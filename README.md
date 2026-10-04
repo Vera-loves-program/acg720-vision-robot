@@ -1,98 +1,24 @@
-# ACG720 Vision Robot · FPGA 摄像头、LCD UI 与 UDP 视频
+# ACG720 视觉机器人：当前 R4 工程
 
-这是一个从已上板正常显示的 `lcd_camera_switch` 独立出来的新工程。原来的静态图片、图片 ROM 和构建产物没有进入本工程；原工程保留作已验证的回退版本。目标器件为 ACG720-60K / `GW5AT-LV60PG484AC1/I0`，OV5640 的实际采集尺寸为 **800×480 RGB565**，LCD 扫描尺寸为 **1024×600**。
+固定使用 `vision_robot_ui.gprj`，顶层为 `vision_robot_ui_top`。目标器件为 ACG720-60K / `GW5AT-LV60PG484AC1/I0`。
 
-> 2026-10-03，用户确认电脑 WSL 成功收到 FPGA 图像；R2 的 LCD 摄像头恢复与字体方向此前也已验证。R2 修正了 DDR PLL 的 mDRP 控制权交接、LCD PLL 初始化倍率、高斯/UI 过长组合路径和 UDP FIFO 长度条件。**香橙派移植、反向控制和传感器接入仍待验证**。早期 UI 参考个人主页；当前 R4 按用户提供的点锡机上位机改为浅灰背景、白色卡片与蓝色操作按钮，FPGA 仍使用位图文字和 RGB565 调色板。
+[公开客户端说明](docs/香橙派使用说明.md) 概述当前 R4。包含实际部署信息的完整逐步指南保留在使用者电脑的 deliverables 中。旧版本入口和重复指南已清理，历史自编文件可在 Git 中查看。
 
-**已验证的 R2 编译入口为 `vision_robot_netfix.gprj`**，顶层为 `vision_robot_top`，输出名为 `vision_robot_netfix`。LCD 标题应显示 `VERA NET FIX R2`。本次触摸交互使用下面新增的独立 R3 工程。R2 原因、修复范围与烧录步骤见 [网口集成检查与 R2 修正版](docs/网口集成检查与R2修正版.md)。
+当前链路：OV5640 800×480 RGB565 → FPGA/DDR3 → 可切换高斯滤波 → 1024×600 RGB LCD；同时发送 400×240 RGB565 UDP 图像。R4 LCD 支持本地 1×/2×显示，网口图像保持全画面。GT911 提供触点输入，视觉识别和电机跟随尚未实现，UI 急停状态也不代表已经有电机硬件急停。
 
-GitHub 发布范围是自编源码、主机脚本、工程入口与文档；`src/vendor/`、生成的 Gowin IP、位流和采集照片使用本地文件，不在当前公开源码中。主机工具可独立使用；FPGA 工程在 Vera 已有完整本地目录内编译。范围与后续同步方式见 [GitHub 与本地工程](docs/GitHub与本地工程.md)。
-
-第一次使用网线，请阅读 [电脑网线连接与运行指南：WSL 专用版](docs/电脑网线连接与运行指南.md)。本机 Windows 没有 Python，全部接收程序在已有的 **Ubuntu-22.04** 中运行；指南逐步区分普通 PowerShell、管理员 PowerShell、WSL，包含镜像网络、防火墙、阿里源补齐环境、收包和视频窗口。`pc/run_windows.cmd` 是仅供另有 Windows Python 的电脑使用的入口，不适用于本机当前环境。
-
-以前的 Python 与 DDR 黑屏诊断过程保留在 [Python 阿里源与 DDR 黑屏排查](docs/Python阿里源与DDR黑屏排查.md)；当前电脑连接操作以新的 WSL 专用指南为准。
-
-下一阶段见 [香橙派移植与传感器接入方案](docs/香橙派移植与传感器接入方案.md)：先查看香橙派环境，移植 Python 接收器，再依据实际模块手册确认电平与接线，逐个验证传感器，之后进入电机与闭环控制。
-
-香橙派环境已确认：Ubuntu 22.04.5，NetworkManager 1.36.6，eth0 有线、wlan0 无线。当前统一使用 [香橙派使用说明](docs/香橙派使用说明.md) 和 `acg720-orangepi.zip`：固定目录 `~/acg720_vision`，统一入口 `python3 client.py view` / `capture`，配合已烧录的 R4。无线连接使用校园网：指南包含澳门大学 SECURED 的 PEAP/MSCHAPv2 配置，以及校园网无法互通时用 Windows 电脑热点共享校园网的步骤，不使用手机套餐流量。有线接收地址仍为香橙派 .3、FPGA .2。运行 `python tools/package_orangepi_client.py` 生成完整包；更新程序不改变照片目录或重建环境。旧版解压、V2 与对照指南保留为历史记录，日常不再按它们操作。
-
-2026-10-04：香橙派已收到 R3 的 UDP 包，但尚未组成完整帧；目前不能据此宣称香橙派收图成功。下一步按 [收图排查、Flash 固化与 SSH 操作](docs/香橙派收图排查_Flash固化与SSH操作.md) 做同一接收端的 R2/R3 对照。新版 `udp_probe.py --report ~/fpga-r3.probe.json` 记录行号分布与原始包样本，不需要 OpenCV；`tools/fix_orangepi_apt.py` 可先预览、再备份并替换 Ubuntu ARM 软件源。报告包含像素数据，已加入 Git 忽略规则。指南同时提供外部 Flash 下载、阿里源安装和 Windows VS Code Remote-SSH 的完整步骤。
-
-保留的 `lcd_camera_switch` 已由用户再次验证摄像头工作正常。需要对照时，可直接使用原位流；完整路径、S4 切换步骤和 LED 判断见 [摄像头回退检查](docs/摄像头回退检查.md)。
-
-## 现在的功能
-
-2026-10-03 新增：完整建议见 [数据集与视觉交互方案](docs/数据集与视觉交互方案.md)，拍照步骤见 [数据采集操作](docs/数据采集操作.md)。`pc/capture_dataset.py` 支持空格/C 启动 5 秒连拍，保存不含 UI 的完整 400×240 PNG；旧 R2 固件无需改动即可采集。主机查看器增加双击选点和数字缩放，暂未接入检测/跟踪算法。
-
-交互工程 [`vision_robot_ui.gprj`](vision_robot_ui.gprj) 已更新为 **R4**（顶层 `vision_robot_ui_top`，标题 `VISION ROBOT R4`）：修正 UI 文字和分隔线重叠，改为浅灰背景、独立白色卡片与蓝色按钮，并新增真正的 LCD 本地 1×/2×缩放。双指在画面内展开/收拢即可切换，不再要求先开启 DEBUG；双击选点仍需 DEBUG。2× 使用两条行缓存放大原图中央 400×240，保持网络流和训练照片不变。SDA 仍为原理图核实的 T20，R2 回退工程保持独立。由用户编译与上板验证，操作与排错见 [UI 分区与 LCD 缩放 R4](docs/UI分区与LCD缩放R4.md)、[触摸驱动说明](docs/GT911触摸驱动说明.md) 和 [主机交互](docs/视觉交互预览.md)。
-
-R3 在相同视频端口增加 32 字节 `VUI1` UI 遥测，包含实际滤波状态、选点坐标与事件计数，新主机工具会与 802 字节图像包分流。旧 R2 原始文件保留，新增工程不修改摄像头、DDR、高斯或网络降采样逻辑。照片目录被 Git 忽略，独立备份与分享。
-
-- 摄像头常驻显示：原尺寸 800×480 放在 1024×600 LCD 左侧，右侧由 FPGA 实时绘制状态和控制提示，没有图片 ROM。
-- [UI 示意图](<docs/ui_preview.svg>)使用 R4 源码里的卡片坐标、字形和文字边界绘制；中间图形是占位示意，不会烧入 FPGA。可用 `python tools/render_lcd_ui_preview.py` 重新生成（需要 Pillow）。配色与分区参考 [点锡机上位机界面](docs/点锡机界面参考审查.md)。
-- 真正的 FPGA **3×3 RGB565 高斯滤波**：默认开启，作用于摄像头画面写入 DDR3 之前；LCD 与网络流都使用滤波后的像素。S4 短按（20 ms 消抖）切换滤波启停，状态在下一次摄像头帧起点生效。核为因果 3×3 窗口，画面效果相对原图左上偏约 1 像素；边界两行/两列透传。
-- 网络降采样：在 FPGA 内每隔一行/一列取样，将 800×480 转为 400×240，保留 RGB565 彩色；每个 UDP 包承载一行，低于标准以太网 MTU。
-- FPGA → 电脑：OV5640 → 滤波 → 行取样 → 异步 FIFO → UDP/RGMII → RJ45。电脑端 `pc/udp_video_viewer.py` 拼帧和显示。
-- 电脑 → FPGA：向 `192.168.10.255:5001` 发送 8 字节 UDP 命令，可远程设置滤波、调试十字线和停止状态锁存。命令在以太网 CRC 和应用层 XOR 校验通过后才执行。
-
-`STOP LATCH` 目前**只是 FPGA/界面的状态位**，因为项目尚未连接电机驱动器和硬件急停回路，不能把它当成实际的紧急制动。未来驱动电机时，需要独立的物理急停按钮直接切断驱动使能，同时让 FPGA 状态机也响应急停；网络按钮可作为补充控制，不能承担唯一安全功能。
-
-## 地址与图像格式
-
-| 项目 | 值 |
+| 用途 | 位置 |
 | --- | --- |
-| FPGA IPv4 | `192.168.10.2/24` |
-| 电脑有线网口 IPv4 | `192.168.10.3/24` |
-| FPGA → 电脑视频 | UDP，目的 `192.168.10.3:6102`，广播目的 MAC |
-| 电脑 → FPGA 命令 | UDP，目的广播 `192.168.10.255:5001` |
-| 视频包 | 恰好 802 字节：2 字节行号 `0..239`，随后 400 个 RGB565 像素；主机自动判断行号顺序，当前 16 位视频通道的像素使用同一顺序 |
-| 帧边界 | 行号 0 开始新帧；接收端只显示 240 行均到齐的帧 |
+| Gowin 入口 | `vision_robot_ui.gprj` |
+| 顶层/约束 | `src/vision_robot_ui_top.v`、`src/lcd_interaction.cst`、`src/lcd_interaction.sdc` |
+| 当前位流 | `impl/pnr/vision_robot_ui.fs`，由用户编译/烧录 |
+| SSPI/CPU 复用脚设置 | `impl/vision_robot_ui_process_config.json` |
+| 香橙派统一入口 | `client.py`，支持 `view`、`probe`、`capture`、`burst` |
+| 客户端打包 | `tools/package_orangepi_client.py` |
+| 照片 | `dataset/`，不发布到 GitHub |
 
-广播控制包免去了当前版本尚未实现的 ARP 应答；请在隔离的测试网段使用。UDP 本身可能丢包，所以接收程序会丢弃残帧。此协议只适合当前的 400×240/单机链路，未来如改尺寸或跨网段，需要增加帧号、协议版本和路由/ARP 设计。
+视频按行传输，每行 802 字节，240 行组成完整帧。32 字节 UI 状态包另按类型解析；它不是每帧处理参数确认。不要同时启动多个图像接收程序。实际网络部署配置见本地指南。
 
-2026-10-03 拍照排查：旧拍照／查看器默认固定大端，而收包检查器会自动判断。用户记录呈现几乎每 240 包仅行号 0 合法，符合实际视频通道为小端的特征。主机现默认 `--row-byte-order auto --byte-order auto`，保留手动覆盖，打印判断出的格式，在照片元数据记录实际顺序。尚需用户重新启动确认真实画面；无需修改或烧录 FPGA。
+完整本地工程保留 `src/vendor` 和 `src/gowin_pll_45` 的厂商依赖。公开仓库仅同步自编源码、配置和文档，不能把公开仓库当成这些 IP、位流、照片的完整备份。编译请使用保留厂商依赖的本地工程。
 
-命令包是 `ASCII "VRB1" | opcode | value | sequence | XOR(前 7 字节)`，共 8 字节。`opcode=1` 设置滤波（`value=0/1`），`2` 设置调试叠加，`3` 锁存停止状态，`4` 清除停止状态。电脑接收程序的快捷键为 **F、D、E、R、Q**。若用 S4 改过滤波，电脑端的本地 F 状态并不知道按键结果；以 LCD 上的 `GAUSS ON/OFF` 为准。
+维护时先 pull，保存自编源码后同步 GitHub；厂商代码和个人照片不发布。`tools/sync_github.ps1` 维护自编文件快照，当前只有一个 R4 项目入口。编译设置释放板卡的 SSPI/CPU 复用脚，并保持已验证的 DDR3/摄像头/网口配置。
 
-## 上板和电脑连接
-
-1. 用网线连接 ACG720 的 RJ45 和电脑有线网口；两端也可以通过普通千兆交换机连接。保持两板正常供电，不通过 LCD 排线给网口供电。
-2. 把电脑**有线网卡**配置为 `192.168.10.3`、子网掩码 `255.255.255.0`。不要把这个地址配到 Wi-Fi 上。测试时关闭阻止 UDP 6102 入站的防火墙规则，或只为 Python 程序/该端口放行。
-3. 在 Windows Gowin FPGA Designer 中打开 [`vision_robot_netfix.gprj`](<vision_robot_netfix.gprj>)，顶层是 `vision_robot_top`。SSPI、CPU 复用脚作为普通 IO 的配置位于 `impl/vision_robot_netfix_process_config.json`；若 GUI 未读取配置，应在 Place & Route 的 Dual-Purpose Pin 页面确认相应选项。由你执行综合、布局布线，烧录新生成的 `impl/pnr/vision_robot_netfix.fs`，标题应为 `VERA NET FIX R2`。
-4. Vera 本机使用已有 WSL 环境：`/home/Vera/.venvs/acg720-vision/bin/python pc/udp_video_viewer.py --bind 192.168.10.3`。窗口应显示视频与完整帧/丢帧计数。拍照前退出查看器，再按 [数据采集操作](docs/数据采集操作.md) 运行拍照脚本。
-5. 本机 WSL 网线收包已验证，不必重装 Python 或重配网络。首次在其他电脑接入时，按 [WSL 网线连接指南](docs/电脑网线连接与运行指南.md) 逐步配置有线地址、镜像网络和防火墙。另有 Windows Python 的电脑也可运行同一主机脚本。
-
-该脚本需要有图形桌面（Windows 或 WSLg）。它并不模拟 RK3588 NPU，只负责当前的网络视频/控制链路。
-
-## LED 与 LCD
-
-| LED | 含义 |
-| --- | --- |
-| D0 | 50 MHz 板载时钟每 0.5 秒翻转 |
-| D1 | 上电等待完成 |
-| D2 | LCD 帧扫描心跳 |
-| D3 | OV5640 SCCB 初始化完成 |
-| D4 | DDR3 校准完成 |
-| D5 | 以太网 PLL 与 PHY 初始化完成，**不代表网线已经协商成功** |
-| D6 | 收到摄像头场同步 |
-| D7 | LCD 相机 FIFO 欠读 |
-
-LCD 右栏的 `PHY INIT` 与 D5 含义相同；没有读取 PHY Link Status，因此不能据此判断网线是否真的连通。`GAUSS ON/OFF` 来自滤波器当前帧的真实状态。`2X SAMPLE` 和 `RGB565` 描述网络视频格式。调试模式仅在画面中心绘制十字线；以后可增加边缘图、红色候选框、丢包/延迟/测距等信息。停止栏现为协议状态预览。
-
-## 工程结构与来源
-
-- `src/vision_robot_top.v`：摄像头/DDR/LCD/以太网顶层集成。
-- `src/gaussian3x3_rgb565.v`：自行编写的实时 3×3 高斯流水线。
-- `src/video_400x240_packetizer.v`：降采样与逐行包格式。
-- `src/lcd1024_vision_ui.v`：RGB565 面板与 5×7 英文字形绘制。
-- `src/udp_command_parser.v`：反向 UDP 控制命令解析。
-- `src/vendor/`：高云教材第 45、59 章例程与生成的 Gowin IP；PHY、FIFO、DDR、摄像头初始化沿用相应教学代码。`eth_udp_rx_gmii.v` 增加了本地 `/24` 广播地址的接收条件。这些第三方代码请保留原始声明；公开发布前应确认其再分发许可，建议 GitHub 仓库先设为**私有**。
-- `pc/udp_video_viewer.py`：Windows/WSL 通用的 Python/OpenCV UDP 接收与控制程序。
-- `pc/udp_probe.py`：仅使用 Python 标准库的收包检查器，报告包长度、完整帧与行头字节序。
-- `pc/run_windows.cmd`：Windows 虚拟环境准备及视频/检查器启动入口。
-
-原工程使用图片 ROM 时的布线报告为 96/118 BSRAM，其中静态图片占约 61 块。本工程去掉了图片 ROM，为网络 FIFO 和图像行缓存留出资源；**实际资源及时序仍须以新工程布线报告为准**。
-
-## 版本管理
-
-本地完整工程保留 Git 提交和厂商依赖；公开仓库保留自编代码与文档。Windows PowerShell 可运行 `./tools/sync_github.ps1 -Message "描述这次修改"`，通过独立发布目录先拉取、再同步自编文件、提交和推送；不会把本地完整工程历史中的厂商文件一起推上公开仓库。出现冲突或发布目录有未提交修改时停止并保留现场。GitHub 不代替本地构建缓存，也不自动备份个人照片；实际可烧录位流和采集数据需要单独备份。

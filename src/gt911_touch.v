@@ -1,7 +1,7 @@
 // GT911 host, 50 MHz clock. Independent of camera and DDR reset/calibration.
 // Coordinates are normalized from the controller's reported resolution to LCD.
 // No writes to the panel configuration/checksum region 0x8047..0x8100.
-// See docs/GT911触摸驱动说明.md for board wiring and protocol references.
+// Current wiring is in lcd_interaction.cst; see docs/香橙派使用说明.md.
 module gt911_touch #(
     parameter SWAP_XY = 0,
     parameter INVERT_X = 0,

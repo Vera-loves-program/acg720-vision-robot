@@ -77,7 +77,7 @@ class HostToolsTests(unittest.TestCase):
                 process.wait()
 
     def test_font_top_middle_bottom_rows(self) -> None:
-        source = (ROOT / "src" / "lcd1024_vision_ui.v").read_text(encoding="utf-8")
+        source = (ROOT / "src" / "lcd1024_interaction_ui.v").read_text(encoding="utf-8")
         bit_index = re.search(r"font\[(\d+)-\(glyph_x\*8\)([+-])glyph_y\]", source)
         self.assertIsNotNone(bit_index)
         base = int(bit_index[1])

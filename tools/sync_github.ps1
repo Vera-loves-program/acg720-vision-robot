@@ -40,7 +40,7 @@ Invoke-PublishGit fetch origin main
 Invoke-PublishGit pull --ff-only origin main
 
 $publishFiles = [Collections.Generic.List[string]]::new()
-foreach ($name in @('README.md', '.gitignore', 'client.py')) {
+foreach ($name in @('README.md', '.gitignore', 'client.py', 'build.tcl')) {
     $publishFiles.Add($name)
 }
 Get-ChildItem -LiteralPath $projectRoot -File -Filter '*.gprj' |
@@ -58,15 +58,17 @@ foreach ($folder in @('pc', 'docs', 'tests', 'tools')) {
 Get-ChildItem -LiteralPath (Join-Path $projectRoot 'src') -File |
     Where-Object { $_.Extension -in @('.v', '.cst', '.sdc') } |
     ForEach-Object { $publishFiles.Add('src\' + $_.Name) }
-foreach ($name in @('vision_robot_process_config.json',
-                    'vision_robot_netfix_process_config.json',
-                    'vision_robot_ui_process_config.json')) {
+foreach ($name in @('vision_robot_ui_process_config.json')) {
     if (Test-Path -LiteralPath (Join-Path $projectRoot ('impl\' + $name))) {
         $publishFiles.Add('impl\' + $name)
     }
 }
 
 foreach ($relativeFile in $publishFiles) {
+    # Local operational notes include actual campus/host settings. Maintain the
+    # reviewed public README and guide separately; never overwrite them here.
+    if ($relativeFile -in @('README.md', 'docs\香橙派使用说明.md',
+                            'docs/香橙派使用说明.md')) { continue }
     $sourceFile = Join-Path $projectRoot $relativeFile
     $targetFile = Join-Path $publicationRoot $relativeFile
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $targetFile) | Out-Null
