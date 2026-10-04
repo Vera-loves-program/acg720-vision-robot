@@ -1,4 +1,4 @@
-// R4: separate cards, clipped bitmap text and real LCD 1x/2x crop zoom.
+// R5: separate cards, clipped bitmap text and source-anchored 1x..4x zoom.
 // Camera/DDR timing and the 800x480 viewport remain at the verified geometry.
 module lcd1024_interaction_ui (
     input wire clk, run,
@@ -10,9 +10,13 @@ module lcd1024_interaction_ui (
     input wire [1:0] touch_count,
     input wire selection_valid,
     input wire [9:0] selection_x, selection_y,
-    input wire [1:0] zoom_level,
+    input wire zoom_mode,
+    input wire [8:0] zoom_step, zoom_top, focus_y,
+    input wire [9:0] zoom_left, focus_x,
     output wire camera_pop, frame_restart,
-    output wire display_zoom_2x,
+    output wire [8:0] display_step, display_top,
+    output wire [9:0] display_left,
+    output wire [27:0] ddr_read_base,
     output reg [15:0] rgb = 16'h0000,
     output reg de = 1'b0, hs = 1'b1, vs = 1'b1,
     output reg frame_heartbeat = 1'b0,
@@ -41,20 +45,53 @@ module lcd1024_interaction_ui (
     assign frame_restart = run && h==H_TOTAL-1'b1 && v==V_TOTAL-1'b1;
     wire [15:0] display_pixel;
     wire display_valid, zoom_active, zoom_ready;
-    assign display_zoom_2x=zoom_active;
+    wire [9:0] sampled_x;
+    wire [8:0] sampled_y;
     lcd_camera_zoom u_zoom (
         .clk(clk), .run(run), .frame_restart(frame_restart),
-        .zoom_request(zoom_level), .video_area(video_area),
+        .step_request(zoom_step), .left_request(zoom_left), .top_request(zoom_top),
+        .video_area(video_area),
         .video_fetch(video_fetch), .video_fetch_x(fetch_x_wide[9:0]),
         .video_fetch_y(fetch_y_wide[8:0]),
         .camera_pixel(camera_pixel), .camera_pixel_valid(camera_pixel_valid),
         .camera_pop(camera_pop), .display_pixel(display_pixel),
         .display_valid(display_valid), .zoom_active(zoom_active),
+        .display_source_x(sampled_x), .display_source_y(sampled_y),
+        .active_step(display_step), .active_left(display_left), .active_top(display_top),
+        .ddr_read_base(ddr_read_base),
         .zoom_ready(zoom_ready), .frame_underflow(camera_underflow)
     );
-    wire selection_visible = selection_valid && (!zoom_active ||
-        (selection_x>=10'd200 && selection_x<10'd600 &&
-         selection_y>=10'd120 && selection_y<10'd360));
+    wire [18:0] view_width_q8=display_step*10'd800+19'd255;
+    wire [17:0] view_height_q8=display_step*9'd480+18'd255;
+    wire selection_visible = selection_valid && selection_x>=display_left &&
+        selection_x<display_left+view_width_q8[17:8] && selection_y>=display_top &&
+        selection_y<display_top+view_height_q8[16:8];
+    // Scale text computed once per frame with a serial divider, not with a
+    // variable divide on the per-pixel rendering path. Rounded hundredths.
+    reg [15:0] scale_dividend=0, scale_quotient=0, scale_hundred=100;
+    reg [9:0] scale_remainder=0;
+    reg [8:0] scale_divisor=256;
+    reg [4:0] scale_cycles=0;
+    wire [10:0] scale_trial={scale_remainder,scale_dividend[15]};
+    wire scale_bit=scale_trial>={2'd0,scale_divisor};
+    wire [15:0] scale_next={scale_quotient[14:0],scale_bit};
+    always @(posedge clk or negedge run) begin
+        if (!run) begin
+            scale_dividend<=0; scale_quotient<=0; scale_hundred<=100;
+            scale_remainder<=0; scale_divisor<=256; scale_cycles<=0;
+        end else if (h==11'd1 && v==10'd0) begin
+            scale_dividend<=16'd25600+{8'd0,display_step[8:1]};
+            scale_divisor<=display_step; scale_quotient<=0; scale_remainder<=0; scale_cycles<=16;
+        end else if (scale_cycles!=0) begin
+            scale_dividend<={scale_dividend[14:0],1'b0}; scale_quotient<=scale_next;
+            scale_remainder<=scale_bit ? scale_trial-{2'd0,scale_divisor} : scale_trial;
+            scale_cycles<=scale_cycles-1'b1;
+            if (scale_cycles==1) scale_hundred<=scale_next;
+        end
+    end
+    wire [7:0] scale_units=8'h30+scale_hundred/16'd100;
+    wire [7:0] scale_tenths=8'h30+(scale_hundred/16'd10)%16'd10;
+    wire [7:0] scale_hundredths=8'h30+scale_hundred%16'd10;
     wire [7:0] error_ascii = touch_error<4'd10 ?
         8'h30+{4'd0,touch_error} : 8'h41+{4'd0,touch_error}-8'd10;
     // Five columns, left to right from the most-significant byte.
@@ -83,6 +120,7 @@ module lcd1024_interaction_ui (
                 "8":glyph=40'h3649494936; "9":glyph=40'h064949291e;
                 ":":glyph=40'h0036360000; "/":glyph=40'h2010080402;
                 "-":glyph=40'h0808080808; ".":glyph=40'h0060600000;
+                "+":glyph=40'h08083e0808;
                 default:glyph=40'h0000000000;
             endcase
         end
@@ -97,11 +135,11 @@ module lcd1024_interaction_ui (
         label_text=128'd0; label_x=0; label_y=0;
         label_right=11'd1024; label_color=INK; label_enable=1'b1;
         if (ay>=10'd14 && ay<10'd30 && ax>=11'd20 && ax<11'd280) begin
-            label_text="VISION ROBOT R4 "; label_x=11'd20; label_y=10'd14;
+            label_text="STUDY ASSIST R5 "; label_x=11'd20; label_y=10'd14;
             label_right=11'd280; label_color=INK;
         end
         else if (ay>=10'd14 && ay<10'd30 && ax>=11'd852 && ax<11'd1008) begin
-            label_text="FPGA UI         "; label_x=11'd852; label_y=10'd14;
+            label_text=touch_ready ? "TP OK           " : "TP WAIT         "; label_x=11'd852; label_y=10'd14;
             label_right=11'd1008; label_color=BLUE;
         end
         else if (ay>=10'd62 && ay<10'd78 && ax>=11'd840 && ax<11'd1000) begin
@@ -116,24 +154,28 @@ module lcd1024_interaction_ui (
             label_text=debug_mode ? "DEBUG ON        " : "VIS DEBUG       "; label_x=11'd840; label_y=10'd126;
             label_right=11'd1000; label_color=debug_mode ? WHITE : BLUE;
         end
-        else if (ay>=10'd168 && ay<10'd184 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=touch_ready ? "TOUCH OK        " : touch_error!=0 ? {"TP ERR ",error_ascii,"        "} : "TOUCH WAIT      "; label_x=11'd840; label_y=10'd168;
-            label_right=11'd1000; label_color=touch_ready ? GREEN : RED;
+        else if (ay>=10'd174 && ay<10'd190 && ax>=11'd840 && ax<11'd1000) begin
+            label_text="ZOOM IN MODE    "; label_x=11'd840; label_y=10'd174;
+            label_right=11'd1000; label_color=zoom_mode ? WHITE : BLUE;
         end
-        else if (ay>=10'd192 && ay<10'd208 && ax>=11'd840 && ax<11'd1000) begin
-            label_text={"FINGERS ",8'h30+{6'd0,touch_count},"       "}; label_x=11'd840; label_y=10'd192;
-            label_right=11'd1000; label_color=MUTED;
+        else if (ay>=10'd216 && ay<10'd232 && ax>=11'd864 && ax<11'd910) begin
+            label_text="+               "; label_x=11'd864; label_y=10'd216;
+            label_right=11'd910; label_color=zoom_mode ? BLUE : MUTED;
         end
-        else if (ay>=10'd242 && ay<10'd258 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=filter_active ? "GAUSS ON        " : "GAUSS OFF       "; label_x=11'd840; label_y=10'd242;
+        else if (ay>=10'd216 && ay<10'd232 && ax>=11'd952 && ax<11'd1000) begin
+            label_text="-               "; label_x=11'd952; label_y=10'd216;
+            label_right=11'd1000; label_color=zoom_mode ? BLUE : MUTED;
+        end
+        else if (ay>=10'd258 && ay<10'd274 && ax>=11'd840 && ax<11'd1000) begin
+            label_text=filter_active ? "GAUSS ON        " : "GAUSS OFF       "; label_x=11'd840; label_y=10'd258;
             label_right=11'd1000; label_color=filter_active ? BLUE : MUTED;
         end
-        else if (ay>=10'd268 && ay<10'd284 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=net_ready ? "PHY INIT        " : "PHY WAIT        "; label_x=11'd840; label_y=10'd268;
+        else if (ay>=10'd282 && ay<10'd298 && ax>=11'd840 && ax<11'd1000) begin
+            label_text=net_ready ? "PHY INIT        " : "PHY WAIT        "; label_x=11'd840; label_y=10'd282;
             label_right=11'd1000; label_color=net_ready ? GREEN : RED;
         end
         else if (ay>=10'd314 && ay<10'd330 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=!selection_valid ? "NO TARGET       " : selection_visible ? "ROI SET         " : "ROI OUT         "; label_x=11'd840; label_y=10'd314;
+            label_text=zoom_mode ? "FOCUS POINT     " : !selection_valid ? "NO TARGET       " : selection_visible ? "ROI REQUEST     " : "ROI OUT         "; label_x=11'd840; label_y=10'd314;
             label_right=11'd1000; label_color=selection_valid ? BLUE : MUTED;
         end
         else if (ay>=10'd338 && ay<10'd354 && ax>=11'd840 && ax<11'd1000) begin
@@ -141,7 +183,7 @@ module lcd1024_interaction_ui (
             label_right=11'd1000; label_color=MUTED;
         end
         else if (ay>=10'd362 && ay<10'd378 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=zoom_active && !zoom_ready ? "ZOOM WAIT       " : zoom_active ? "VIEW 2X         " : "VIEW 1X         "; label_x=11'd840; label_y=10'd362;
+            label_text=zoom_active && !zoom_ready ? "ZOOM WAIT       " : {"VIEW ",scale_units,".",scale_tenths,scale_hundredths,"X      "}; label_x=11'd840; label_y=10'd362;
             label_right=11'd1000; label_color=zoom_active && !zoom_ready ? RED : BLUE;
         end
         else if (ay>=10'd406 && ay<10'd422 && ax>=11'd840 && ax<11'd1000) begin
@@ -173,7 +215,7 @@ module lcd1024_interaction_ui (
             label_right=11'd280; label_color=MUTED;
         end
         else if (ay>=10'd582 && ay<10'd598 && ax>=11'd300 && ax<11'd560) begin
-            label_text=debug_mode ? "DOUBLE TAP ROI  " : "DEBUG FOR ROI   "; label_x=11'd300; label_y=10'd582;
+            label_text=zoom_mode ? "TAP TAP FOCUS   " : debug_mode ? "TAP TAP SELECT  " : "DEBUG TO SELECT "; label_x=11'd300; label_y=10'd582;
             label_right=11'd560; label_color=MUTED;
         end
         else if (ay>=10'd582 && ay<10'd598 && ax>=11'd600 && ax<11'd856) begin
@@ -211,18 +253,18 @@ module lcd1024_interaction_ui (
     wire text_pixel = in_label_b && glyph_x<4'd5 && glyph_y<4'd7 &&
                       font[32-(glyph_x*8)+glyph_y];
 
-    wire [10:0] source_dx={1'b0,selection_x}-11'd200;
-    wire [9:0] source_dy=selection_y-10'd120;
-    wire [10:0] view_x=zoom_active ? {source_dx[9:0],1'b0} : {1'b0,selection_x};
-    wire [9:0] view_y=zoom_active ? {source_dy[8:0],1'b0} : selection_y;
-    wire [10:0] roi_cx=view_x+11'd16;
-    wire [9:0] roi_cy=view_y+10'd56;
-    wire [10:0] half_width=zoom_active ? 11'd80 : 11'd40;
-    wire [9:0] half_height=zoom_active ? 10'd60 : 10'd30;
-    wire [10:0] roi_x0=roi_cx>11'd16+half_width ? roi_cx-half_width : 11'd16;
-    wire [10:0] roi_x1=roi_cx+half_width<11'd816 ? roi_cx+half_width : 11'd815;
-    wire [9:0] roi_y0=roi_cy>10'd56+half_height ? roi_cy-half_height : 10'd56;
-    wire [9:0] roi_y1=roi_cy+half_height<10'd536 ? roi_cy+half_height : 10'd535;
+    // Compare overlays in source coordinates. The same transform as the
+    // image fetch is used, so there is no variable pixel-path division.
+    wire [10:0] raw_source_x=ax-11'd16;
+    wire [9:0] raw_source_y=ay-10'd56;
+    wire [9:0] source_x=zoom_active ? sampled_x : raw_source_x[9:0];
+    wire [8:0] source_y=zoom_active ? sampled_y : raw_source_y[8:0];
+    wire [9:0] roi_x0=selection_x>40 ? selection_x-10'd40 : 10'd0;
+    wire [9:0] roi_x1=selection_x<759 ? selection_x+10'd40 : 10'd799;
+    wire [8:0] roi_y0=selection_y>30 ? selection_y-10'd30 : 9'd0;
+    wire [8:0] roi_y1=selection_y<449 ? selection_y+10'd30 : 9'd479;
+    wire [9:0] focus_dx=source_x>=focus_x ? source_x-focus_x : focus_x-source_x;
+    wire [8:0] focus_dy=source_y>=focus_y ? source_y-focus_y : focus_y-source_y;
 
     // Every card is its own rectangle. No separator crosses a text row.
     function in_rect;
@@ -240,10 +282,14 @@ module lcd1024_interaction_ui (
             if (video_area) base_color=display_valid ? display_pixel : BLACK;
             if (in_rect(ax,11'd828,11'd1012,ay,10'd52,10'd108)) base_color=BORDER;
             if (in_rect(ax,11'd829,11'd1011,ay,10'd53,10'd107)) base_color=WHITE;
-            if (in_rect(ax,11'd828,11'd1012,ay,10'd160,10'd224)) base_color=BORDER;
-            if (in_rect(ax,11'd829,11'd1011,ay,10'd161,10'd223)) base_color=WHITE;
-            if (in_rect(ax,11'd828,11'd1012,ay,10'd232,10'd296)) base_color=BORDER;
-            if (in_rect(ax,11'd829,11'd1011,ay,10'd233,10'd295)) base_color=WHITE;
+            if (in_rect(ax,11'd832,11'd1008,ay,10'd160,10'd200)) base_color=BORDER;
+            if (in_rect(ax,11'd833,11'd1007,ay,10'd161,10'd199)) base_color=zoom_mode ? BLUE : SOFT_BLUE;
+            if (in_rect(ax,11'd832,11'd916,ay,10'd208,10'd240)) base_color=BORDER;
+            if (in_rect(ax,11'd833,11'd915,ay,10'd209,10'd239)) base_color=zoom_mode ? SOFT_BLUE : WHITE;
+            if (in_rect(ax,11'd924,11'd1008,ay,10'd208,10'd240)) base_color=BORDER;
+            if (in_rect(ax,11'd925,11'd1007,ay,10'd209,10'd239)) base_color=zoom_mode ? SOFT_BLUE : WHITE;
+            if (in_rect(ax,11'd828,11'd1012,ay,10'd248,10'd300)) base_color=BORDER;
+            if (in_rect(ax,11'd829,11'd1011,ay,10'd249,10'd299)) base_color=WHITE;
             if (in_rect(ax,11'd828,11'd1012,ay,10'd304,10'd384)) base_color=BORDER;
             if (in_rect(ax,11'd829,11'd1011,ay,10'd305,10'd383)) base_color=WHITE;
             if (in_rect(ax,11'd828,11'd1012,ay,10'd496,10'd536)) base_color=BORDER;
@@ -254,13 +300,12 @@ module lcd1024_interaction_ui (
             if (in_rect(ax,11'd833,11'd1007,ay,10'd393,10'd431)) base_color=SOFT_BLUE;
             if (in_rect(ax,11'd832,11'd1008,ay,10'd440,10'd488)) base_color=BORDER;
             if (in_rect(ax,11'd833,11'd1007,ay,10'd441,10'd487)) base_color=BLUE;
-            if (debug_mode && video_area &&
-                ((ax==11'd416 && ay>=10'd284 && ay<10'd309) ||
-                 (ay==10'd296 && ax>=11'd404 && ax<11'd429))) base_color=BLUE;
+            if (zoom_mode && video_area && display_valid &&
+                ((focus_dx<=6 && focus_dy==0) || (focus_dy<=6 && focus_dx==0))) base_color=BLUE;
             // User ROI only, not a detector/tracker result.
-            if (selection_visible && video_area &&
-                (((ax==roi_x0 || ax==roi_x1) && ay>=roi_y0 && ay<=roi_y1) ||
-                 ((ay==roi_y0 || ay==roi_y1) && ax>=roi_x0 && ax<=roi_x1)))
+            if (!zoom_mode && selection_visible && video_area && display_valid &&
+                (((source_x==roi_x0 || source_x==roi_x1) && source_y>=roi_y0 && source_y<=roi_y1) ||
+                 ((source_y==roi_y0 || source_y==roi_y1) && source_x>=roi_x0 && source_x<=roi_x1)))
                 base_color=ORANGE;
         end
     end

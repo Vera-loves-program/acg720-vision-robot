@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One entry point for the Orange Pi client used with the R4 FPGA image."""
+"""One entry point for the Orange Pi client; accepts R4/R5 UI observations."""
 from __future__ import annotations
 
 import argparse
@@ -24,7 +24,7 @@ def main() -> int:
     elif args.action in ("capture", "burst"):
         script = "capture_dataset.py"
         defaults = ["--bind", "192.168.10.3", "--fps", "3", "--duration", "5",
-                    "--fpga-profile", "R4", "--output", str(ROOT / "dataset" / "captures")]
+                    "--fpga-profile", "unconfirmed", "--output", str(ROOT / "dataset" / "captures")]
         if args.action == "burst":
             defaults.append("--burst")
     else:

@@ -227,11 +227,48 @@ module vision_robot_ui_top (
     wire [15:0] rgb_out;
     wire frame_heartbeat;
     wire camera_underflow;
-    wire lcd_zoom_2x;
-    reg [1:0] lcd_zoom_sync=0;
+    wire [8:0] lcd_view_step;
+    wire [9:0] lcd_view_left;
+    wire [8:0] lcd_view_top;
+    wire [27:0] lcd_ddr_read_base;
+    // The base changes at the LCD boundary. Delay rd_load to allow the
+    // stable address bus to reach the existing DDR adapter before its flush.
+    reg [15:0] rd_restart_delay=0;
+    always @(posedge pixel_clk or negedge pixel_reset_n) begin
+        if (!pixel_reset_n) rd_restart_delay<=0;
+        else rd_restart_delay<={rd_restart_delay[14:0],frame_restart};
+    end
+    // Actual frame-latched geometry travels back as a coherent toggle bundle;
+    // touch selection must not use a request which is still waiting to display.
+    reg [31:0] lcd_view_mailbox=32'h08000000;
+    reg lcd_frame_zoom_mode=0;
+    reg lcd_view_request=0;
+    reg [2:0] lcd_view_ack_sync=0;
+    wire lcd_view_ack;
+    always @(posedge pixel_clk or negedge pixel_reset_n) begin
+        if (!pixel_reset_n) begin
+            lcd_view_mailbox<=32'h08000000; lcd_view_request<=0; lcd_view_ack_sync<=0; lcd_frame_zoom_mode<=0;
+        end else begin
+            lcd_view_ack_sync<={lcd_view_ack_sync[1:0],lcd_view_ack};
+            if (frame_restart) lcd_frame_zoom_mode<=ui_lcd_data[28];
+            if (rd_restart_delay[0] && lcd_view_request==lcd_view_ack_sync[2]) begin
+                lcd_view_mailbox<={3'd0,lcd_frame_zoom_mode,lcd_view_step,lcd_view_top,lcd_view_left};
+                lcd_view_request<=~lcd_view_request;
+            end
+        end
+    end
+    reg [2:0] lcd_view_request_sync=0;
+    reg lcd_view_seen=0;
+    reg [31:0] lcd_view_data=32'h08000000;
+    assign lcd_view_ack=lcd_view_seen;
     always @(posedge clk50M or negedge ready) begin
-        if (!ready) lcd_zoom_sync<=0;
-        else lcd_zoom_sync<={lcd_zoom_sync[0],lcd_zoom_2x};
+        if (!ready) begin lcd_view_request_sync<=0; lcd_view_seen<=0; lcd_view_data<=32'h08000000; end
+        else begin
+            lcd_view_request_sync<={lcd_view_request_sync[1:0],lcd_view_request};
+            if (lcd_view_request_sync[2]!=lcd_view_seen) begin
+                lcd_view_seen<=lcd_view_request_sync[2]; lcd_view_data<=lcd_view_mailbox;
+            end
+        end
     end
     reg [1:0] gaussian_pixel_sync = 2'b11;
     reg [1:0] debug_pixel_sync = 2'b00;
@@ -272,10 +309,14 @@ module vision_robot_ui_top (
         .selection_valid(ui_lcd_data[210]),
         .selection_x(ui_lcd_data[137:128]),
         .selection_y(ui_lcd_data[121:112]),
-        .zoom_level(ui_lcd_data[201:200]),
+        .zoom_mode(ui_lcd_data[28]),
+        .zoom_step(ui_lcd_data[27:19]),
+        .zoom_left(ui_lcd_data[9:0]), .zoom_top(ui_lcd_data[18:10]),
+        .focus_x(ui_lcd_focus[18:9]), .focus_y(ui_lcd_focus[8:0]),
         .stop_latched(stop_pixel_sync[1]),
         .camera_pop(camera_pop), .frame_restart(frame_restart),
-        .display_zoom_2x(lcd_zoom_2x),
+        .display_step(lcd_view_step), .display_left(lcd_view_left),
+        .display_top(lcd_view_top), .ddr_read_base(lcd_ddr_read_base),
         .rgb(rgb_out), .de(TFT_de), .hs(TFT_hs), .vs(TFT_vs),
         .frame_heartbeat(frame_heartbeat), .camera_underflow(camera_underflow)
     );
@@ -289,8 +330,8 @@ module vision_robot_ui_top (
         .clk(clk50M), .pll_stop(pll_stop), .pll_lock(ddr_pll_locked),
         .clk_200m(ddr_clk400), .sys_rst_n(ready && ddr_mdrp_user_mode),
         .init_calib_complete(init_calib_complete),
-        .rd_load(frame_restart), .wr_load(gaussian_frame_start),
-        .app_addr_rd_min(28'd0), .app_addr_rd_max(IMAGE_PIXELS),
+        .rd_load(rd_restart_delay[15]), .wr_load(gaussian_frame_start),
+        .app_addr_rd_min(lcd_ddr_read_base), .app_addr_rd_max(IMAGE_PIXELS),
         .rd_bust_len(DDR_BURST),
         .app_addr_wr_min(28'd0), .app_addr_wr_max(IMAGE_PIXELS),
         .wr_bust_len(DDR_BURST),
@@ -453,7 +494,9 @@ module vision_robot_ui_top (
     wire host_zoom_reset = ui_command_event && command_code==8'd6;
     wire selection_valid, selection_toggle, capture_toggle, clear_toggle;
     wire [9:0] selection_x, selection_y;
-    wire [1:0] zoom_level;
+    wire zoom_mode;
+    wire [8:0] zoom_step, zoom_top, focus_y;
+    wire [9:0] zoom_left, focus_x;
     wire zoom_toggle;
     wire [3:0] ui_click_event;
     touch_gestures u_gestures (
@@ -462,12 +505,15 @@ module vision_robot_ui_top (
         .contact_count(touch_count),
         .x0(touch_x0), .y0(touch_y0), .x1(touch_x1), .y1(touch_y1),
         .id0(touch_id0), .id1(touch_id1),
-        .view_zoom_2x(lcd_zoom_sync[1]),
+        .view_step(lcd_view_data[27:19]),
+        .view_left(lcd_view_data[9:0]), .view_top(lcd_view_data[18:10]),
         .debug_toggle_pulse(host_debug_toggle), .clear_pulse(host_clear),
         .zoom_reset_pulse(host_zoom_reset),
         .debug_mode(debug_requested), .selection_valid(selection_valid),
         .selection_x(selection_x), .selection_y(selection_y),
-        .selection_toggle(selection_toggle), .zoom_level(zoom_level),
+        .selection_toggle(selection_toggle), .zoom_mode(zoom_mode),
+        .zoom_step(zoom_step), .zoom_left(zoom_left), .zoom_top(zoom_top),
+        .focus_x(focus_x), .focus_y(focus_y),
         .zoom_toggle(zoom_toggle), .capture_toggle(capture_toggle),
         .clear_toggle(clear_toggle), .click_event(ui_click_event)
     );
@@ -483,26 +529,32 @@ module vision_robot_ui_top (
     reg ui_mailbox_request=0;
     // LCD is local: it must keep responding even if the network clock fails.
     reg [255:0] ui_lcd_mailbox_data=0;
+    reg [18:0] ui_lcd_focus_mailbox={10'd400,9'd240};
     reg ui_lcd_mailbox_request=0;
+    reg [19:0] ui_lcd_tick_divider=0;
+    reg [2:0] ui_lcd_ack_sync=0;
+    wire ui_lcd_ack;
     wire ui_mailbox_ack;
     reg [2:0] ui_ack_sync=0;
     wire [7:0] ui_flags = {2'b00,stop_latched,touch_identified,
                          touch_ready,selection_valid,debug_requested,
                          actual_filter_sync[1]};
     wire [255:0] ui_snapshot_now = {
-        32'h56554931,8'd1,ui_flags,{6'd0,zoom_level},
+        32'h56554931,8'd2,ui_flags,{7'd0,zoom_step!=9'd256},
         {6'd0,touch_count},selection_count,capture_count,
         clear_count,{6'd0,selection_x},{6'd0,selection_y},
-        {4'd0,touch_error},8'd0,ui_sequence,ui_ticks,32'd0
+        {4'd0,touch_error},8'd0,ui_sequence,ui_ticks,
+        3'd0,zoom_mode,zoom_step,zoom_top,zoom_left
     };
-    // The LCD mailbox carries requested zoom; network observers get the
-    // actual frame-latched view. Feeding actual zoom into the LCD request
-    // mailbox would prevent the request from ever taking effect.
+    // LCD gets requests; host observers get the last coherently observed
+    // frame-latched geometry. Neither observation is a video-frame ACK.
     wire [255:0] ui_observed_now = {
-        ui_snapshot_now[255:208],7'd0,lcd_zoom_sync[1],ui_snapshot_now[199:0]
+        ui_snapshot_now[255:208],7'd0,lcd_view_data[27:19]!=9'd256,
+        ui_snapshot_now[199:32],lcd_view_data
     };
     always @(posedge clk50M) begin
         ui_ack_sync<={ui_ack_sync[1:0],ui_mailbox_ack};
+        ui_lcd_ack_sync<={ui_lcd_ack_sync[1:0],ui_lcd_ack};
         actual_filter_sync<={actual_filter_sync[0],gaussian_active};
         if (!reset_sync) begin
             selection_seen<=0; capture_seen<=0; clear_seen<=0;
@@ -511,6 +563,7 @@ module vision_robot_ui_top (
             ui_ticks<=0; ui_sequence<=0; ui_mailbox_data<=0;
             ui_mailbox_request<=0; ui_ack_sync<=0;
             ui_lcd_mailbox_data<=0; ui_lcd_mailbox_request<=0;
+            ui_lcd_focus_mailbox<={10'd400,9'd240}; ui_lcd_tick_divider<=0; ui_lcd_ack_sync<=0;
         end else begin
             selection_seen<=selection_toggle;
             capture_seen<=capture_toggle;
@@ -518,11 +571,19 @@ module vision_robot_ui_top (
             if (selection_seen!=selection_toggle) selection_count<=selection_count+1'b1;
             if (capture_seen!=capture_toggle) capture_count<=capture_count+1'b1;
             if (clear_seen!=clear_toggle) clear_count<=clear_count+1'b1;
+            // Local UI updates about 60 Hz, independently of 10 Hz UDP status.
+            // Hold the whole bundle unchanged until the destination ACKs it.
+            if (ui_lcd_tick_divider==20'd833332) begin
+                ui_lcd_tick_divider<=0;
+                if (ui_lcd_mailbox_request==ui_lcd_ack_sync[2]) begin
+                    ui_lcd_mailbox_data<=ui_snapshot_now;
+                    ui_lcd_focus_mailbox<={focus_x,focus_y};
+                    ui_lcd_mailbox_request<=~ui_lcd_mailbox_request;
+                end
+            end else ui_lcd_tick_divider<=ui_lcd_tick_divider+1'b1;
             if (ui_tick_divider==23'd4999999) begin
                 ui_tick_divider<=0;
                 ui_ticks<=ui_ticks+1'b1;
-                ui_lcd_mailbox_data<=ui_snapshot_now;
-                ui_lcd_mailbox_request<=~ui_lcd_mailbox_request;
                 if (ui_mailbox_request==ui_ack_sync[2]) begin
                     ui_mailbox_data<=ui_observed_now;
                     ui_sequence<=ui_sequence+1'b1;
@@ -541,19 +602,22 @@ module vision_robot_ui_top (
         .tx_read(udp_payload_read), .tx_done(net_tx_done)
     );
 
-    // The mailbox changes at most once per 100 ms; data is stable before
-    // the three-flop request reaches the LCD domain. Snapshot whole bundle.
+    // Handshaked bundle: request crosses three flops, then data is sampled.
     reg [2:0] ui_lcd_request_sync=0;
     reg ui_lcd_request_seen=0;
     reg [255:0] ui_lcd_data=0;
+    reg [18:0] ui_lcd_focus={10'd400,9'd240};
+    assign ui_lcd_ack=ui_lcd_request_seen;
     always @(posedge pixel_clk or negedge pixel_reset_n) begin
         if (!pixel_reset_n) begin
-            ui_lcd_request_sync<=0; ui_lcd_request_seen<=0; ui_lcd_data<=0;
+            ui_lcd_request_sync<=0; ui_lcd_request_seen<=0;
+            ui_lcd_data<={224'd0,32'h08000000}; ui_lcd_focus<={10'd400,9'd240};
         end else begin
             ui_lcd_request_sync<={ui_lcd_request_sync[1:0],ui_lcd_mailbox_request};
             if (ui_lcd_request_sync[2]!=ui_lcd_request_seen) begin
                 ui_lcd_request_seen<=ui_lcd_request_sync[2];
                 ui_lcd_data<=ui_lcd_mailbox_data;
+                ui_lcd_focus<=ui_lcd_focus_mailbox;
             end
         end
     end

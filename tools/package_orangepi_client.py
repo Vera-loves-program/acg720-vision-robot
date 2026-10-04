@@ -24,8 +24,8 @@ def main():
     args = parser.parse_args()
     entries = {name: (ROOT / name).read_bytes() for name in FILES}
     entries["README.md"] = (ROOT / GUIDE).read_bytes()
-    manifest = {"client_bundle_version": 5, "minimum_python": "3.10",
-                "fpga_profile": "R4", "entry_point": "client.py",
+    manifest = {"client_bundle_version": 6, "minimum_python": "3.10",
+                "fpga_profile": "R4/R5", "entry_point": "client.py",
                 "root_folder": PREFIX,
                 "sha256": {name: hashlib.sha256(data).hexdigest() for name, data in entries.items()}}
     args.output.parent.mkdir(parents=True, exist_ok=True)
