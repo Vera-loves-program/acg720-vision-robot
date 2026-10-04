@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Show FPGA UDP video with a local visual-debug interaction preview.
 
-Double-clicking selects a source-coordinate target intent. No detector, tracker,
-NPU inference or motor control runs here. Preview zoom does not alter received
-pixels or dataset images. Existing VRB1 control commands have no acknowledgement.
+Zoom mode uses double-click to set a source-coordinate focus. Visual Debug uses
+double-click to select/cancel a target intent. No detector, tracker, NPU inference
+or motor control runs here. Preview zoom never changes received/dataset pixels.
+Existing VRB1 control commands have no acknowledgement.
 """
 
 from __future__ import annotations
@@ -28,12 +29,15 @@ WINDOW_NAME = "VERA Vision Lab - FPGA UDP Viewer"
 # AUTOSIZE keeps mouse coordinates equal to these displayed canvas coordinates.
 VIDEO_RECT = (20, 84, 820, 564)
 BUTTON_RECTS = {
-    "debug": (852, 330, 1036, 366),
-    "filter": (852, 375, 1036, 411),
-    "reset_view": (852, 420, 1036, 456),
-    "cancel_target": (852, 465, 1036, 501),
-    "stop": (852, 510, 1036, 546),
-    "clear": (852, 555, 1036, 591),
+    "debug": (852, 320, 1036, 350),
+    "zoom_mode": (852, 356, 1036, 386),
+    "zoom_out": (852, 392, 940, 422),
+    "zoom_in": (948, 392, 1036, 422),
+    "filter": (852, 428, 1036, 458),
+    "reset_view": (852, 464, 1036, 494),
+    "cancel_target": (852, 500, 1036, 530),
+    "stop": (852, 536, 1036, 566),
+    "clear": (852, 572, 1036, 602),
 }
 
 
@@ -72,6 +76,9 @@ class ViewerState:
     zoom: float = 1.0
     center_x: float = WIDTH / 2
     center_y: float = HEIGHT / 2
+    zoom_mode: bool = False
+    zoom_focus: tuple[float, float] | None = None
+    lcd_crop: tuple[int, int, int, int] | None = None
     target: TargetIntent | None = None
     has_frame: bool = False
     ui_telemetry: UITelemetry | None = None
@@ -80,6 +87,8 @@ class ViewerState:
     pending_commands: list[tuple[int, int]] = field(default_factory=list)
 
     def crop_bounds(self) -> tuple[int, int, int, int]:
+        if self.lcd_crop is not None:
+            return self.lcd_crop
         width = max(1, min(WIDTH, round(WIDTH / self.zoom)))
         height = max(1, min(HEIGHT, round(HEIGHT / self.zoom)))
         left = max(0, min(WIDTH - width, round(self.center_x - width / 2)))
@@ -96,22 +105,52 @@ class ViewerState:
 
     def zoom_at(self, display_x: int, display_y: int, direction: int) -> None:
         point = self.source_point(display_x, display_y)
-        if point is None or direction == 0:
+        if point is None or direction == 0 or not self.has_frame:
             return
-        next_zoom = max(1.0, min(4.0, self.zoom * (1.25 if direction > 0 else 0.8)))
-        x0, y0, x1, y1 = VIDEO_RECT
-        fx = (display_x - x0) / (x1 - x0)
-        fy = (display_y - y0) / (y1 - y0)
+        self.zoom_mode = True
+        self.zoom_focus = point
+        self.change_zoom(direction)
+
+    def _set_preview_zoom(self, next_zoom: float, focus: tuple[float, float]) -> None:
+        """Center a local crop on a source point, clamping only at image edges."""
+        self.lcd_crop = None
+        next_zoom = max(1.0, min(4.0, next_zoom))
         width, height = round(WIDTH / next_zoom), round(HEIGHT / next_zoom)
         self.zoom = next_zoom
-        self.center_x = max(width / 2, min(WIDTH - width / 2, point[0] + (0.5 - fx) * width))
-        self.center_y = max(height / 2, min(HEIGHT - height / 2, point[1] + (0.5 - fy) * height))
+        self.center_x = max(width / 2, min(WIDTH - width / 2, focus[0]))
+        self.center_y = max(height / 2, min(HEIGHT - height / 2, focus[1]))
+
+    def set_zoom_focus(self, source_x: float, source_y: float) -> None:
+        self.zoom_focus = (max(0.0, min(WIDTH - 1.0, source_x)),
+                           max(0.0, min(HEIGHT - 1.0, source_y)))
+        self._set_preview_zoom(self.zoom, self.zoom_focus)
+        self.notice = "Zoom focus set; +/- changes local preview only. Source pixels are unchanged."
+
+    def change_zoom(self, direction: int) -> None:
+        if direction == 0 or not self.has_frame:
+            return
+        if self.zoom_focus is None:
+            self.zoom_focus = self.target.point if self.target else (self.center_x, self.center_y)
+        self._set_preview_zoom(self.zoom * (1.25 if direction > 0 else 0.8), self.zoom_focus)
+        self.notice = f"Local preview {self.zoom:.2f}x around focus; no FPGA zoom command sent."
+
+    def double_click(self, display_x: int, display_y: int) -> TargetIntent | None:
+        point = self.source_point(display_x, display_y)
+        if point is None or not self.has_frame:
+            return None
+        if self.zoom_mode:
+            self.set_zoom_focus(*point)
+            return None
+        return self.select_target(display_x, display_y)
 
     def select_target(self, display_x: int, display_y: int) -> TargetIntent | None:
-        if not self.debug_mode or not self.has_frame:
+        if self.zoom_mode or not self.debug_mode or not self.has_frame:
             return None
         point = self.source_point(display_x, display_y)
         if point is None:
+            return None
+        if self.target is not None and contains(self.target.roi, *point):
+            self.action("cancel_target")
             return None
         return self.select_source_target(*point)
 
@@ -146,13 +185,30 @@ class ViewerState:
         self.ui_telemetry = packet
         self.ui_seen_at = time.monotonic()
         self.debug_mode = packet.debug
-        if baseline or previous.zoom_code != packet.zoom_code:
-            self.zoom = 1.0 if packet.zoom_code == 0 else 2.0
-            # R4's FPGA LCD enlarges the central 400x240 camera rectangle.
-            # Match that crop in the half-resolution network view, even if a
-            # selected target is off-centre. Mouse-wheel zoom remains separate.
-            self.center_x = WIDTH / 2
-            self.center_y = HEIGHT / 2
+        def transform(observation: UITelemetry) -> tuple:
+            if observation.version == 2:
+                return (2, observation.zoom_step_q8, observation.view_origin_x,
+                        observation.view_origin_y, observation.zoom_mode)
+            return (1, observation.zoom_code)
+
+        if baseline or transform(previous) != transform(packet):
+            # Fresh sequence numbers with an unchanged transform must not
+            # continuously undo local mouse/button zoom.
+            if packet.version == 2:
+                step = packet.zoom_step_q8
+                crop_width = (800 * step + 255) // 256
+                crop_height = (480 * step + 255) // 256
+                left, top = packet.view_origin_x // 2, packet.view_origin_y // 2
+                right = (packet.view_origin_x + crop_width + 1) // 2
+                bottom = (packet.view_origin_y + crop_height + 1) // 2
+                self.lcd_crop = (left, top, right, bottom)
+                self.zoom = 256 / step
+                self.center_x, self.center_y = (left + right) / 2, (top + bottom) / 2
+                self.zoom_mode = packet.zoom_mode
+            else:
+                self._set_preview_zoom(1.0 if packet.zoom_code == 0 else 2.0,
+                                       (WIDTH / 2, HEIGHT / 2))
+            self.zoom_focus = (self.center_x, self.center_y)
         if baseline:
             self.target = None
             if packet.selected:
@@ -162,9 +218,13 @@ class ViewerState:
         if packet.clear_counter != previous.clear_counter:
             self.target = None
             self.notice = "LCD requested target cancellation; local target cleared."
-        if packet.selection_counter != previous.selection_counter and packet.selected:
-            self.select_source_target(packet.camera_x // 2, packet.camera_y // 2)
-            self.notice = "LCD selected target; tracker is not connected. No motion command sent."
+        if packet.selection_counter != previous.selection_counter:
+            if packet.selected:
+                self.select_source_target(packet.camera_x // 2, packet.camera_y // 2)
+                self.notice = "LCD selected target; tracker is not connected. No motion command sent."
+            else:
+                self.target = None
+                self.notice = "LCD cancelled target by double-click; local target cleared."
         if packet.capture_counter != previous.capture_counter:
             self.notice = "LCD CAPTURE pressed: stop viewer and run capture_dataset.py to save photos."
         return True
@@ -174,12 +234,22 @@ class ViewerState:
             self.debug_mode = not self.debug_mode
             self.pending_commands.append((2, int(self.debug_mode)))
             self.notice = "Visual debug: double-click a target. FPGA debug request has no ACK."
+        elif name == "zoom_mode":
+            self.zoom_mode = not self.zoom_mode
+            self.notice = ("Zoom mode: double-click a focus, then use +/- or wheel. Local preview only."
+                           if self.zoom_mode else
+                           "Zoom mode OFF. Visual Debug double-click selects/cancels an ROI; no tracker connected.")
+        elif name in ("zoom_in", "zoom_out"):
+            self.zoom_mode = True
+            self.change_zoom(1 if name == "zoom_in" else -1)
         elif name == "filter":
             self.filter_requested = True if self.filter_requested is None else not self.filter_requested
             self.pending_commands.append((1, int(self.filter_requested)))
             self.notice = "Filter request sent without ACK; capture images reflect received pixels."
         elif name == "reset_view":
-            self.zoom, self.center_x, self.center_y = 1.0, WIDTH / 2, HEIGHT / 2
+            self._set_preview_zoom(1.0, (WIDTH / 2, HEIGHT / 2))
+            self.zoom_focus = None
+            self.zoom_mode = False
             self.notice = "Preview view reset. Source image and target coordinates are unchanged."
             if self.has_recent_ui():
                 self.pending_commands.append((6, 0))
@@ -242,6 +312,13 @@ def render(frame: np.ndarray | None, stats: dict, state: ViewerState) -> np.ndar
         # Resize only the preview. Never assign this crop back to the source frame.
         canvas[84:564, 20:820] = cv2.resize(frame[top:bottom, left:right], (800, 480),
                                           interpolation=cv2.INTER_NEAREST)
+        if state.zoom_mode and state.zoom_focus is not None:
+            view = canvas[84:564, 20:820]
+            px = round((state.zoom_focus[0] - left) * 800 / (right - left))
+            py = round((state.zoom_focus[1] - top) * 480 / (bottom - top))
+            if 0 <= px < 800 and 0 <= py < 480:
+                cv2.line(view, (px - 12, py), (px + 12, py), blue, 2)
+                cv2.line(view, (px, py - 12), (px, py + 12), blue, 2)
         if state.debug_mode and state.target is not None:
             view = canvas[84:564, 20:820]
             rx0, ry0, rx1, ry1 = state.target.roi
@@ -264,6 +341,8 @@ def render(frame: np.ndarray | None, stats: dict, state: ViewerState) -> np.ndar
     text(f"BAD PACKETS {stats['bad']}", 852, 240, 0.38)
     if frame is not None and stats.get("age", 0.0) > 2.0:
         text("VIDEO STALE", 852, 265, 0.44, red, 2)
+    elif state.zoom_mode:
+        text("ZOOM FOCUS MODE", 852, 265, 0.40, blue, 2)
     elif state.target is not None:
         text("TARGET SELECTED", 852, 265, 0.42, blue, 2)
     else:
@@ -279,6 +358,9 @@ def render(frame: np.ndarray | None, stats: dict, state: ViewerState) -> np.ndar
     filter_label = "?" if state.filter_requested is None else ("ON" if state.filter_requested else "OFF")
     labels = {
         "debug": f"VISUAL DEBUG {'ON' if state.debug_mode else 'OFF'}",
+        "zoom_mode": f"ZOOM MODE {'ON' if state.zoom_mode else 'OFF'}",
+        "zoom_out": "- ZOOM",
+        "zoom_in": "+ ZOOM",
         "filter": f"GAUSS REQUEST {filter_label}",
         "reset_view": "RESET VIEW / 1x",
         "cancel_target": "CANCEL TARGET",
@@ -286,23 +368,23 @@ def render(frame: np.ndarray | None, stats: dict, state: ViewerState) -> np.ndar
         "clear": "REQUEST CLEAR",
     }
     for name, (x0, y0, x1, y1) in BUTTON_RECTS.items():
-        active = name == "debug" and state.debug_mode
+        active = (name == "debug" and state.debug_mode) or (name == "zoom_mode" and state.zoom_mode)
         color = blue if active else (red if name == "stop" else white)
         cv2.rectangle(canvas, (x0 + 3, y0 + 3), (x1 + 3, y1 + 3), ink, -1)
         cv2.rectangle(canvas, (x0, y0), (x1, y1), color, -1)
         cv2.rectangle(canvas, (x0, y0), (x1, y1), ink, 2)
-        text(labels[name], x0 + 7, y0 + 23, 0.36, white if active else ink)
+        text(labels[name], x0 + 7, y0 + 21, 0.36, white if active else ink)
     text("F / D / E / R / Q", 852, 612, 0.35)
     text("PREVIEW ZOOM ONLY / SOURCE PIXELS UNCHANGED", 20, 602, 0.45, blue, 1)
     if telemetry is None:
-        text("No R3 touch telemetry received. Local interactions remain available.", 20, 626, 0.40)
+        text("No FPGA touch telemetry received. Local interactions remain available.", 20, 626, 0.40)
     else:
         age = time.monotonic() - state.ui_seen_at
         observed = "LAST OBSERVED" if age < 3.0 else "STALE OBSERVATION"
         text(f"{observed}: GAUSS {int(telemetry.gaussian_on)} / STOP {int(telemetry.stop)} / "
              f"TOUCH {telemetry.contacts} / ERROR {telemetry.touch_error} / AGE {age:.1f}s",
              20, 626, 0.40, blue if age < 3.0 else red)
-    text("Debug: double-click target | wheel: zoom | V: reset view | C: cancel | Q: quit", 20, 652, 0.46)
+    text("Z: zoom mode | +/-: zoom | double-click: focus or ROI | V: reset | C: cancel | Q: quit", 20, 652, 0.43)
     text(state.notice[:113], 20, 680, 0.41,
          red if state.stop_requested or (telemetry is not None and telemetry.stop) else ink)
     text("Selections are local UI intents. No object recognition, tracking or motor motion is active.",
@@ -352,9 +434,11 @@ def main() -> None:
         if event == cv2.EVENT_LBUTTONDOWN:
             state.click(x, y)
         elif event == cv2.EVENT_LBUTTONDBLCLK:
-            selected = state.select_target(x, y)
+            selected = state.double_click(x, y)
             if selected:
                 print(f"Selected target intent: point={selected.point}, ROI={selected.roi}; tracker not connected.")
+            elif contains(VIDEO_RECT, x, y) and state.has_frame:
+                print(state.notice)
         elif event == cv2.EVENT_MOUSEWHEEL:
             delta = (flags >> 16) & 0xFFFF
             if delta >= 0x8000:
@@ -362,8 +446,9 @@ def main() -> None:
             state.zoom_at(x, y, 1 if delta > 0 else (-1 if delta < 0 else 0))
 
     print(f"Listening on {args.bind}:{args.port}; expected FPGA source {args.expected_source}")
-    print("Visual Debug + double-click selects an intent; wheel zooms preview only. No tracker is connected.")
-    print("Keys: F filter request, D visual debug, E stop request, R clear request, V reset view, C cancel, Q quit")
+    print("Zoom mode: double-click focus, +/- or wheel changes preview. Debug: double-click selects/cancels an ROI.")
+    print("No detector/tracker is connected. Preview zoom never changes received or saved pixels.")
+    print("Keys: Z zoom mode, +/- zoom, F filter request, D debug, E stop request, R clear request, V reset, C cancel, Q quit")
     print("Stop this viewer before running capture_dataset.py; both receive the same UDP port.")
     try:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
@@ -417,7 +502,8 @@ def main() -> None:
                 print("Viewer stopped: image window closed.", flush=True)
                 break
             key_actions = {ord("f"): "filter", ord("d"): "debug", ord("e"): "stop", ord("r"): "clear",
-                           ord("v"): "reset_view", ord("c"): "cancel_target"}
+                           ord("v"): "reset_view", ord("c"): "cancel_target", ord("z"): "zoom_mode",
+                           ord("+"): "zoom_in", ord("="): "zoom_in", ord("-"): "zoom_out"}
             if key in key_actions:
                 state.action(key_actions[key])
             while state.pending_commands:

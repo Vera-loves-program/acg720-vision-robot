@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draw R4's source-defined cards/bitmap glyphs without compiling FPGA RTL.
+"""Draw R5's source-defined cards/bitmap glyphs without compiling FPGA RTL.
 
 This is a layout preview, not an HDL simulator or a timing/resource check.
 Requires Pillow; runtime state and the illustrative camera scene are examples.
@@ -21,7 +21,7 @@ def rgb565(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output', type=Path, default=ROOT.parent / 'deliverables/lcd-ui-r4.png')
+    parser.add_argument('--output', type=Path, default=ROOT.parent / 'deliverables/lcd-ui.png')
     parser.add_argument('--svg', type=Path, default=ROOT / 'docs/ui_preview.svg')
     parser.add_argument('--zoom', action='store_true')
     args = parser.parse_args()
@@ -33,7 +33,7 @@ def main():
     image = Image.new('RGB', (1024, 600), colours['BACKGROUND'])
     draw = ImageDraw.Draw(image)
     svg = ['<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="600" viewBox="0 0 1024 600">',
-           '<title>R4 LCD UI layout preview; camera scene is illustrative.</title>']
+           '<title>R5 LCD UI layout preview; camera scene is illustrative.</title>']
 
     def rect(x0, y0, x1, y1, colour):
         colour = colours.get(colour, colour)
@@ -75,26 +75,24 @@ def main():
         if int(x0) < 828:
             continue
         if '?' in colour:
-            colour = 'BLUE'  # example: DEBUG ON
+            colour = 'BLUE'  # example: debug/zoom modes ON
         rect(int(x0), int(y0), int(x1), int(y1), colour)
 
     rect(416, 284, 417, 309, 'BLUE')
     rect(404, 296, 429, 297, 'BLUE')
-    half_width, half_height = (80, 60) if args.zoom else (40, 30)
-    left, top, right, bottom = (416-half_width, 296-half_height,
-                                416+half_width, 296+half_height)
-    rect(left, top, left+1, bottom+1, 'ORANGE')
-    rect(right, top, right+1, bottom+1, 'ORANGE')
-    rect(left, top, right+1, top+1, 'ORANGE')
-    rect(left, bottom, right+1, bottom+1, 'ORANGE')
+    if not args.zoom:
+        left, top, right, bottom = (376, 266, 456, 326)
+        rect(left, top, left+1, bottom+1, 'ORANGE')
+        rect(right, top, right+1, bottom+1, 'ORANGE')
+        rect(left, top, right+1, top+1, 'ORANGE')
+        rect(left, bottom, right+1, bottom+1, 'ORANGE')
 
     # Values below choose runtime text examples; positions and clipping are RTL.
-    examples = {84: ('CAM DDR OK', 'GREEN'), 126: ('DEBUG ON', 'WHITE'),
-                168: ('TOUCH OK', 'GREEN'), 192: ('FINGERS 2', 'MUTED'),
-                242: ('GAUSS ON', 'BLUE'), 268: ('PHY INIT', 'GREEN'),
-                314: ('ROI SET', 'BLUE'), 362: ('VIEW 2X' if args.zoom else 'VIEW 1X', 'BLUE'),
+    examples = {14: ('TP OK', 'BLUE'), 84: ('CAM DDR OK', 'GREEN'), 126: ('DEBUG ON', 'WHITE'),
+                258: ('GAUSS ON', 'BLUE'), 282: ('PHY INIT', 'GREEN'),
+                314: ('FOCUS POINT', 'BLUE'), 362: ('VIEW 2.00X' if args.zoom else 'VIEW 1.00X', 'BLUE'),
                 506: ('NO MOTOR', 'MUTED'), 558: ('GAUSS 3X3', 'BLUE'),
-                582: ('DOUBLE TAP ROI', 'MUTED')}
+                582: ('TAP TAP FOCUS', 'MUTED')}
     label_pattern = (r"label_text=(.*?); label_x=11'd(\d+); label_y=10'd(\d+);\s*"
                      r"label_right=11'd(\d+); label_color=(.*?);")
     bounds = []
@@ -104,6 +102,8 @@ def main():
             text, colour = examples[y]
         else:
             text = re.search(r'"([^"]*)"', expr).group(1).rstrip()
+            if '?' in colour:
+                colour = 'WHITE'  # illustrated ZOOM IN MODE is enabled
         assert x + len(text) * 12 <= right, (text, x, right)
         # Test all complete string alternatives, not only the rendered example.
         for alternative in re.findall(r'"([^"]*)"', expr):
