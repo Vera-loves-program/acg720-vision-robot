@@ -40,7 +40,7 @@ Invoke-PublishGit fetch origin main
 Invoke-PublishGit pull --ff-only origin main
 
 $publishFiles = [Collections.Generic.List[string]]::new()
-foreach ($name in @('README.md', '.gitignore')) {
+foreach ($name in @('README.md', '.gitignore', 'client.py')) {
     $publishFiles.Add($name)
 }
 Get-ChildItem -LiteralPath $projectRoot -File -Filter '*.gprj' |
