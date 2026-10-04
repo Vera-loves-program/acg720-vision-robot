@@ -25,6 +25,7 @@ import zlib
 from video_stream import (CompleteFrame, FrameAssembler, HEIGHT, WIDTH,
                           rgb565_bytes_to_bgr, rgb565_bytes_to_rgb)
 from ui_telemetry import UITelemetry, parse_ui_telemetry
+from highgui_window import WindowCloseMonitor, report_gui
 
 
 def safe_name(value: str) -> str:
@@ -374,6 +375,8 @@ def main() -> int:
     try:
         if not args.burst:
             cv2.namedWindow(window, cv2.WINDOW_AUTOSIZE | getattr(cv2, "WINDOW_GUI_NORMAL", 0))
+            report_gui(cv2)
+            window_monitor = WindowCloseMonitor(cv2, window)
         while True:
             if receiver.error:
                 raise receiver.error
@@ -454,6 +457,7 @@ def main() -> int:
             cv2.imshow(window, canvas)
             key = cv2.waitKey(1) & 0xFF
             if key in (27, ord("q"), ord("Q")):
+                print("Capture stopped: Q/Esc pressed.", flush=True)
                 break
             if key in (ord("1"), ord("2"), ord("3")):
                 if burst is None:
@@ -466,7 +470,8 @@ def main() -> int:
                     burst = start_burst()
                 else:
                     print("Burst already running.")
-            if cv2.getWindowProperty(window, cv2.WND_PROP_VISIBLE) < 1:
+            if window_monitor.closed():
+                print("Capture stopped: image window closed.", flush=True)
                 break
     except KeyboardInterrupt:
         print("Capture stopped by user.")

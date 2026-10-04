@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 
 from video_stream import FrameAssembler, HEIGHT, WIDTH, rgb565_bytes_to_bgr
 from ui_telemetry import MAGIC as UI_MAGIC, UITelemetry, parse_ui_telemetry
+from highgui_window import WindowCloseMonitor, report_gui
 
 if TYPE_CHECKING:
     import numpy as np
@@ -367,6 +368,8 @@ def main() -> None:
     try:
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
         cv2.setMouseCallback(WINDOW_NAME, mouse_event)
+        report_gui(cv2)
+        window_monitor = WindowCloseMonitor(cv2, WINDOW_NAME)
         while True:
             for _ in range(1000):
                 try:
@@ -407,7 +410,11 @@ def main() -> None:
             key = cv2.waitKey(1) & 0xFF
             if ord("A") <= key <= ord("Z"):
                 key += ord("a") - ord("A")
-            if key in (ord("q"), 27) or cv2.getWindowProperty(WINDOW_NAME, cv2.WND_PROP_VISIBLE) < 1:
+            if key in (ord("q"), 27):
+                print("Viewer stopped: Q/Esc pressed.", flush=True)
+                break
+            if window_monitor.closed():
+                print("Viewer stopped: image window closed.", flush=True)
                 break
             key_actions = {ord("f"): "filter", ord("d"): "debug", ord("e"): "stop", ord("r"): "clear",
                            ord("v"): "reset_view", ord("c"): "cancel_target"}
@@ -424,6 +431,8 @@ def main() -> None:
                     state.notice = f"Command send failed: {exc}"
                     print(state.notice)
             time.sleep(0.005)
+    except KeyboardInterrupt:
+        print("Viewer stopped: Ctrl+C pressed.", flush=True)
     finally:
         sock.close()
         cv2.destroyAllWindows()

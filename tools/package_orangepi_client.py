@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = (
     "client.py",
     "pc/udp_probe.py", "pc/udp_video_viewer.py", "pc/capture_dataset.py",
-    "pc/video_stream.py", "pc/ui_telemetry.py", "pc/requirements.txt",
+    "pc/video_stream.py", "pc/ui_telemetry.py", "pc/highgui_window.py", "pc/requirements.txt",
     "tools/fix_orangepi_apt.py",
 )
 GUIDE = "docs/香橙派使用说明.md"
@@ -24,7 +24,7 @@ def main():
     args = parser.parse_args()
     entries = {name: (ROOT / name).read_bytes() for name in FILES}
     entries["README.md"] = (ROOT / GUIDE).read_bytes()
-    manifest = {"client_bundle_version": 4, "minimum_python": "3.10",
+    manifest = {"client_bundle_version": 5, "minimum_python": "3.10",
                 "fpga_profile": "R4", "entry_point": "client.py",
                 "root_folder": PREFIX,
                 "sha256": {name: hashlib.sha256(data).hexdigest() for name, data in entries.items()}}
