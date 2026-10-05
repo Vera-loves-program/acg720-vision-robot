@@ -11,6 +11,13 @@ module vision_robot_ui_top (
     output wire        TFT_de,
     output wire        TFT_pwm,
     output wire [7:0]  led,
+    // Temporary P7 sensor demo; independent of video/DDR/ethernet clocks.
+    inout  wire        sensor_scl,
+    inout  wire        sensor_sda,
+    output wire        ultrasonic_trig,
+    input  wire        ultrasonic_echo,
+    output wire        bluetooth_tx,
+    input  wire        bluetooth_rx,
     output wire        rgmii_gtxc,
     output wire [3:0]  rgmii_txd,
     output wire        rgmii_txen,
@@ -71,6 +78,42 @@ module vision_robot_ui_top (
             else startup_count <= startup_count + 1'b1;
         end
     end
+
+    // Same 50 MHz clock; UART commands affect telemetry only.
+    wire imu_demo_valid, us_demo_valid;
+    wire [7:0] imu_demo_who, imu_demo_error, us_demo_error;
+    wire [31:0] imu_demo_samples, us_demo_samples;
+    wire signed [15:0] imu_gx, imu_gy, imu_gz, imu_ax, imu_ay, imu_az;
+    wire [15:0] us_distance_mm;
+    wire [23:0] demo_report_period;
+    wire [31:0] demo_command_count, demo_rx_errors;
+    wire [7:0] demo_last_command;
+    sensor_demo_commands u_demo_commands (
+        .clk(clk50M), .reset_n(ready), .rx(bluetooth_rx),
+        .period_cycles(demo_report_period), .command_count(demo_command_count),
+        .last_command(demo_last_command), .rx_errors(demo_rx_errors)
+    );
+    lsm6dsv16x_demo u_imu_demo (
+        .clk(clk50M), .reset_n(ready), .scl(sensor_scl), .sda(sensor_sda),
+        .valid(imu_demo_valid), .who_am_i(imu_demo_who), .error_code(imu_demo_error),
+        .sample_count(imu_demo_samples), .gx(imu_gx), .gy(imu_gy), .gz(imu_gz),
+        .ax(imu_ax), .ay(imu_ay), .az(imu_az)
+    );
+    cs100a_demo u_us_demo (
+        .clk(clk50M), .reset_n(ready), .echo(ultrasonic_echo),
+        .trig(ultrasonic_trig), .valid(us_demo_valid), .error_code(us_demo_error),
+        .sample_count(us_demo_samples), .distance_mm(us_distance_mm)
+    );
+    sensor_demo_uart u_sensor_demo_uart (
+        .clk(clk50M), .reset_n(ready),
+        .imu_valid(imu_demo_valid), .imu_who(imu_demo_who), .imu_error(imu_demo_error),
+        .imu_samples(imu_demo_samples), .gx(imu_gx), .gy(imu_gy), .gz(imu_gz),
+        .ax(imu_ax), .ay(imu_ay), .az(imu_az), .us_valid(us_demo_valid),
+        .us_error(us_demo_error), .us_samples(us_demo_samples),
+        .distance_mm(us_distance_mm), .period_cycles(demo_report_period),
+        .command_count(demo_command_count), .last_command(demo_last_command),
+        .rx_errors(demo_rx_errors), .tx(bluetooth_tx)
+    );
 
     // S4 is debounced. A press toggles the filter, initially ON.
     reg button_meta = 1'b1, button_sync = 1'b1;

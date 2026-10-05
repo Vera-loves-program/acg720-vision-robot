@@ -15,6 +15,11 @@
     <File path="src/video_400x240_packetizer.v" type="file.verilog" enable="1"/>
     <File path="src/udp_ui_command_parser.v" type="file.verilog" enable="1"/>
     <File path="src/udp_detection_feedback.v" type="file.verilog" enable="1"/>
+    <File path="src/sensor_i2c_master.v" type="file.verilog" enable="1"/>
+    <File path="src/lsm6dsv16x_demo.v" type="file.verilog" enable="1"/>
+    <File path="src/cs100a_demo.v" type="file.verilog" enable="1"/>
+    <File path="src/sensor_demo_uart.v" type="file.verilog" enable="1"/>
+    <File path="src/sensor_demo_commands.v" type="file.verilog" enable="1"/>
     <File path="src/gowin_pll_45/gowin_pll.v" type="file.verilog" enable="1"/>
     <File path="src/gowin_pll_45/gowin_pll_mod.v" type="file.verilog" enable="1"/>
     <File path="src/gowin_pll_45/pll_init.v" type="file.verilog" enable="1"/>

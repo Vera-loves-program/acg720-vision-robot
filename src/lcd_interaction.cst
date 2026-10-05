@@ -238,3 +238,20 @@ IO_LOC "rgmii_rxd[0]" V17;
 IO_PORT "rgmii_rxd[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
 IO_LOC "rgmii_rx_clk" W19;
 IO_PORT "rgmii_rx_clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+
+// Temporary sensor demo on the actual 20x2 P7 header (60K board).
+// P7 1=SCL, 2=SDA: open drain, external/module pull-ups to 3.3 V required.
+IO_LOC "sensor_scl" A13;
+IO_PORT "sensor_scl" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "sensor_sda" A14;
+IO_PORT "sensor_sda" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4 BANK_VCCIO=3.3;
+// P7 9=TRIG, 10=ECHO. No 5 V logic may be connected directly to these GPIO.
+IO_LOC "ultrasonic_trig" E13;
+IO_PORT "ultrasonic_trig" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "ultrasonic_echo" E14;
+IO_PORT "ultrasonic_echo" IO_TYPE=LVCMOS33 PULL_MODE=DOWN BANK_VCCIO=3.3;
+// P7 28=FPGA_TX -> HC-06 RX, P7 31=FPGA_RX <- HC-06 TX (3.3 V UART).
+IO_LOC "bluetooth_tx" C19;
+IO_PORT "bluetooth_tx" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "bluetooth_rx" F16;
+IO_PORT "bluetooth_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
