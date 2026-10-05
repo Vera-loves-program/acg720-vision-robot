@@ -4,7 +4,7 @@
 
 日常操作只看 [香橙派使用说明](docs/香橙派使用说明.md)：包含解压、网络、SSH、收图、拍照、目录清理、PCB 规划、显示方案和 Flash 固化。旧版本入口和重复指南已清理，历史自编文件可在 Git 中查看。
 
-当前两项设计资料：[扩展板规划](docs/扩展板规划.md)含学习助手分工、传感器初始化、完整 P7 分配和电机抗干扰方案；[视觉模型与数据检查](docs/视觉模型与数据检查.md)包含 YuNet 人脸检测、YOLOv5n 玩偶微调及框选跟踪步骤。模型、学习计时、语音和电机跟随尚未接入。
+当前两项设计资料：[扩展板规划](docs/扩展板规划.md)含学习助手分工、传感器初始化、完整 P7 分配和电机抗干扰方案；[视觉模型与数据检查](docs/视觉模型与数据检查.md)记录队友最新交付的 **YOLOv8n 玩偶检测模型**。已准备 CPU ONNX 模型、实时接收检测程序和 FPGA 检测框显示源码；本地离线检查已通过，香橙派性能及 LCD 回传尚待实测。YuNet、人脸标签、目标关联、学习计时、语音和电机跟随未接入。
 
 当前链路：OV5640 800×480 RGB565 → FPGA/DDR3 → 可切换高斯滤波 → 1024×600 RGB LCD；同时发送 400×240 RGB565 UDP 图像。R5 源码加入以双指位置为锚点的 1～4×细分缩放、双指平移，以及 ZOOM IN MODE 双击选中心和 +/− 按钮。显示取图使用完整 RGB565 源像素；网口仍发送全画面，采集照片不包含 UI 或本地放大裁剪。
 
@@ -16,8 +16,10 @@
 | 顶层/约束 | `src/vision_robot_ui_top.v`、`src/lcd_interaction.cst`、`src/lcd_interaction.sdc` |
 | 当前位流 | `impl/pnr/vision_robot_ui.fs`，由用户编译/烧录 |
 | SSPI/CPU 复用脚设置 | `impl/vision_robot_ui_process_config.json` |
-| 香橙派统一入口 | `client.py`，支持 `view`、`probe`、`capture`、`burst` |
+| 香橙派统一入口 | `client.py`，支持 `view`、`probe`、`capture`、`burst`、`detect` |
 | 客户端打包 | `tools/package_orangepi_client.py` |
+| 玩偶模型准备 | `tools/prepare_dog_model.py`；本地 `models/dog_plush/`，权重不提交 Git |
+| 检测及框回传 | `pc/detect_dog.py`；`src/udp_detection_feedback.v`，UDP 5001 的 DET1 包 |
 | 照片 | `dataset/`，不发布到 GitHub |
 | 电脑端录像 | `pc/record_video.py`，操作见使用说明第 6.2 节；视频在 `dataset/videos/` |
 
@@ -25,4 +27,4 @@ FPGA 固定 `192.168.10.2`，接收端有线接口 `192.168.10.3/24`，图像 UD
 
 完整本地工程保留 `src/vendor` 和 `src/gowin_pll_45` 的厂商依赖。公开仓库仅同步自编源码、配置和文档，不能把公开仓库当成这些 IP、位流、照片的完整备份。编译请使用保留厂商依赖的本地工程。
 
-维护时先 pull，保存自编源码后同步 GitHub；厂商代码和个人照片不发布。保持同一个工程与同名客户端 ZIP，不再新增版本目录。保留 SSPI/CPU 复用脚、DDR3 校准与时钟设置；本轮只调整 LCD 裁剪读取起始行和 UI 逻辑，摄像头写入、DDR PHY、网口图像格式不变。
+维护时先 pull，保存自编源码后同步 GitHub；厂商代码、模型权重和个人照片不发布。保持同一个工程与同名客户端 ZIP，不再新增版本目录。保留 SSPI/CPU 复用脚、DDR3 校准与时钟设置；最新增加 DET1 接收和绿色检测框，摄像头写入、DDR PHY、CST 和网口图像格式未改动。实操见使用说明第 17 节。

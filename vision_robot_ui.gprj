@@ -14,6 +14,7 @@
     <File path="src/gaussian3x3_rgb565.v" type="file.verilog" enable="1"/>
     <File path="src/video_400x240_packetizer.v" type="file.verilog" enable="1"/>
     <File path="src/udp_ui_command_parser.v" type="file.verilog" enable="1"/>
+    <File path="src/udp_detection_feedback.v" type="file.verilog" enable="1"/>
     <File path="src/gowin_pll_45/gowin_pll.v" type="file.verilog" enable="1"/>
     <File path="src/gowin_pll_45/gowin_pll_mod.v" type="file.verilog" enable="1"/>
     <File path="src/gowin_pll_45/pll_init.v" type="file.verilog" enable="1"/>
@@ -46,4 +47,3 @@
     <File path="src/lcd_interaction.sdc" type="file.sdc" enable="1"/>
   </FileList>
 </Project>
-

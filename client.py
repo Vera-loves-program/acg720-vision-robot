@@ -12,13 +12,16 @@ ROOT = Path(__file__).resolve().parent
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="ACG720 Orange Pi client: view video, capture photos, or inspect UDP.",
+        description="ACG720 Orange Pi client: view, capture, inspect UDP, or detect dog.",
         epilog="Examples: python3 client.py view; python3 client.py capture; python3 client.py burst --class dog_plush",
     )
-    parser.add_argument("action", choices=("view", "capture", "burst", "probe"),
-                        help="view=video window; capture=5-second photo bursts; burst=one burst without GUI; probe=UDP statistics")
+    parser.add_argument("action", choices=("view", "capture", "burst", "probe", "detect"),
+                        help="view=video; capture=photo GUI; burst=headless photos; probe=UDP stats; detect=dog model")
     args, extra = parser.parse_known_args()
-    if args.action == "view":
+    if args.action == "detect":
+        script = "detect_dog.py"
+        defaults = ["--bind", "192.168.10.3", "--model", str(ROOT / "models/dog_plush/dog_plush_best.onnx")]
+    elif args.action == "view":
         script = "udp_video_viewer.py"
         defaults = ["--bind", "192.168.10.3"]
     elif args.action in ("capture", "burst"):

@@ -293,6 +293,8 @@ module vision_robot_ui_top (
             net_pixel_sync<={net_pixel_sync[0],net_ready};
         end
     end
+    wire detection_request, detection_ack;
+    wire [255:0] detection_mailbox;
     lcd1024_interaction_ui u_lcd (
         .clk(pixel_clk), .run(pixel_run_pipe[1]),
         .camera_pixel(camera_pixel_read),
@@ -314,6 +316,8 @@ module vision_robot_ui_top (
         .zoom_left(ui_lcd_data[9:0]), .zoom_top(ui_lcd_data[18:10]),
         .focus_x(ui_lcd_focus[18:9]), .focus_y(ui_lcd_focus[8:0]),
         .stop_latched(stop_pixel_sync[1]),
+        .detection_request(detection_request), .detection_data(detection_mailbox),
+        .detection_ack(detection_ack),
         .camera_pop(camera_pop), .frame_restart(frame_restart),
         .display_step(lcd_view_step), .display_left(lcd_view_left),
         .display_top(lcd_view_top), .ddr_read_base(lcd_ddr_read_base),
@@ -436,6 +440,14 @@ module vision_robot_ui_top (
         .debug_crc_check(),
         .gmii_rx_clk(gmii_rx_clk), .gmii_rxdv(gmii_rxdv),
         .gmii_rxd(gmii_rxd)
+    );
+    udp_detection_feedback u_detection_feedback (
+        .clk(gmii_rx_clk), .reset_n(net_pll_locked && pixel_reset_n),
+        .payload_valid(rx_payload_valid), .payload_byte(rx_payload_byte),
+        .payload_length(rx_payload_length),
+        .packet_done(rx_packet_done), .packet_error(rx_packet_error),
+        .display_ack(detection_ack), .display_request(detection_request),
+        .display_data(detection_mailbox)
     );
     wire command_toggle, valid_command_seen;
     wire [7:0] command_code, command_value;

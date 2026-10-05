@@ -21,3 +21,8 @@ datasets/
 captures/
 diagnostics/
 *.probe.json
+
+# Locally prepared private model artifacts are delivered in the client ZIP.
+models/dog_plush/*.pt
+models/dog_plush/*.onnx
+models/dog_plush/*.onnx.data

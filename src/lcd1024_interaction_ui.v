@@ -13,6 +13,9 @@ module lcd1024_interaction_ui (
     input wire zoom_mode,
     input wire [8:0] zoom_step, zoom_top, focus_y,
     input wire [9:0] zoom_left, focus_x,
+    input wire detection_request,
+    input wire [255:0] detection_data,
+    output reg detection_ack = 0,
     output wire camera_pop, frame_restart,
     output wire [8:0] display_step, display_top,
     output wire [9:0] display_left,
@@ -43,6 +46,47 @@ module lcd1024_interaction_ui (
     wire [10:0] fetch_x_wide = ax-11'd15;
     wire [9:0] fetch_y_wide = ay-10'd56;
     assign frame_restart = run && h==H_TOTAL-1'b1 && v==V_TOTAL-1'b1;
+    // A toggle handshake protects the multi-bit CDC mailbox. Commit only
+    // in vertical blanking, so one LCD frame never contains two different boxes.
+    reg [2:0] detection_sync = 0;
+    reg detection_seen = 0, detection_valid = 0, detection_box = 0;
+    reg [5:0] detection_age_frames = 6'd60;
+    reg [9:0] dog_x0 = 0, dog_x1 = 0;
+    reg [8:0] dog_y0 = 0, dog_y1 = 0;
+    reg [9:0] dog_confidence = 0;
+    always @(posedge clk or negedge run) begin
+        if (!run) begin
+            detection_sync<=0; detection_ack<=0;
+            detection_seen<=0; detection_valid<=0; detection_box<=0;
+            detection_age_frames<=6'd60;
+            dog_x0<=0; dog_x1<=0; dog_y0<=0; dog_y1<=0; dog_confidence<=0;
+        end else begin
+            detection_sync<={detection_sync[1:0],detection_request};
+            if (frame_restart) begin
+                if (detection_sync[2]!=detection_ack) begin
+                    detection_ack<=detection_sync[2]; detection_seen<=1;
+                    detection_age_frames<=0;
+                    detection_valid<=detection_data[209];
+                    detection_box<=detection_data[208];
+                    dog_confidence<=detection_data[201:192];
+                    // Host uses 400x240, exclusive right/bottom edges;
+                    // camera source uses 800x480, inclusive overlay edges.
+                    dog_x0<={detection_data[136:128],1'b0};
+                    dog_y0<={detection_data[119:112],1'b0};
+                    dog_x1<=({detection_data[104:96],1'b0})-10'd1;
+                    dog_y1<=({detection_data[87:80],1'b0})-9'd1;
+                end else if (detection_age_frames<6'd60) begin
+                    detection_age_frames<=detection_age_frames+1'b1;
+                    if (detection_age_frames==6'd59) begin
+                        detection_valid<=0; detection_box<=0;
+                    end
+                end
+            end
+        end
+    end
+    wire [7:0] dog_whole=8'h30+dog_confidence/10'd1000;
+    wire [7:0] dog_tenths=8'h30+(dog_confidence/10'd100)%10'd10;
+    wire [7:0] dog_hundredths=8'h30+(dog_confidence/10'd10)%10'd10;
     wire [15:0] display_pixel;
     wire display_valid, zoom_active, zoom_ready;
     wire [9:0] sampled_x;
@@ -219,8 +263,11 @@ module lcd1024_interaction_ui (
             label_right=11'd560; label_color=MUTED;
         end
         else if (ay>=10'd582 && ay<10'd598 && ax>=11'd600 && ax<11'd856) begin
-            label_text="HOST SAVES PHOTO"; label_x=11'd600; label_y=10'd582;
-            label_right=11'd856; label_color=MUTED;
+            label_text=!detection_seen ? "AI WAIT         " : detection_age_frames==6'd60 ? "AI STALE        " :
+                !detection_valid ? "AI INVALID      " : !detection_box ? "NO DOG          " :
+                {"DOG ",dog_whole,".",dog_tenths,dog_hundredths,"        "};
+            label_x=11'd600; label_y=10'd582;
+            label_right=11'd856; label_color=detection_valid && detection_box ? GREEN : MUTED;
         end
         else label_enable=1'b0;
     end
@@ -259,6 +306,12 @@ module lcd1024_interaction_ui (
     wire [9:0] raw_source_y=ay-10'd56;
     wire [9:0] source_x=zoom_active ? sampled_x : raw_source_x[9:0];
     wire [8:0] source_y=zoom_active ? sampled_y : raw_source_y[8:0];
+    // Four source pixels give a visible border at 1x, using the existing
+    // sampled coordinates automatically follows R5 pan/zoom and clips it.
+    wire dog_border=detection_valid && detection_box && source_x>=dog_x0 &&
+        source_x<=dog_x1 && source_y>=dog_y0 && source_y<=dog_y1 &&
+        (source_x-dog_x0<10'd4 || dog_x1-source_x<10'd4 ||
+         source_y-dog_y0<9'd4 || dog_y1-source_y<9'd4);
     wire [9:0] roi_x0=selection_x>40 ? selection_x-10'd40 : 10'd0;
     wire [9:0] roi_x1=selection_x<759 ? selection_x+10'd40 : 10'd799;
     wire [8:0] roi_y0=selection_y>30 ? selection_y-10'd30 : 9'd0;
@@ -307,6 +360,7 @@ module lcd1024_interaction_ui (
                 (((source_x==roi_x0 || source_x==roi_x1) && source_y>=roi_y0 && source_y<=roi_y1) ||
                  ((source_y==roi_y0 || source_y==roi_y1) && source_x>=roi_x0 && source_x<=roi_x1)))
                 base_color=ORANGE;
+            if (video_area && display_valid && dog_border) base_color=GREEN;
         end
     end
 

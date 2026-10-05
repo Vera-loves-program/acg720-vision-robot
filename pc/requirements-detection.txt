@@ -1,0 +1,4 @@
+# Linux x86_64 / ARM64, Python 3.10+: inference only, no PyTorch/CUDA/training.
+# Keep the already working system OpenCV; install these in a dedicated venv.
+numpy>=1.23.5,<2
+onnxruntime==1.22.1
