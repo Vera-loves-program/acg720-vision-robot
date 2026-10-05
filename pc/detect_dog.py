@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Detect dog_plush on CPU, from a file or the existing FPGA UDP stream."""
+"""Detect dog_plush and human faces on CPU, from a file or FPGA UDP."""
 from __future__ import annotations
 
 import argparse
@@ -14,11 +14,31 @@ import time
 from capture_dataset import Receiver
 from detection_feedback import encode_feedback, MAX_RESULT_AGE_MS
 from dog_inference import DogDetector, annotate
+from face_inference import FaceDetector, annotate_faces
 from highgui_window import WindowCloseMonitor, report_gui
 from video_stream import FrameAssembler, rgb565_bytes_to_bgr
 
 ROOT = Path(__file__).resolve().parents[1]
-WINDOW = "ACG720 dog detection (Q/Esc to quit)"
+WINDOW = "ACG720 human + dog (Q/Esc to quit)"
+
+
+class VisionDetector:
+    def __init__(self, args):
+        self.dog = DogDetector(args.model, args.confidence, args.iou, args.threads)
+        self.face = None if args.no_face else FaceDetector(args.face_model, args.face_confidence, args.face_iou, args.threads)
+
+    def predict(self, image):
+        started = time.perf_counter()
+        boxes = self.dog.predict(image)
+        dog_ms = (time.perf_counter() - started) * 1000
+        started = time.perf_counter()
+        faces = self.face.predict(image) if self.face else []
+        face_ms = (time.perf_counter() - started) * 1000 if self.face else 0.0
+        return boxes, faces, dog_ms, face_ms
+
+
+def render(image, boxes, faces):
+    return annotate_faces(annotate(image, boxes), faces)
 
 
 @dataclass(frozen=True)
@@ -27,6 +47,9 @@ class Result:
     image: object
     boxes: list
     inference_ms: float
+    faces: list
+    dog_ms: float
+    face_ms: float
 
 
 class LatestDetector:
@@ -57,9 +80,9 @@ class LatestDetector:
                     continue
                 started = time.perf_counter()
                 image = rgb565_bytes_to_bgr(frame.pixels, frame.row_byte_order)
-                boxes = self.detector.predict(image)
+                boxes, faces, dog_ms, face_ms = self.detector.predict(image)
                 elapsed = (time.perf_counter() - started) * 1000
-                self.latest = Result(frame, image, boxes, elapsed)
+                self.latest = Result(frame, image, boxes, elapsed, faces, dog_ms, face_ms)
                 self.count += 1
         except Exception as exc:
             self.error = exc
@@ -84,12 +107,13 @@ def offline(args, detector, cv2, monitor):
     started = time.perf_counter()
     try:
         if image is not None:
-            boxes = detector.predict(image)
-            rendered = annotate(image, boxes)
+            boxes, faces, dog_ms, face_ms = detector.predict(image)
+            rendered = render(image, boxes, faces)
             target = args.output / f"{source.stem}_detected.jpg"
             if not cv2.imwrite(str(target), rendered):
                 raise RuntimeError(f"Cannot save {target}")
-            records.append(dict(frame=1, boxes=[asdict(b) for b in boxes]))
+            records.append(dict(frame=1, boxes=[asdict(b) for b in boxes], faces=[asdict(f) for f in faces],
+                                dog_ms=dog_ms, face_ms=face_ms))
             show(cv2, monitor, rendered, args.headless)
         else:
             capture = cv2.VideoCapture(str(source))
@@ -109,10 +133,11 @@ def offline(args, detector, cv2, monitor):
                     if not writer.isOpened():
                         raise RuntimeError(f"Cannot create {target}")
                 tick = time.perf_counter()
-                boxes = detector.predict(image)
+                boxes, faces, dog_ms, face_ms = detector.predict(image)
                 records.append(dict(frame=len(records) + 1, inference_ms=(time.perf_counter() - tick) * 1000,
-                                    boxes=[asdict(b) for b in boxes]))
-                rendered = annotate(image, boxes)
+                                    boxes=[asdict(b) for b in boxes], faces=[asdict(f) for f in faces],
+                                    dog_ms=dog_ms, face_ms=face_ms))
+                rendered = render(image, boxes, faces)
                 writer.write(rendered)
                 if show(cv2, monitor, rendered, args.headless):
                     break
@@ -127,9 +152,10 @@ def offline(args, detector, cv2, monitor):
             capture.release()
     report = dict(source=str(source), scope="Offline CPU inference; no ground-truth accuracy or board claim",
                   frames=len(records), frames_with_dog=sum(bool(r["boxes"]) for r in records),
+                  frames_with_human=sum(bool(r["faces"]) for r in records),
                   elapsed_seconds=time.perf_counter() - started, detections=records)
     (args.output / f"{source.stem}_detections.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(f"Saved {target}; frames={len(records)}, dog_frames={report['frames_with_dog']}", flush=True)
+    print(f"Saved {target}; frames={len(records)}, dog_frames={report['frames_with_dog']}, human_frames={report['frames_with_human']}", flush=True)
     return 0
 
 
@@ -183,18 +209,19 @@ def live(args, detector, cv2, monitor):
                 last_result, last_sent, invalid_sent = result, now, False
                 records.append(dict(frame=result.frame.frame_number, inference_ms=result.inference_ms,
                                     age_ms=round((now - result.frame.started_at) * 1000),
-                                    boxes=[asdict(b) for b in result.boxes]))
+                                    boxes=[asdict(b) for b in result.boxes], faces=[asdict(f) for f in result.faces],
+                                    dog_ms=result.dog_ms, face_ms=result.face_ms))
             elif not fresh and not invalid_sent:
                 send()
                 invalid_sent = True
             if now - last_log >= 1:
-                status = "waiting/stale" if not fresh else f"dog={len(result.boxes)} infer={result.inference_ms:.1f}ms"
+                status = "waiting/stale" if not fresh else f"dog={len(result.boxes)} human={len(result.faces)} infer={result.inference_ms:.1f}ms (dog={result.dog_ms:.1f}, face={result.face_ms:.1f})"
                 print(f"complete={receiver.stats()['complete_frames']} inferred={worker.count} skipped={worker.skipped} {status}", flush=True)
                 last_log = now
             if not args.headless:
                 import numpy as np
-                image = annotate(result.image, result.boxes if fresh else []) if result else np.zeros((240, 400, 3), np.uint8)
-                status = f"dog={len(result.boxes)} CPU {result.inference_ms:.0f}ms" if fresh else "WAIT / STALE: detection cleared"
+                image = render(result.image, result.boxes if fresh else [], result.faces if fresh else []) if result else np.zeros((240, 400, 3), np.uint8)
+                status = f"dog={len(result.boxes)} human={len(result.faces)} CPU {result.inference_ms:.0f}ms" if fresh else "WAIT / STALE: detection cleared"
                 cv2.putText(image, status, (4, 232), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 240, 240), 1)
                 if show(cv2, monitor, image, False):
                     break
@@ -222,6 +249,10 @@ def live(args, detector, cv2, monitor):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=Path, default=ROOT / "models/dog_plush/dog_plush_best.onnx")
+    parser.add_argument("--face-model", type=Path, default=ROOT / "models/face_yunet/face_detection_yunet_2026may.onnx")
+    parser.add_argument("--face-confidence", type=float, default=.6)
+    parser.add_argument("--face-iou", type=float, default=.3)
+    parser.add_argument("--no-face", action="store_true", help="Run the original dog-only comparison")
     parser.add_argument("--source", help="Offline image/video; never sends FPGA feedback")
     parser.add_argument("--output", type=Path, default=ROOT / "dataset/model_validation")
     parser.add_argument("--bind", default="192.168.10.3")
@@ -238,11 +269,14 @@ def main():
     parser.add_argument("--feedback-port", type=int, default=5001)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
-    if not 0 < args.confidence <= 1 or not 0 < args.iou <= 1 or args.threads < 1 or args.seconds < 0:
+    if not 0 < args.confidence <= 1 or not 0 < args.iou <= 1 or args.threads < 1 or args.seconds < 0 or not 0 < args.face_confidence <= 1 or not 0 < args.face_iou <= 1:
         parser.error("Invalid confidence, IoU, threads or duration")
     try:
         import cv2
-        detector = DogDetector(args.model, args.confidence, args.iou, args.threads)
+        detector = VisionDetector(args)
+        print(f"dog: YOLOv8n CPU conf={args.confidence}; human: " +
+              ("disabled" if args.no_face else f"YuNet CPU conf={args.face_confidence}"), flush=True)
+        print("FPGA DET1 still carries dog only; human labels are on the host preview/report.", flush=True)
         if not args.headless:
             report_gui(cv2)
             cv2.namedWindow(WINDOW, cv2.WINDOW_AUTOSIZE)

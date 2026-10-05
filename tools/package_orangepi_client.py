@@ -12,6 +12,7 @@ FILES = (
     "pc/udp_probe.py", "pc/udp_video_viewer.py", "pc/capture_dataset.py",
     "pc/video_stream.py", "pc/ui_telemetry.py", "pc/highgui_window.py", "pc/requirements.txt",
     "pc/detect_dog.py", "pc/dog_inference.py", "pc/detection_feedback.py", "pc/requirements-detection.txt",
+    "pc/face_inference.py",
     "tools/fix_orangepi_apt.py",
 )
 GUIDE = "docs/香橙派使用说明.md"
@@ -28,9 +29,14 @@ def main():
     if model.is_file():
         for name in ("models/dog_plush/dog_plush_best.onnx", "models/dog_plush/manifest.json"):
             entries[name] = (ROOT / name).read_bytes()
+    face = ROOT / "models/face_yunet/face_detection_yunet_2026may.onnx"
+    if face.is_file():
+        for name in ("models/face_yunet/face_detection_yunet_2026may.onnx", "models/face_yunet/manifest.json", "models/face_yunet/LICENSE"):
+            entries[name] = (ROOT / name).read_bytes()
     entries["README.md"] = (ROOT / GUIDE).read_bytes()
-    manifest = {"client_bundle_version": 7, "minimum_python": "3.10",
+    manifest = {"client_bundle_version": 8, "minimum_python": "3.10",
                 "dog_model_included": model.is_file(),
+                "face_model_included": face.is_file(),
                 "fpga_profile": "R4/R5", "entry_point": "client.py",
                 "root_folder": PREFIX,
                 "sha256": {name: hashlib.sha256(data).hexdigest() for name, data in entries.items()}}

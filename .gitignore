@@ -26,3 +26,4 @@ diagnostics/
 models/dog_plush/*.pt
 models/dog_plush/*.onnx
 models/dog_plush/*.onnx.data
+models/face_yunet/*.onnx

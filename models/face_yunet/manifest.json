@@ -1,0 +1,31 @@
+{
+  "model_family": "YuNet",
+  "model_file": "face_detection_yunet_2026may.onnx",
+  "model_sha256": "ebafce4e3c118d6554634be5c27ab333b4c047a9a8c3faf1d7cf93101c22f0f0",
+  "model_bytes": 229738,
+  "source_repository": "https://github.com/opencv/opencv_zoo",
+  "source_revision": "47534e27c9851bb1128ccc0102f1145e27f23f98",
+  "source_url": "https://media.githubusercontent.com/media/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/face_detection_yunet/face_detection_yunet_2026may.onnx",
+  "license": "MIT",
+  "deployment_family": "YuNet-CPU-ONNX",
+  "display_label": "human",
+  "meaning": "face detection, no identity or full-body detection",
+  "preprocessing": "native BGR float32 0..255; zero pad right/bottom to multiple of 32; NCHW",
+  "output_names": [
+    "cls_8",
+    "cls_16",
+    "cls_32",
+    "obj_8",
+    "obj_16",
+    "obj_32",
+    "bbox_8",
+    "bbox_16",
+    "bbox_32",
+    "kps_8",
+    "kps_16",
+    "kps_32"
+  ],
+  "score_threshold": 0.6,
+  "nms_threshold": 0.3,
+  "board_validation": "pending user test"
+}

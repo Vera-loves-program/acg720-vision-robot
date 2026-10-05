@@ -80,6 +80,7 @@ class LiveTests(unittest.TestCase):
             import onnxruntime
         except ImportError:
             self.skipTest("Run live model check in inference environment")
+        face_present = (ROOT / "models/face_yunet/face_detection_yunet_2026may.onnx").is_file()
         with tempfile.TemporaryDirectory() as directory, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as monitor:
             monitor.bind(("127.0.0.1", 0))
             monitor.settimeout(.2)
@@ -90,7 +91,7 @@ class LiveTests(unittest.TestCase):
             process = subprocess.Popen([sys.executable, str(ROOT / "pc/detect_dog.py"), "--headless",
                 "--bind", "127.0.0.1", "--port", str(port), "--expected-source", "127.0.0.1",
                 "--feedback-ip", "127.0.0.1", "--feedback-port", str(monitor.getsockname()[1]),
-                "--seconds", "3", "--report", str(report)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                "--seconds", "3", "--report", str(report), *([] if face_present else ["--no-face"])], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             packets = []
             try:
                 lines = []
@@ -119,6 +120,8 @@ class LiveTests(unittest.TestCase):
                 data = json.loads(report.read_text())
                 self.assertGreater(data["inferred"], 0)
                 self.assertEqual(data["receiver"]["bad_packets"], 0)
+                if face_present:
+                    self.assertTrue(any(row["face_ms"] > 0 for row in data["detections"]))
             finally:
                 if process.poll() is None:
                     process.kill()

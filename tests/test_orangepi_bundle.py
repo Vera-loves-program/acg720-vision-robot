@@ -15,6 +15,36 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PortableClientTests(unittest.TestCase):
+    def test_extracted_combined_detector_loads_both_models(self):
+        try:
+            import onnxruntime
+        except ImportError:
+            self.skipTest("Inference environment needed")
+        source = ROOT / "dataset/captures/20261003_212720_481564/vera/burst001_000001.png"
+        if not source.is_file() or not (ROOT / "models/face_yunet/face_detection_yunet_2026may.onnx").is_file():
+            self.skipTest("Prepared models/private source not present")
+        with tempfile.TemporaryDirectory(prefix="acg720-combined-") as directory:
+            temporary = Path(directory)
+            archive = temporary / "client.zip"
+            subprocess.run([sys.executable, str(ROOT / "tools/package_orangepi_client.py"),
+                            "--output", str(archive)], check=True, capture_output=True)
+            with zipfile.ZipFile(archive) as bundle:
+                self.assertIsNone(bundle.testzip())
+                bundle.extractall(temporary)
+            client = temporary / "acg720_vision"
+            manifest = json.loads((client / "manifest.json").read_text())
+            self.assertTrue(manifest["face_model_included"])
+            self.assertTrue(manifest["dog_model_included"])
+            for name, expected in manifest["sha256"].items():
+                self.assertEqual(hashlib.sha256((client / name).read_bytes()).hexdigest(), expected)
+            result = subprocess.run([sys.executable, str(client / "client.py"), "detect", "--headless",
+                                     "--source", str(source), "--output", str(temporary / "output")],
+                                    cwd=temporary, capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads((temporary / "output/burst001_000001_detections.json").read_text())
+            self.assertGreater(report["frames_with_human"], 0)
+            self.assertIn("YuNet CPU", result.stdout)
+
     def test_extracted_launcher_receives_and_saves_frame(self):
         with tempfile.TemporaryDirectory(prefix="acg720-bundle-") as directory:
             temporary = Path(directory)
