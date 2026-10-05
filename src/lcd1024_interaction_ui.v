@@ -1,4 +1,4 @@
-// R5: separate cards, clipped bitmap text and source-anchored 1x..4x zoom.
+// R5: source-anchored 1x..4x zoom, unit-bearing sensors, zoom/stop buttons only.
 // Camera/DDR timing and the 800x480 viewport remain at the verified geometry.
 module lcd1024_interaction_ui (
     input wire clk, run,
@@ -16,6 +16,9 @@ module lcd1024_interaction_ui (
     input wire detection_request,
     input wire [255:0] detection_data,
     output reg detection_ack = 0,
+    input wire sensor_text_request,
+    input wire [1023:0] sensor_text_data,
+    output reg sensor_text_ack = 0,
     output wire camera_pop, frame_restart,
     output wire [8:0] display_step, display_top,
     output wire [9:0] display_left,
@@ -46,6 +49,24 @@ module lcd1024_interaction_ui (
     wire [10:0] fetch_x_wide = ax-11'd15;
     wire [9:0] fetch_y_wide = ay-10'd56;
     assign frame_restart = run && h==H_TOTAL-1'b1 && v==V_TOTAL-1'b1;
+    // Unit-bearing sensor text is held in the 50 MHz source mailbox until
+    // this frame-boundary ACK. No raw multi-bit sensor bus crosses to pixels.
+    reg [2:0] sensor_request_sync = 0;
+    reg [1023:0] sensor_rows = {"SENSOR WAIT     ","GX ----.--DPS   ","GY ----.--DPS   ","GZ ----.--DPS   ",
+        "AX -.---G       ","AY -.---G       ","AZ -.---G       ","US WAIT         "};
+    always @(posedge clk or negedge run) begin
+        if (!run) begin
+            sensor_request_sync<=0; sensor_text_ack<=0;
+            sensor_rows<={"SENSOR WAIT     ","GX ----.--DPS   ","GY ----.--DPS   ","GZ ----.--DPS   ",
+                "AX -.---G       ","AY -.---G       ","AZ -.---G       ","US WAIT         "};
+        end else begin
+            sensor_request_sync<={sensor_request_sync[1:0],sensor_text_request};
+            if (frame_restart && sensor_request_sync[2]!=sensor_text_ack) begin
+                sensor_rows<=sensor_text_data;
+                sensor_text_ack<=sensor_request_sync[2];
+            end
+        end
+    end
     // A toggle handshake protects the multi-bit CDC mailbox. Commit only
     // in vertical blanking, so one LCD frame never contains two different boxes.
     reg [2:0] detection_sync = 0;
@@ -194,53 +215,49 @@ module lcd1024_interaction_ui (
             label_text=!camera_ready ? "CAM WAIT        " : !ddr_pll_ready ? "PLL WAIT        " : !ddr_ready ? "DDR WAIT        " : "CAM DDR OK      "; label_x=11'd840; label_y=10'd84;
             label_right=11'd1000; label_color=camera_ready && ddr_ready && ddr_pll_ready ? GREEN : RED;
         end
-        else if (ay>=10'd126 && ay<10'd142 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=debug_mode ? "DEBUG ON        " : "VIS DEBUG       "; label_x=11'd840; label_y=10'd126;
-            label_right=11'd1000; label_color=debug_mode ? WHITE : BLUE;
+        else if (ay>=10'd126 && ay<10'd142 && ax>=11'd836 && ax<11'd1008) begin
+            label_text=zoom_active && !zoom_ready ? "ZOOM WAIT       " : {"VIEW ",scale_units,".",scale_tenths,scale_hundredths,"X      "};
+            label_x=11'd836; label_y=10'd126; label_right=11'd1008; label_color=BLUE;
         end
-        else if (ay>=10'd174 && ay<10'd190 && ax>=11'd840 && ax<11'd1000) begin
-            label_text="ZOOM IN MODE    "; label_x=11'd840; label_y=10'd174;
-            label_right=11'd1000; label_color=zoom_mode ? WHITE : BLUE;
+        else if (ay>=10'd174 && ay<10'd190 && ax>=11'd836 && ax<11'd1008) begin
+            label_text="ZOOM IN MODE    "; label_x=11'd836; label_y=10'd174;
+            label_right=11'd1008; label_color=zoom_mode ? WHITE : BLUE;
         end
-        else if (ay>=10'd216 && ay<10'd232 && ax>=11'd864 && ax<11'd910) begin
-            label_text="+               "; label_x=11'd864; label_y=10'd216;
-            label_right=11'd910; label_color=zoom_mode ? BLUE : MUTED;
+        else if (ay>=10'd220 && ay<10'd236 && ax>=11'd836 && ax<11'd1008) begin
+            label_text=sensor_rows[1023 -: 128]; label_x=11'd836; label_y=10'd220;
+            label_right=11'd1008; label_color=INK;
         end
-        else if (ay>=10'd216 && ay<10'd232 && ax>=11'd952 && ax<11'd1000) begin
-            label_text="-               "; label_x=11'd952; label_y=10'd216;
-            label_right=11'd1000; label_color=zoom_mode ? BLUE : MUTED;
+        else if (ay>=10'd252 && ay<10'd268 && ax>=11'd836 && ax<11'd1008) begin
+            label_text=sensor_rows[895 -: 128]; label_x=11'd836; label_y=10'd252;
+            label_right=11'd1008; label_color=INK;
         end
-        else if (ay>=10'd258 && ay<10'd274 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=filter_active ? "GAUSS ON        " : "GAUSS OFF       "; label_x=11'd840; label_y=10'd258;
-            label_right=11'd1000; label_color=filter_active ? BLUE : MUTED;
+        else if (ay>=10'd284 && ay<10'd300 && ax>=11'd836 && ax<11'd1008) begin
+            label_text=sensor_rows[767 -: 128]; label_x=11'd836; label_y=10'd284;
+            label_right=11'd1008; label_color=INK;
         end
-        else if (ay>=10'd282 && ay<10'd298 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=net_ready ? "PHY INIT        " : "PHY WAIT        "; label_x=11'd840; label_y=10'd282;
-            label_right=11'd1000; label_color=net_ready ? GREEN : RED;
+        else if (ay>=10'd316 && ay<10'd332 && ax>=11'd836 && ax<11'd1008) begin
+            label_text=sensor_rows[639 -: 128]; label_x=11'd836; label_y=10'd316;
+            label_right=11'd1008; label_color=INK;
         end
-        else if (ay>=10'd314 && ay<10'd330 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=zoom_mode ? "FOCUS POINT     " : !selection_valid ? "NO TARGET       " : selection_visible ? "ROI REQUEST     " : "ROI OUT         "; label_x=11'd840; label_y=10'd314;
-            label_right=11'd1000; label_color=selection_valid ? BLUE : MUTED;
+        else if (ay>=10'd348 && ay<10'd364 && ax>=11'd836 && ax<11'd1008) begin
+            label_text=sensor_rows[511 -: 128]; label_x=11'd836; label_y=10'd348;
+            label_right=11'd1008; label_color=INK;
         end
-        else if (ay>=10'd338 && ay<10'd354 && ax>=11'd840 && ax<11'd1000) begin
-            label_text="TRACK OFF       "; label_x=11'd840; label_y=10'd338;
-            label_right=11'd1000; label_color=MUTED;
+        else if (ay>=10'd380 && ay<10'd396 && ax>=11'd836 && ax<11'd1008) begin
+            label_text=sensor_rows[383 -: 128]; label_x=11'd836; label_y=10'd380;
+            label_right=11'd1008; label_color=INK;
         end
-        else if (ay>=10'd362 && ay<10'd378 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=zoom_active && !zoom_ready ? "ZOOM WAIT       " : {"VIEW ",scale_units,".",scale_tenths,scale_hundredths,"X      "}; label_x=11'd840; label_y=10'd362;
-            label_right=11'd1000; label_color=zoom_active && !zoom_ready ? RED : BLUE;
+        else if (ay>=10'd412 && ay<10'd428 && ax>=11'd836 && ax<11'd1008) begin
+            label_text=sensor_rows[255 -: 128]; label_x=11'd836; label_y=10'd412;
+            label_right=11'd1008; label_color=INK;
         end
-        else if (ay>=10'd406 && ay<10'd422 && ax>=11'd840 && ax<11'd1000) begin
-            label_text="RESET VIEW      "; label_x=11'd840; label_y=10'd406;
-            label_right=11'd1000; label_color=BLUE;
+        else if (ay>=10'd444 && ay<10'd460 && ax>=11'd836 && ax<11'd1008) begin
+            label_text=sensor_rows[127 -: 128]; label_x=11'd836; label_y=10'd444;
+            label_right=11'd1008; label_color=INK;
         end
-        else if (ay>=10'd454 && ay<10'd470 && ax>=11'd840 && ax<11'd1000) begin
-            label_text="CAPTURE 5S      "; label_x=11'd840; label_y=10'd454;
-            label_right=11'd1000; label_color=WHITE;
-        end
-        else if (ay>=10'd506 && ay<10'd522 && ax>=11'd840 && ax<11'd1000) begin
-            label_text=stop_latched ? "STOP FLAG       " : "NO MOTOR        "; label_x=11'd840; label_y=10'd506;
-            label_right=11'd1000; label_color=stop_latched ? RED : MUTED;
+        else if (ay>=10'd510 && ay<10'd526 && ax>=11'd836 && ax<11'd1008) begin
+            label_text=stop_latched ? "STOP LATCHED    " : "EMERGENCY STOP  "; label_x=11'd836; label_y=10'd510;
+            label_right=11'd1008; label_color=WHITE;
         end
         else if (ay>=10'd558 && ay<10'd574 && ax>=11'd20 && ax<11'd280) begin
             label_text="CAM 800X480     "; label_x=11'd20; label_y=10'd558;
@@ -337,22 +354,10 @@ module lcd1024_interaction_ui (
             if (in_rect(ax,11'd829,11'd1011,ay,10'd53,10'd107)) base_color=WHITE;
             if (in_rect(ax,11'd832,11'd1008,ay,10'd160,10'd200)) base_color=BORDER;
             if (in_rect(ax,11'd833,11'd1007,ay,10'd161,10'd199)) base_color=zoom_mode ? BLUE : SOFT_BLUE;
-            if (in_rect(ax,11'd832,11'd916,ay,10'd208,10'd240)) base_color=BORDER;
-            if (in_rect(ax,11'd833,11'd915,ay,10'd209,10'd239)) base_color=zoom_mode ? SOFT_BLUE : WHITE;
-            if (in_rect(ax,11'd924,11'd1008,ay,10'd208,10'd240)) base_color=BORDER;
-            if (in_rect(ax,11'd925,11'd1007,ay,10'd209,10'd239)) base_color=zoom_mode ? SOFT_BLUE : WHITE;
-            if (in_rect(ax,11'd828,11'd1012,ay,10'd248,10'd300)) base_color=BORDER;
-            if (in_rect(ax,11'd829,11'd1011,ay,10'd249,10'd299)) base_color=WHITE;
-            if (in_rect(ax,11'd828,11'd1012,ay,10'd304,10'd384)) base_color=BORDER;
-            if (in_rect(ax,11'd829,11'd1011,ay,10'd305,10'd383)) base_color=WHITE;
-            if (in_rect(ax,11'd828,11'd1012,ay,10'd496,10'd536)) base_color=BORDER;
-            if (in_rect(ax,11'd829,11'd1011,ay,10'd497,10'd535)) base_color=WHITE;
-            if (in_rect(ax,11'd832,11'd1008,ay,10'd112,10'd152)) base_color=BORDER;
-            if (in_rect(ax,11'd833,11'd1007,ay,10'd113,10'd151)) base_color=debug_mode ? BLUE : SOFT_BLUE;
-            if (in_rect(ax,11'd832,11'd1008,ay,10'd392,10'd432)) base_color=BORDER;
-            if (in_rect(ax,11'd833,11'd1007,ay,10'd393,10'd431)) base_color=SOFT_BLUE;
-            if (in_rect(ax,11'd832,11'd1008,ay,10'd440,10'd488)) base_color=BORDER;
-            if (in_rect(ax,11'd833,11'd1007,ay,10'd441,10'd487)) base_color=BLUE;
+            if (in_rect(ax,11'd828,11'd1012,ay,10'd212,10'd476)) base_color=BORDER;
+            if (in_rect(ax,11'd829,11'd1011,ay,10'd213,10'd475)) base_color=WHITE;
+            if (in_rect(ax,11'd832,11'd1008,ay,10'd496,10'd536)) base_color=BORDER;
+            if (in_rect(ax,11'd833,11'd1007,ay,10'd497,10'd535)) base_color=RED;
             if (zoom_mode && video_area && display_valid &&
                 ((focus_dx<=6 && focus_dy==0) || (focus_dy<=6 && focus_dx==0))) base_color=BLUE;
             // User ROI only, not a detector/tracker result.

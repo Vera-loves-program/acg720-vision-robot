@@ -1,5 +1,7 @@
 // HC-06 command receiver: 50 MHz, 115200 baud, 8N1. All commands are single
-// ASCII bytes; CR/LF and unknown bytes are ignored. This is telemetry control
+// ASCII bytes; CR/LF and unknown bytes are ignored by P/F/S/N decoding.
+// Correctly framed bytes are also forwarded to the separate RTC time parser.
+// This is telemetry control
 // only. It contains no motor-enable, motor-start, or motion-command logic.
 //
 // P = ping/acknowledgement only; F = 20 Hz; S = 5 Hz; N = default 10 Hz.
@@ -16,7 +18,10 @@ module sensor_demo_commands #(
     output reg [23:0] period_cycles,
     output reg [31:0] command_count,
     output reg [7:0] last_command,
-    output reg [31:0] rx_errors
+    output reg [31:0] rx_errors,
+    // Raw correctly framed bytes for the independent RTC calibration parser.
+    output reg [7:0] rx_byte,
+    output reg rx_byte_valid
 );
     localparam BIT_CLOCKS = (CLK_HZ + BAUD/2) / BAUD;
     localparam HALF_BIT_CLOCKS = BIT_CLOCKS / 2;
@@ -52,11 +57,14 @@ module sensor_demo_commands #(
             command_count <= 0;
             last_command <= 0;
             rx_errors <= 0;
+            rx_byte <= 0;
+            rx_byte_valid <= 0;
             state <= WAIT_IDLE;
             bit_clock_count <= 0;
             bit_index <= 0;
             received <= 0;
         end else begin
+            rx_byte_valid <= 0;
             case (state)
                 WAIT_IDLE: begin
                     // At boot and after a framing error, wait for one whole
@@ -110,6 +118,8 @@ module sensor_demo_commands #(
                     if (bit_clock_count == BIT_CLOCKS - 1) begin
                         bit_clock_count <= 0;
                         if (rx_sync) begin
+                            rx_byte <= received;
+                            rx_byte_valid <= 1;
                             // There is still half a stop bit remaining. Go
                             // straight to edge detection to accept consecutive
                             // correctly framed bytes without requiring a gap.

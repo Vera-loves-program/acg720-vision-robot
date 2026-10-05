@@ -1,4 +1,5 @@
 // R5: source-anchored pinch and independent zoom/target modes. No motor output.
+// Sidebar accepts only ZOOM IN MODE and emergency stop; other controls are host-side.
 // Q8 inverse scale 256..64 = 1x..4x; variable division takes 24 control clocks.
 module touch_gestures #(parameter TAP_MAX_MS=600, DOUBLE_TAP_MAX_MS=450)(
     input wire clk, reset_n, touch_ready, snapshot_valid, snapshot_cancel,
@@ -18,6 +19,7 @@ module touch_gestures #(parameter TAP_MAX_MS=600, DOUBLE_TAP_MAX_MS=450)(
     output reg [9:0] focus_x,
     output reg [8:0] focus_y,
     output reg zoom_toggle, capture_toggle, clear_toggle,
+    output reg stop_pulse,
     output reg [3:0] click_event
 );
     reg [15:0] ms_divider, down_age, tap_age;
@@ -86,8 +88,6 @@ module touch_gestures #(parameter TAP_MAX_MS=600, DOUBLE_TAP_MAX_MS=450)(
     wire [17:0] height_q8=apply_step*9'd480+18'd255;
     wire [9:0] max_left=10'd800-width_q8[17:8];
     wire [8:0] max_top=9'd480-height_q8[16:8];
-    wire [12:0] plus_step=(zoom_step*4'd7)>>3;
-    wire [12:0] minus_step=(zoom_step*4'd9+13'd7)>>3;
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
             ms_divider<=0; down_age<=0; tap_age<=16'hffff; previous_count<=0;
@@ -98,11 +98,20 @@ module touch_gestures #(parameter TAP_MAX_MS=600, DOUBLE_TAP_MAX_MS=450)(
             pinch_step<=256; pinch_anchor_x<=0; pinch_anchor_y<=0;
             debug_mode<=0; selection_valid<=0; selection_x<=0; selection_y<=0; selection_toggle<=0;
             zoom_mode<=0; zoom_step<=256; zoom_left<=0; zoom_top<=0; focus_x<=400; focus_y<=240;
-            zoom_toggle<=0; capture_toggle<=0; clear_toggle<=0; click_event<=0;
+            zoom_toggle<=0; capture_toggle<=0; clear_toggle<=0; click_event<=0; stop_pulse<=0;
             calc_state<=CALC_IDLE; divide_count<=0; dividend<=0; quotient<=0; remainder<=0; divisor<=1;
             apply_step<=256; apply_mid_x<=0; apply_mid_y<=0; apply_anchor_x<=0; apply_anchor_y<=0;
         end else begin
             click_event<=0;
+            stop_pulse<=0;
+            // Latch an emergency-stop request on contact, without waiting for
+            // release or double-tap recognition. No motor hardware is connected.
+            if (snapshot_valid && !snapshot_cancel && touch_ready &&
+                ((contact_count!=0 && x0>=832 && x0<1008 && y0>=496 && y0<536) ||
+                 (contact_count==2 && x1>=832 && x1<1008 && y1>=496 && y1<536))) begin
+                stop_pulse<=1;
+                click_event<=8;
+            end
             if (ms_tick) begin
                 ms_divider<=0;
                 if (down_age!=16'hffff) down_age<=down_age+1'b1;
@@ -153,20 +162,8 @@ module touch_gestures #(parameter TAP_MAX_MS=600, DOUBLE_TAP_MAX_MS=450)(
                     end else if (contact_count==1) begin
                         if (previous_count==2 || id0!=down_id || move_dx>16 || move_dy>16) drag_or_multi<=1;
                     end else if (contact_count==0 && previous_count==1 && !drag_or_multi && down_age<=TAP_MAX_MS) begin
-                        if (down_in_sidebar && down_y>=112 && down_y<152) begin
-                            debug_mode<=!debug_mode; zoom_mode<=0; tap_pending<=0; click_event<=1;
-                        end else if (down_in_sidebar && down_y>=160 && down_y<200) begin
+                        if (down_in_sidebar && down_y>=160 && down_y<200) begin
                             zoom_mode<=!zoom_mode; tap_pending<=0; calc_state<=CALC_IDLE; click_event<=5;
-                        end else if (down_in_sidebar && down_y>=208 && down_y<240 && zoom_mode &&
-                                     (down_x<916 || down_x>=924)) begin
-                            apply_step<=down_x<920 ? (plus_step<64 ? 9'd64 : plus_step[8:0]) : (minus_step>256 ? 9'd256 : minus_step[8:0]);
-                            apply_anchor_x<={6'd0,focus_x,8'd0}; apply_anchor_y<={7'd0,focus_y,8'd0};
-                            apply_mid_x<=400; apply_mid_y<=240; calc_state<=CALC_APPLY; tap_pending<=0; click_event<=6;
-                        end else if (down_in_sidebar && down_y>=392 && down_y<432) begin
-                            zoom_step<=256; zoom_left<=0; zoom_top<=0; zoom_toggle<=!zoom_toggle;
-                            tap_pending<=0; calc_state<=CALC_IDLE; click_event<=2;
-                        end else if (down_in_sidebar && down_y>=440 && down_y<488) begin
-                            capture_toggle<=!capture_toggle; tap_pending<=0; click_event<=3;
                         end else if (down_in_video && (zoom_mode || debug_mode)) begin
                             if (tap_pending && tap_age<=DOUBLE_TAP_MAX_MS && tap_dx<=32 && tap_dy<=32) begin
                                 if (zoom_mode) begin

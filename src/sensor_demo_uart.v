@@ -1,24 +1,14 @@
-// Sensor demonstration telemetry: 50 MHz, 115200 baud, 8 data bits, no parity,
-// one stop bit. A complete snapshot is taken at the selected report interval.
-// The default interval is 100 ms. UART idles high.
-//
-// Numeric CSV only, followed by CR LF (VOFA+ FireWater compatible):
-// seq,imu_valid,imu_who,imu_error,imu_samples,gx,gy,gz,ax,ay,az,
-// us_valid,us_error,us_samples,distance_mm,cmd_count,last_cmd_ascii,rx_errors
-// The six axes are signed raw sensor counts; scaling belongs to the IMU setup.
-// Invalid IMU axes are 0. Invalid ultrasonic distance is -1. Consult the valid
-// flags and sample counters before interpreting a value as a new measurement.
-// This module transmits telemetry only; it does not accept motor commands.
+// Human-readable unit-bearing telemetry, 115200 8N1, default 10 Hz.
+// LCD and Bluetooth share the same processed snapshot. Old numeric CSV is
+// intentionally replaced; use a text serial terminal, not VOFA FireWater.
 module sensor_demo_uart #(
     parameter CLK_HZ = 50000000,
     parameter UART_BAUD = 115200,
     parameter REPORT_HZ = 10
 )(
-    input wire clk,
-    input wire reset_n,
+    input wire clk, reset_n,
     input wire imu_valid,
-    input wire [7:0] imu_who,
-    input wire [7:0] imu_error,
+    input wire [7:0] imu_who, imu_error,
     input wire [31:0] imu_samples,
     input wire signed [15:0] gx, gy, gz, ax, ay, az,
     input wire us_valid,
@@ -29,196 +19,135 @@ module sensor_demo_uart #(
     input wire [31:0] command_count,
     input wire [7:0] last_command,
     input wire [31:0] rx_errors,
+    output wire [1023:0] display_text,
+    output wire display_text_valid,
     output wire tx
 );
-    localparam DEFAULT_REPORT_CLOCKS = CLK_HZ / REPORT_HZ;
-    wire [31:0] report_clocks = (period_cycles == 0) ?
-        DEFAULT_REPORT_CLOCKS : {8'd0, period_cycles};
-    localparam IDLE = 0, LOAD_FIELD = 1, CONVERT = 2, PREPARE_DIGITS = 3,
-        SEND_DIGIT = 4, AFTER_DIGIT = 5, SEND_SEPARATOR = 6,
-        NEXT_FIELD = 7, SEND_LF = 8, WAIT_ACCEPT = 9, WAIT_DONE = 10;
-
+    wire [167:0] formatted_meta;
+    sensor_demo_text #(.CLK_HZ(CLK_HZ), .REPORT_HZ(REPORT_HZ)) u_format (
+        .clk(clk), .reset_n(reset_n), .imu_valid(imu_valid), .us_valid(us_valid),
+        .imu_error(imu_error), .us_error(us_error), .imu_samples(imu_samples),
+        .us_samples(us_samples), .gx(gx), .gy(gy), .gz(gz), .ax(ax), .ay(ay), .az(az),
+        .distance_mm(distance_mm), .period_cycles(period_cycles),
+        .command_count(command_count), .rx_errors(rx_errors), .last_command(last_command),
+        .text_rows(display_text), .metadata(formatted_meta), .text_valid(display_text_valid)
+    );
+    localparam IDLE=0, BODY=1, BODY_SEPARATOR=2, PREFIX=3, LOAD=4, CONVERT=5,
+        DIGIT=6, AFTER_DIGIT=7, NEXT_FIELD=8, LAST_PREFIX=9, LAST_CHAR=10,
+        CR=11, LF=12, WAIT_ACCEPT=13, WAIT_DONE=14;
     reg [3:0] state, after_byte;
-    reg [31:0] report_counter, sequence_counter;
-    reg [31:0] snapshot [0:17];
-    reg [17:0] negative;
-    reg [4:0] field_index;
+    reg [1023:0] held_text;
+    reg [167:0] held_meta;
+    reg [6:0] text_index;
+    reg [2:0] field_index, prefix_index;
+    reg [3:0] digit_index;
+    reg digit_started;
     reg [31:0] binary_shift;
     reg [39:0] decimal_digits;
     reg [5:0] conversion_step;
-    reg [3:0] digit_index;
-    reg digit_started;
     reg tx_start;
     reg [7:0] tx_data;
     wire tx_busy;
-    integer reset_field;
-
-    sensor_demo_uart_tx_8n1 #(
-        .CLK_HZ(CLK_HZ), .BAUD(UART_BAUD)
-    ) u_tx (
-        .clk(clk), .reset_n(reset_n), .start(tx_start), .data(tx_data),
-        .busy(tx_busy), .tx(tx)
+    sensor_demo_uart_tx_8n1 #(.CLK_HZ(CLK_HZ), .BAUD(UART_BAUD)) u_tx (
+        .clk(clk), .reset_n(reset_n), .start(tx_start), .data(tx_data), .busy(tx_busy), .tx(tx)
     );
-
-    // Work in 16 bits before extending, including the -32768 corner case.
-    function [31:0] axis_magnitude;
-        input [15:0] raw;
-        reg [15:0] magnitude;
-        begin
-            magnitude = raw[15] ? (~raw + 16'd1) : raw;
-            axis_magnitude = {16'd0, magnitude};
-        end
-    endfunction
-
-    // Iterative binary-to-BCD conversion: one bit per clock, 32 clocks per
-    // field. No variable division and no floating-point logic are required.
     function [39:0] add_three;
         input [39:0] digits;
-        integer digit;
+        integer d;
         reg [39:0] adjusted;
         begin
-            adjusted = digits;
-            for (digit = 0; digit < 10; digit = digit + 1) begin
-                if (digits[digit*4 +: 4] >= 4'd5)
-                    adjusted[digit*4 +: 4] = digits[digit*4 +: 4] + 4'd3;
-            end
-            add_three = adjusted;
+            adjusted=digits;
+            for (d=0; d<10; d=d+1)
+                if (digits[d*4 +: 4]>=5) adjusted[d*4 +: 4]=digits[d*4 +: 4]+4'd3;
+            add_three=adjusted;
         end
     endfunction
-    wire [39:0] adjusted_digits = add_three(decimal_digits);
-    wire [3:0] current_digit = decimal_digits[digit_index*4 +: 4];
-
+    function [63:0] prefix;
+        input [2:0] f;
+        begin
+            case (f)
+                0: prefix=" SEQ=   "; 1: prefix=" IMU_N= "; 2: prefix=" US_N=  ";
+                3: prefix=" CMD=   "; default: prefix=" RXERR= ";
+            endcase
+        end
+    endfunction
+    wire [3:0] prefix_length=(field_index==1 || field_index==4) ? 7 : field_index==2 ? 6 : 5;
+    wire [63:0] prefix_word=prefix(field_index);
+    wire [47:0] last_word=" LAST=";
+    wire [39:0] adjusted_digits=add_three(decimal_digits);
+    wire [3:0] current_digit=decimal_digits[digit_index*4 +: 4];
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
-            state <= IDLE;
-            after_byte <= IDLE;
-            report_counter <= 0;
-            sequence_counter <= 0;
-            negative <= 0;
-            field_index <= 0;
-            binary_shift <= 0;
-            decimal_digits <= 0;
-            conversion_step <= 0;
-            digit_index <= 0;
-            digit_started <= 0;
-            tx_start <= 0;
-            tx_data <= 0;
-            for (reset_field = 0; reset_field < 18; reset_field = reset_field + 1)
-                snapshot[reset_field] <= 0;
+            state<=IDLE; after_byte<=IDLE; held_text<=0; held_meta<=0;
+            text_index<=0; field_index<=0; prefix_index<=0;
+            binary_shift<=0; decimal_digits<=0; conversion_step<=0;
+            digit_index<=9; digit_started<=0; tx_start<=0; tx_data<=0;
         end else begin
-            tx_start <= 0;
-            if (report_counter >= report_clocks - 1)
-                report_counter <= 0;
-            else
-                report_counter <= report_counter + 1'b1;
-
+            tx_start<=0;
             case (state)
-                IDLE: begin
-                    // All data and validity flags belong to this same clock.
-                    // If a non-default very low baud rate overruns a report
-                    // interval, skip that interval rather than replace data
-                    // partway through transmitting a line.
-                    if (report_counter >= report_clocks - 1) begin
-                        snapshot[0] <= sequence_counter;
-                        sequence_counter <= sequence_counter + 1'b1;
-                        snapshot[1] <= {31'd0, imu_valid};
-                        snapshot[2] <= {24'd0, imu_who};
-                        snapshot[3] <= {24'd0, imu_error};
-                        snapshot[4] <= imu_samples;
-                        snapshot[5] <= imu_valid ? axis_magnitude(gx) : 32'd0;
-                        snapshot[6] <= imu_valid ? axis_magnitude(gy) : 32'd0;
-                        snapshot[7] <= imu_valid ? axis_magnitude(gz) : 32'd0;
-                        snapshot[8] <= imu_valid ? axis_magnitude(ax) : 32'd0;
-                        snapshot[9] <= imu_valid ? axis_magnitude(ay) : 32'd0;
-                        snapshot[10] <= imu_valid ? axis_magnitude(az) : 32'd0;
-                        snapshot[11] <= {31'd0, us_valid};
-                        snapshot[12] <= {24'd0, us_error};
-                        snapshot[13] <= us_samples;
-                        snapshot[14] <= us_valid ? {16'd0, distance_mm} : 32'd1;
-                        snapshot[15] <= command_count;
-                        snapshot[16] <= {24'd0, last_command};
-                        snapshot[17] <= rx_errors;
-                        negative <= {
-                            3'd0, !us_valid, 3'd0,
-                            imu_valid && az[15], imu_valid && ay[15],
-                            imu_valid && ax[15], imu_valid && gz[15],
-                            imu_valid && gy[15], imu_valid && gx[15], 5'd0
-                        };
-                        field_index <= 0;
-                        state <= LOAD_FIELD;
-                    end
+                IDLE: if (display_text_valid) begin
+                    held_text<=display_text; held_meta<=formatted_meta;
+                    text_index<=0; state<=BODY;
                 end
-                LOAD_FIELD: begin
-                    binary_shift <= snapshot[field_index];
-                    decimal_digits <= 0;
-                    conversion_step <= 0;
-                    state <= CONVERT;
+                BODY: begin
+                    tx_data<=held_text[1023-text_index*8 -: 8]; tx_start<=1;
+                    if (text_index==127) begin
+                        field_index<=0; prefix_index<=0; after_byte<=PREFIX;
+                    end else begin
+                        text_index<=text_index+1'b1;
+                        after_byte<=text_index[3:0]==15 ? BODY_SEPARATOR : BODY;
+                    end
+                    state<=WAIT_ACCEPT;
+                end
+                BODY_SEPARATOR: begin
+                    tx_data<="|"; tx_start<=1; after_byte<=BODY; state<=WAIT_ACCEPT;
+                end
+                PREFIX: begin
+                    tx_data<=prefix_word[63-prefix_index*8 -: 8]; tx_start<=1;
+                    if (prefix_index==prefix_length-1) begin prefix_index<=0; after_byte<=LOAD; end
+                    else begin prefix_index<=prefix_index+1'b1; after_byte<=PREFIX; end
+                    state<=WAIT_ACCEPT;
+                end
+                LOAD: begin
+                    binary_shift<=held_meta[167-field_index*32 -: 32];
+                    decimal_digits<=0; conversion_step<=0; state<=CONVERT;
                 end
                 CONVERT: begin
-                    decimal_digits <= {adjusted_digits[38:0], binary_shift[31]};
-                    binary_shift <= {binary_shift[30:0], 1'b0};
-                    if (conversion_step == 31)
-                        state <= PREPARE_DIGITS;
-                    else
-                        conversion_step <= conversion_step + 1'b1;
+                    decimal_digits<={adjusted_digits[38:0],binary_shift[31]}; binary_shift<={binary_shift[30:0],1'b0};
+                    if (conversion_step==31) begin digit_index<=9; digit_started<=0; state<=DIGIT; end
+                    else conversion_step<=conversion_step+1'b1;
                 end
-                PREPARE_DIGITS: begin
-                    digit_index <= 9;
-                    digit_started <= 0;
-                    if (negative[field_index]) begin
-                        tx_data <= 8'h2d; // '-'
-                        tx_start <= 1;
-                        after_byte <= SEND_DIGIT;
-                        state <= WAIT_ACCEPT;
-                    end else begin
-                        state <= SEND_DIGIT;
-                    end
-                end
-                SEND_DIGIT: begin
-                    if (!digit_started && digit_index != 0 && current_digit == 0)
-                        digit_index <= digit_index - 1'b1;
+                DIGIT: begin
+                    if (!digit_started && digit_index!=0 && current_digit==0) digit_index<=digit_index-1'b1;
                     else begin
-                        tx_data <= 8'h30 + {4'd0, current_digit};
-                        tx_start <= 1;
-                        digit_started <= 1;
-                        after_byte <= AFTER_DIGIT;
-                        state <= WAIT_ACCEPT;
+                        tx_data<=8'h30+{4'd0,current_digit}; tx_start<=1; digit_started<=1;
+                        after_byte<=AFTER_DIGIT; state<=WAIT_ACCEPT;
                     end
                 end
                 AFTER_DIGIT: begin
-                    if (digit_index == 0)
-                        state <= SEND_SEPARATOR;
-                    else begin
-                        digit_index <= digit_index - 1'b1;
-                        state <= SEND_DIGIT;
-                    end
-                end
-                SEND_SEPARATOR: begin
-                    if (field_index == 17) begin
-                        tx_data <= 8'h0d; // CR
-                        after_byte <= SEND_LF;
-                    end else begin
-                        tx_data <= 8'h2c; // ','
-                        after_byte <= NEXT_FIELD;
-                    end
-                    tx_start <= 1;
-                    state <= WAIT_ACCEPT;
+                    if (digit_index==0) state<=NEXT_FIELD;
+                    else begin digit_index<=digit_index-1'b1; state<=DIGIT; end
                 end
                 NEXT_FIELD: begin
-                    field_index <= field_index + 1'b1;
-                    state <= LOAD_FIELD;
+                    prefix_index<=0;
+                    if (field_index==4) state<=LAST_PREFIX;
+                    else begin field_index<=field_index+1'b1; state<=PREFIX; end
                 end
-                SEND_LF: begin
-                    tx_data <= 8'h0a;
-                    tx_start <= 1;
-                    after_byte <= IDLE;
-                    state <= WAIT_ACCEPT;
+                LAST_PREFIX: begin
+                    tx_data<=last_word[47-prefix_index*8 -: 8]; tx_start<=1;
+                    if (prefix_index==5) after_byte<=LAST_CHAR;
+                    else begin prefix_index<=prefix_index+1'b1; after_byte<=LAST_PREFIX; end
+                    state<=WAIT_ACCEPT;
                 end
-                // Observe busy rising before waiting for it to fall. This
-                // avoids treating the pre-launch idle cycle as completion.
-                WAIT_ACCEPT: if (tx_busy) state <= WAIT_DONE;
-                WAIT_DONE: if (!tx_busy) state <= after_byte;
-                default: state <= IDLE;
+                LAST_CHAR: begin
+                    tx_data<=held_meta[7:0]==0 ? "-" : held_meta[7:0];
+                    tx_start<=1; after_byte<=CR; state<=WAIT_ACCEPT;
+                end
+                CR: begin tx_data<=8'h0d; tx_start<=1; after_byte<=LF; state<=WAIT_ACCEPT; end
+                LF: begin tx_data<=8'h0a; tx_start<=1; after_byte<=IDLE; state<=WAIT_ACCEPT; end
+                WAIT_ACCEPT: if (tx_busy) state<=WAIT_DONE;
+                WAIT_DONE: if (!tx_busy) state<=after_byte;
+                default: state<=IDLE;
             endcase
         end
     end

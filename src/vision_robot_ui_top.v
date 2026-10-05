@@ -18,6 +18,12 @@ module vision_robot_ui_top (
     input  wire        ultrasonic_echo,
     output wire        bluetooth_tx,
     input  wire        bluetooth_rx,
+    // Fixed onboard RTC/EEPROM I2C bus and 74HC595 seven-segment display.
+    inout  wire        IIC_scl,
+    inout  wire        IIC_sda,
+    output wire        SEG7_DIO,
+    output wire        SEG7_RCLK,
+    output wire        SEG7_SCLK,
     output wire        rgmii_gtxc,
     output wire [3:0]  rgmii_txd,
     output wire        rgmii_txen,
@@ -79,7 +85,7 @@ module vision_robot_ui_top (
         end
     end
 
-    // Same 50 MHz clock; UART commands affect telemetry only.
+    // Same 50 MHz clock; UART commands control telemetry and explicit RTC setting.
     wire imu_demo_valid, us_demo_valid;
     wire [7:0] imu_demo_who, imu_demo_error, us_demo_error;
     wire [31:0] imu_demo_samples, us_demo_samples;
@@ -88,10 +94,16 @@ module vision_robot_ui_top (
     wire [23:0] demo_report_period;
     wire [31:0] demo_command_count, demo_rx_errors;
     wire [7:0] demo_last_command;
+    wire [7:0] demo_rx_byte;
+    wire demo_rx_byte_valid;
+    wire [1023:0] demo_display_text;
+    wire demo_display_text_valid;
+    wire touch_stop_pulse;
     sensor_demo_commands u_demo_commands (
         .clk(clk50M), .reset_n(ready), .rx(bluetooth_rx),
         .period_cycles(demo_report_period), .command_count(demo_command_count),
-        .last_command(demo_last_command), .rx_errors(demo_rx_errors)
+        .last_command(demo_last_command), .rx_errors(demo_rx_errors),
+        .rx_byte(demo_rx_byte), .rx_byte_valid(demo_rx_byte_valid)
     );
     lsm6dsv16x_demo u_imu_demo (
         .clk(clk50M), .reset_n(ready), .scl(sensor_scl), .sda(sensor_sda),
@@ -112,7 +124,39 @@ module vision_robot_ui_top (
         .us_error(us_demo_error), .us_samples(us_demo_samples),
         .distance_mm(us_distance_mm), .period_cycles(demo_report_period),
         .command_count(demo_command_count), .last_command(demo_last_command),
-        .rx_errors(demo_rx_errors), .tx(bluetooth_tx)
+        .rx_errors(demo_rx_errors), .tx(bluetooth_tx),
+        .display_text(demo_display_text), .display_text_valid(demo_display_text_valid)
+    );
+
+    // Battery-backed RTC clock; no clock setting on reset or FPGA power-up.
+    wire rtc_set_valid, rtc_set_busy, rtc_valid;
+    wire [55:0] rtc_set_calendar;
+    wire [23:0] rtc_time;
+    wire [7:0] rtc_error;
+    uart_rtc_set_parser u_rtc_set_parser (
+        .clk(clk50M), .reset_n(ready), .byte_valid(demo_rx_byte_valid),
+        .byte_data(demo_rx_byte), .set_busy(rtc_set_busy),
+        .set_valid(rtc_set_valid), .set_calendar(rtc_set_calendar)
+    );
+    bm8563_clock u_rtc_clock (
+        .clk(clk50M), .reset_n(ready), .scl(IIC_scl), .sda(IIC_sda),
+        .set_valid(rtc_set_valid), .set_calendar(rtc_set_calendar),
+        .set_busy(rtc_set_busy), .valid(rtc_valid),
+        .time_bcd(rtc_time), .error_code(rtc_error)
+    );
+    reg [25:0] seg_boot_count;
+    always @(posedge clk50M or negedge ready) begin
+        if (!ready) seg_boot_count <= 0;
+        else if (seg_boot_count < 26'd50000000)
+            seg_boot_count <= seg_boot_count + 1'b1;
+    end
+    wire [31:0] clock_digits = (seg_boot_count < 26'd50000000) ? 32'h88888888 :
+        rtc_set_busy ? 32'hffffffff :
+        rtc_valid ? {rtc_time[23:16], 4'hf, rtc_time[15:8], 4'hf, rtc_time[7:0]} :
+        rtc_error[5] ? {4'he, 20'h00000, rtc_error} : 32'hffffffff;
+    seg7_clock_display u_seg7_clock (
+        .clk(clk50M), .reset_n(ready), .digits(clock_digits),
+        .dio(SEG7_DIO), .rclk(SEG7_RCLK), .sclk(SEG7_SCLK)
     );
 
     // S4 is debounced. A press toggles the filter, initially ON.
@@ -338,6 +382,21 @@ module vision_robot_ui_top (
     end
     wire detection_request, detection_ack;
     wire [255:0] detection_mailbox;
+    reg [1023:0] sensor_text_mailbox;
+    reg sensor_text_request;
+    wire sensor_text_ack;
+    reg [2:0] sensor_text_ack_sync;
+    always @(posedge clk50M or negedge ready) begin
+        if (!ready) begin
+            sensor_text_mailbox<=0; sensor_text_request<=0; sensor_text_ack_sync<=0;
+        end else begin
+            sensor_text_ack_sync<={sensor_text_ack_sync[1:0],sensor_text_ack};
+            if (demo_display_text_valid && sensor_text_request==sensor_text_ack_sync[2]) begin
+                sensor_text_mailbox<=demo_display_text;
+                sensor_text_request<=~sensor_text_request;
+            end
+        end
+    end
     lcd1024_interaction_ui u_lcd (
         .clk(pixel_clk), .run(pixel_run_pipe[1]),
         .camera_pixel(camera_pixel_read),
@@ -361,6 +420,8 @@ module vision_robot_ui_top (
         .stop_latched(stop_pixel_sync[1]),
         .detection_request(detection_request), .detection_data(detection_mailbox),
         .detection_ack(detection_ack),
+        .sensor_text_request(sensor_text_request), .sensor_text_data(sensor_text_mailbox),
+        .sensor_text_ack(sensor_text_ack),
         .camera_pop(camera_pop), .frame_restart(frame_restart),
         .display_step(lcd_view_step), .display_left(lcd_view_left),
         .display_top(lcd_view_top), .ddr_read_base(lcd_ddr_read_base),
@@ -509,6 +570,8 @@ module vision_robot_ui_top (
         if (!reset_sync) begin
             filter_requested <= 1'b1;
             stop_latched <= 1'b0;
+        end else if (touch_stop_pulse) begin
+            stop_latched <= 1'b1; // takes priority over host clear on this clock
         end else if (command_sync[2] != command_sync[1]) begin
             case (command_code)
                 8'd1: filter_requested <= command_value[0];
@@ -570,7 +633,8 @@ module vision_robot_ui_top (
         .zoom_step(zoom_step), .zoom_left(zoom_left), .zoom_top(zoom_top),
         .focus_x(focus_x), .focus_y(focus_y),
         .zoom_toggle(zoom_toggle), .capture_toggle(capture_toggle),
-        .clear_toggle(clear_toggle), .click_event(ui_click_event)
+        .clear_toggle(clear_toggle), .click_event(ui_click_event),
+        .stop_pulse(touch_stop_pulse)
     );
 
     // Event counters survive dropped telemetry packets. They are requests,
