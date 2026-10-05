@@ -19,6 +19,7 @@
 | 香橙派统一入口 | `client.py`，支持 `view`、`probe`、`capture`、`burst` |
 | 客户端打包 | `tools/package_orangepi_client.py` |
 | 照片 | `dataset/`，不发布到 GitHub |
+| 电脑端录像 | `pc/record_video.py`，操作见使用说明第 6.2 节；视频在 `dataset/videos/` |
 
 FPGA 固定 `192.168.10.2`，接收端有线接口 `192.168.10.3/24`，图像 UDP 6102；每行 802 字节，240 行组成完整帧。32 字节 UI 状态包另按类型解析；它不是每帧处理参数确认。不要同时启动多个图像接收程序。
 
