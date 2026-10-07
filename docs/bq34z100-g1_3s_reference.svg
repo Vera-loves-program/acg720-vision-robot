@@ -294,9 +294,9 @@
 <line x1="0" y1="2420" x2="3400" y2="2420" stroke="#efede7" stroke-width="1"/>
 <line x1="0" y1="2440" x2="3400" y2="2440" stroke="#efede7" stroke-width="1"/>
 <text x="65" y="72.52" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="44" text-anchor="start">BQ34Z100-G1 · 3S 电池单路参考原理图（A 路）</text>
-<text x="65" y="127.24" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="28" text-anchor="start">固定分压 / 外置 NTC / 隔离 I²C · 器件与引脚已按官方资料核对；参考图，尚未上板验证</text>
+<text x="65" y="127.24" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="28" text-anchor="start">固定分压 / 外置 NTC / I²C 直连 FPGA · 保留电池侧参考；候选图，尚未上板验证</text>
 <rect x="60" y="170" width="1490" height="650" stroke="#d4d0c6" stroke-width="2" fill="none"/>
-<text x="85" y="216.56" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="32" text-anchor="start">① 本路常供电：12.6V → 3.3V（只供电量计和隔离器电池侧）</text>
+<text x="85" y="216.56" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="32" text-anchor="start">① 本路常供电：12.6V → 3.3V（只供本路电量计）</text>
 <rect x="520" y="320" width="390" height="310" stroke="#9b2920" stroke-width="3" fill="none"/>
 <text x="535" y="304.9" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="30" text-anchor="start">U13</text>
 <text x="715" y="684.9" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="30" text-anchor="middle">TPS70933DBVR · SOT-23-5</text>
@@ -402,12 +402,12 @@
 <text x="2815" y="377.75" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">14</text>
 <text x="2775" y="398.39" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="33" text-anchor="end">P3/SDA</text>
 <line x1="2890" y1="390" x2="2910" y2="390" stroke="#9b2920" stroke-width="3"/>
-<text x="2918" y="395.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">BQ_A_SDA_LOCAL</text>
+<text x="2918" y="395.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">BQ_A_SDA</text>
 <line x1="2800" y1="465" x2="2890" y2="465" stroke="#9b2920" stroke-width="3"/>
 <text x="2815" y="452.75" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">13</text>
 <text x="2775" y="473.39" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="33" text-anchor="end">P4/SCL</text>
 <line x1="2890" y1="465" x2="2910" y2="465" stroke="#9b2920" stroke-width="3"/>
-<text x="2918" y="470.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">BQ_A_SCL_LOCAL</text>
+<text x="2918" y="470.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">BQ_A_SCL</text>
 <line x1="2800" y1="540" x2="2890" y2="540" stroke="#9b2920" stroke-width="3"/>
 <text x="2815" y="527.75" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">12</text>
 <text x="2775" y="548.39" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="33" text-anchor="end">P5/HDQ</text>
@@ -585,8 +585,8 @@
 <line x1="675" y1="1735" x2="725" y2="1735" stroke="#9b2920" stroke-width="3"/>
 <line x1="700" y1="1735" x2="700" y2="1785" stroke="#9b2920" stroke-width="3"/>
 <text x="740" y="1702.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">C67</text>
-<text x="740" y="1737.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">100nF</text>
-<text x="740" y="1770.43" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="21" text-anchor="start">16V X7R / 0603</text>
+<text x="740" y="1737.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">100nF / DNP</text>
+<text x="740" y="1770.43" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="21" text-anchor="start">默认不装 / 0603</text>
 <line x1="700" y1="1785" x2="700" y2="1790" stroke="#9b2920" stroke-width="3"/>
 <line x1="700" y1="1790" x2="700" y2="1808" stroke="#9b2920" stroke-width="3"/>
 <line x1="682" y1="1808" x2="718" y2="1808" stroke="#9b2920" stroke-width="3"/>
@@ -600,145 +600,75 @@
 <line x1="675" y1="1980" x2="725" y2="1980" stroke="#9b2920" stroke-width="3"/>
 <line x1="700" y1="1980" x2="700" y2="2030" stroke="#9b2920" stroke-width="3"/>
 <text x="740" y="1947.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">C68</text>
-<text x="740" y="1982.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">100nF</text>
-<text x="740" y="2015.43" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="21" text-anchor="start">16V X7R / 0603</text>
+<text x="740" y="1982.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">100nF / DNP</text>
+<text x="740" y="2015.43" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="21" text-anchor="start">默认不装 / 0603</text>
 <line x1="700" y1="2030" x2="700" y2="2048" stroke="#9b2920" stroke-width="3"/>
 <line x1="682" y1="2048" x2="718" y2="2048" stroke="#9b2920" stroke-width="3"/>
 <line x1="688" y1="2055" x2="712" y2="2055" stroke="#9b2920" stroke-width="3"/>
 <line x1="695" y1="2062" x2="705" y2="2062" stroke="#9b2920" stroke-width="3"/>
 <text x="700" y="2089.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="middle">BQ_A_GND</text>
 <rect x="1620" y="1290" width="1720" height="800" stroke="#d4d0c6" stroke-width="2" fill="none"/>
-<text x="1645" y="1336.56" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="32" text-anchor="start">④ 独立隔离 I²C：左边接FPGA，右边接本路BQ（先100kHz）</text>
-<rect x="2300" y="1490" width="490" height="350" stroke="#9b2920" stroke-width="3" fill="none"/>
-<line x1="2545" y1="1490" x2="2545" y2="1840" stroke="#b1a99d" stroke-width="2"/>
-<text x="2310" y="1464.07" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="29" text-anchor="start">U14  ISO1640BDR · SOIC-8</text>
-<text x="2420" y="1879.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="middle">SIDE 1</text>
-<text x="2680" y="1879.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="middle">SIDE 2</text>
-<line x1="2230" y1="1540" x2="2300" y2="1540" stroke="#9b2920" stroke-width="3"/>
-<text x="2285" y="1528.92" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="end">1</text>
-<text x="2325" y="1548.07" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="29" text-anchor="start">VCC1</text>
-<line x1="2230" y1="1625" x2="2300" y2="1625" stroke="#9b2920" stroke-width="3"/>
-<text x="2285" y="1613.92" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="end">2</text>
-<text x="2325" y="1633.07" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="29" text-anchor="start">SDA1</text>
-<line x1="2230" y1="1710" x2="2300" y2="1710" stroke="#9b2920" stroke-width="3"/>
-<text x="2285" y="1698.92" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="end">3</text>
-<text x="2325" y="1718.07" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="29" text-anchor="start">SCL1</text>
-<line x1="2230" y1="1795" x2="2300" y2="1795" stroke="#9b2920" stroke-width="3"/>
-<text x="2285" y="1783.92" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="end">4</text>
-<text x="2325" y="1803.07" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="29" text-anchor="start">GND1</text>
-<line x1="2790" y1="1540" x2="2860" y2="1540" stroke="#9b2920" stroke-width="3"/>
-<text x="2805" y="1528.92" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="start">8</text>
-<text x="2765" y="1548.07" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="29" text-anchor="end">VCC2</text>
-<line x1="2790" y1="1625" x2="2860" y2="1625" stroke="#9b2920" stroke-width="3"/>
-<text x="2805" y="1613.92" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="start">7</text>
-<text x="2765" y="1633.07" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="29" text-anchor="end">SDA2</text>
-<line x1="2790" y1="1710" x2="2860" y2="1710" stroke="#9b2920" stroke-width="3"/>
-<text x="2805" y="1698.92" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="start">6</text>
-<text x="2765" y="1718.07" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="29" text-anchor="end">SCL2</text>
-<line x1="2790" y1="1795" x2="2860" y2="1795" stroke="#9b2920" stroke-width="3"/>
-<text x="2805" y="1783.92" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="start">5</text>
-<text x="2765" y="1803.07" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="29" text-anchor="end">GND2</text>
-<line x1="2210" y1="1540" x2="2230" y2="1540" stroke="#9b2920" stroke-width="3"/>
-<text x="2202" y="1545.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="end">SYS_3V3</text>
-<line x1="2860" y1="1540" x2="2880" y2="1540" stroke="#9b2920" stroke-width="3"/>
-<text x="2888" y="1545.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">BQ_A_3V3</text>
-<line x1="2210" y1="1795" x2="2230" y2="1795" stroke="#9b2920" stroke-width="3"/>
-<text x="2202" y="1800.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="end">SYS_GND</text>
-<line x1="2860" y1="1795" x2="2880" y2="1795" stroke="#9b2920" stroke-width="3"/>
-<text x="2888" y="1800.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">BQ_A_GND</text>
-<line x1="1740" y1="1625" x2="2230" y2="1625" stroke="#9b2920" stroke-width="3"/>
-<text x="1660" y="1612.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="start">BQ_A_SDA</text>
-<line x1="1740" y1="1710" x2="2230" y2="1710" stroke="#9b2920" stroke-width="3"/>
-<text x="1660" y="1697.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="start">BQ_A_SCL</text>
-<line x1="2860" y1="1625" x2="3300" y2="1625" stroke="#9b2920" stroke-width="3"/>
-<text x="2980" y="1656.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="start">BQ_A_SDA_LOCAL</text>
-<line x1="2860" y1="1710" x2="3300" y2="1710" stroke="#9b2920" stroke-width="3"/>
-<text x="2980" y="1741.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="start">BQ_A_SCL_LOCAL</text>
-<line x1="1870" y1="1390" x2="2090" y2="1390" stroke="#9b2920" stroke-width="3"/>
-<line x1="1850" y1="1390" x2="1870" y2="1390" stroke="#9b2920" stroke-width="3"/>
-<text x="1842" y="1394.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="end">SYS_3V3</text>
-<line x1="1870" y1="1390" x2="1870" y2="1400" stroke="#9b2920" stroke-width="3"/>
-<line x1="1870" y1="1400" x2="1870" y2="1423" stroke="#9b2920" stroke-width="3"/>
-<rect x="1857" y="1423" width="26" height="84" stroke="#9b2920" stroke-width="3" fill="none"/>
-<line x1="1870" y1="1507" x2="1870" y2="1530" stroke="#9b2920" stroke-width="3"/>
-<text x="1840" y="1442.58" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">R66</text>
-<text x="1840" y="1478.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">4.7kΩ</text>
-<text x="1840" y="1511.26" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="22" text-anchor="end">1% / 0603</text>
-<line x1="1870" y1="1530" x2="1870" y2="1625" stroke="#9b2920" stroke-width="3"/>
-<circle cx="1870" cy="1625" r="5" fill="#9b2920"/>
-<line x1="2090" y1="1390" x2="2090" y2="1400" stroke="#9b2920" stroke-width="3"/>
-<line x1="2090" y1="1400" x2="2090" y2="1423" stroke="#9b2920" stroke-width="3"/>
-<rect x="2077" y="1423" width="26" height="84" stroke="#9b2920" stroke-width="3" fill="none"/>
-<line x1="2090" y1="1507" x2="2090" y2="1530" stroke="#9b2920" stroke-width="3"/>
-<text x="2060" y="1442.58" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">R67</text>
-<text x="2060" y="1478.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">4.7kΩ</text>
-<text x="2060" y="1511.26" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="22" text-anchor="end">1% / 0603</text>
-<line x1="2090" y1="1530" x2="2090" y2="1710" stroke="#9b2920" stroke-width="3"/>
-<circle cx="2090" cy="1710" r="5" fill="#9b2920"/>
-<line x1="3020" y1="1390" x2="3260" y2="1390" stroke="#9b2920" stroke-width="3"/>
-<line x1="3000" y1="1390" x2="3020" y2="1390" stroke="#9b2920" stroke-width="3"/>
-<text x="2992" y="1394.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="end">BQ_A_3V3</text>
-<line x1="3020" y1="1390" x2="3020" y2="1400" stroke="#9b2920" stroke-width="3"/>
-<line x1="3020" y1="1400" x2="3020" y2="1423" stroke="#9b2920" stroke-width="3"/>
-<rect x="3007" y="1423" width="26" height="84" stroke="#9b2920" stroke-width="3" fill="none"/>
-<line x1="3020" y1="1507" x2="3020" y2="1530" stroke="#9b2920" stroke-width="3"/>
-<text x="2990" y="1442.58" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">R68</text>
-<text x="2990" y="1478.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">4.7kΩ</text>
-<text x="2990" y="1511.26" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="22" text-anchor="end">1% / 0603</text>
-<line x1="3020" y1="1530" x2="3020" y2="1625" stroke="#9b2920" stroke-width="3"/>
-<circle cx="3020" cy="1625" r="5" fill="#9b2920"/>
-<line x1="3260" y1="1390" x2="3260" y2="1400" stroke="#9b2920" stroke-width="3"/>
-<line x1="3260" y1="1400" x2="3260" y2="1423" stroke="#9b2920" stroke-width="3"/>
-<rect x="3247" y="1423" width="26" height="84" stroke="#9b2920" stroke-width="3" fill="none"/>
-<line x1="3260" y1="1507" x2="3260" y2="1530" stroke="#9b2920" stroke-width="3"/>
-<text x="3230" y="1442.58" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">R69</text>
-<text x="3230" y="1478.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">4.7kΩ</text>
-<text x="3230" y="1511.26" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="22" text-anchor="end">1% / 0603</text>
-<line x1="3260" y1="1530" x2="3260" y2="1710" stroke="#9b2920" stroke-width="3"/>
-<circle cx="3260" cy="1710" r="5" fill="#9b2920"/>
-<line x1="2090" y1="1613" x2="2090" y2="1637" stroke="#fcfbf7" stroke-width="8"/>
-<line x1="2068" y1="1625" x2="2112" y2="1625" stroke="#9b2920" stroke-width="3"/>
-<polyline points="2090.00,1613.00 2091.88,1613.15 2093.71,1613.59 2095.45,1614.31 2097.05,1615.29 2098.49,1616.51 2099.71,1617.95 2100.69,1619.55 2101.41,1621.29 2101.85,1623.12 2102.00,1625.00 2101.85,1626.88 2101.41,1628.71 2100.69,1630.45 2099.71,1632.05 2098.49,1633.49 2097.05,1634.71 2095.45,1635.69 2093.71,1636.41 2091.88,1636.85 2090.00,1637.00" fill="none" stroke="#fcfbf7" stroke-width="9"/>
-<polyline points="2090.00,1613.00 2091.88,1613.15 2093.71,1613.59 2095.45,1614.31 2097.05,1615.29 2098.49,1616.51 2099.71,1617.95 2100.69,1619.55 2101.41,1621.29 2101.85,1623.12 2102.00,1625.00 2101.85,1626.88 2101.41,1628.71 2100.69,1630.45 2099.71,1632.05 2098.49,1633.49 2097.05,1634.71 2095.45,1635.69 2093.71,1636.41 2091.88,1636.85 2090.00,1637.00" fill="none" stroke="#9b2920" stroke-width="3"/>
-<line x1="3260" y1="1613" x2="3260" y2="1637" stroke="#fcfbf7" stroke-width="8"/>
-<line x1="3238" y1="1625" x2="3282" y2="1625" stroke="#9b2920" stroke-width="3"/>
-<polyline points="3260.00,1613.00 3261.88,1613.15 3263.71,1613.59 3265.45,1614.31 3267.05,1615.29 3268.49,1616.51 3269.71,1617.95 3270.69,1619.55 3271.41,1621.29 3271.85,1623.12 3272.00,1625.00 3271.85,1626.88 3271.41,1628.71 3270.69,1630.45 3269.71,1632.05 3268.49,1633.49 3267.05,1634.71 3265.45,1635.69 3263.71,1636.41 3261.88,1636.85 3260.00,1637.00" fill="none" stroke="#fcfbf7" stroke-width="9"/>
-<polyline points="3260.00,1613.00 3261.88,1613.15 3263.71,1613.59 3265.45,1614.31 3267.05,1615.29 3268.49,1616.51 3269.71,1617.95 3270.69,1619.55 3271.41,1621.29 3271.85,1623.12 3272.00,1625.00 3271.85,1626.88 3271.41,1628.71 3270.69,1630.45 3269.71,1632.05 3268.49,1633.49 3267.05,1634.71 3265.45,1635.69 3263.71,1636.41 3261.88,1636.85 3260.00,1637.00" fill="none" stroke="#9b2920" stroke-width="3"/>
-<line x1="1880" y1="1870" x2="1900" y2="1870" stroke="#9b2920" stroke-width="3"/>
-<text x="1872" y="1874.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="end">SYS_3V3</text>
-<line x1="1900" y1="1870" x2="1900" y2="1880" stroke="#9b2920" stroke-width="3"/>
-<line x1="1900" y1="1880" x2="1900" y2="1930" stroke="#9b2920" stroke-width="3"/>
-<line x1="1875" y1="1930" x2="1925" y2="1930" stroke="#9b2920" stroke-width="3"/>
-<line x1="1875" y1="1950" x2="1925" y2="1950" stroke="#9b2920" stroke-width="3"/>
-<line x1="1900" y1="1950" x2="1900" y2="2000" stroke="#9b2920" stroke-width="3"/>
-<text x="1940" y="1917.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">C69</text>
-<text x="1940" y="1952.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">100nF</text>
-<text x="1940" y="1985.43" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="21" text-anchor="start">16V X7R / 0603</text>
-<line x1="1900" y1="2000" x2="1900" y2="2018" stroke="#9b2920" stroke-width="3"/>
-<line x1="1882" y1="2018" x2="1918" y2="2018" stroke="#9b2920" stroke-width="3"/>
-<line x1="1888" y1="2025" x2="1912" y2="2025" stroke="#9b2920" stroke-width="3"/>
-<line x1="1895" y1="2032" x2="1905" y2="2032" stroke="#9b2920" stroke-width="3"/>
-<text x="1900" y="2059.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="middle">SYS_GND</text>
-<line x1="2940" y1="1870" x2="2960" y2="1870" stroke="#9b2920" stroke-width="3"/>
-<text x="2932" y="1874.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="end">BQ_A_3V3</text>
-<line x1="2960" y1="1870" x2="2960" y2="1880" stroke="#9b2920" stroke-width="3"/>
-<line x1="2960" y1="1880" x2="2960" y2="1930" stroke="#9b2920" stroke-width="3"/>
-<line x1="2935" y1="1930" x2="2985" y2="1930" stroke="#9b2920" stroke-width="3"/>
-<line x1="2935" y1="1950" x2="2985" y2="1950" stroke="#9b2920" stroke-width="3"/>
-<line x1="2960" y1="1950" x2="2960" y2="2000" stroke="#9b2920" stroke-width="3"/>
-<text x="3000" y="1917.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">C70</text>
-<text x="3000" y="1952.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">100nF</text>
-<text x="3000" y="1985.43" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="21" text-anchor="start">16V X7R / 0603</text>
-<line x1="2960" y1="2000" x2="2960" y2="2018" stroke="#9b2920" stroke-width="3"/>
-<line x1="2942" y1="2018" x2="2978" y2="2018" stroke="#9b2920" stroke-width="3"/>
-<line x1="2948" y1="2025" x2="2972" y2="2025" stroke="#9b2920" stroke-width="3"/>
-<line x1="2955" y1="2032" x2="2965" y2="2032" stroke="#9b2920" stroke-width="3"/>
-<text x="2960" y="2059.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="middle">BQ_A_GND</text>
+<text x="1645" y="1336.56" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="32" text-anchor="start">④ I²C 直连 FPGA（无隔离芯片；短板内线，先100kHz）</text>
+<text x="1700" y="1392.41" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="27" text-anchor="start">FPGA GPIO：只拉低或释放，不推挽输出高电平</text>
+<text x="2650" y="1392.41" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="27" text-anchor="start">BQ 原生 I²C 从机</text>
+<line x1="2320" y1="1420" x2="2340" y2="1420" stroke="#9b2920" stroke-width="3"/>
+<text x="2312" y="1425.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="end">SYS_3V3</text>
+<line x1="2340" y1="1420" x2="2580" y2="1420" stroke="#9b2920" stroke-width="3"/>
+<line x1="2340" y1="1420" x2="2340" y2="1450" stroke="#9b2920" stroke-width="3"/>
+<line x1="2340" y1="1450" x2="2340" y2="1473" stroke="#9b2920" stroke-width="3"/>
+<rect x="2327" y="1473" width="26" height="84" stroke="#9b2920" stroke-width="3" fill="none"/>
+<line x1="2340" y1="1557" x2="2340" y2="1580" stroke="#9b2920" stroke-width="3"/>
+<text x="2310" y="1492.58" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">R66</text>
+<text x="2310" y="1528.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">4.7kΩ</text>
+<text x="2310" y="1561.26" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="22" text-anchor="end">1% / 0603</text>
+<line x1="2340" y1="1580" x2="2340" y2="1680" stroke="#9b2920" stroke-width="3"/>
+<circle cx="2340" cy="1680" r="5" fill="#9b2920"/>
+<line x1="2580" y1="1420" x2="2580" y2="1450" stroke="#9b2920" stroke-width="3"/>
+<line x1="2580" y1="1450" x2="2580" y2="1473" stroke="#9b2920" stroke-width="3"/>
+<rect x="2567" y="1473" width="26" height="84" stroke="#9b2920" stroke-width="3" fill="none"/>
+<line x1="2580" y1="1557" x2="2580" y2="1580" stroke="#9b2920" stroke-width="3"/>
+<text x="2550" y="1492.58" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">R67</text>
+<text x="2550" y="1528.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="end">4.7kΩ</text>
+<text x="2550" y="1561.26" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="22" text-anchor="end">1% / 0603</text>
+<line x1="2580" y1="1580" x2="2580" y2="1840" stroke="#9b2920" stroke-width="3"/>
+<circle cx="2580" cy="1840" r="5" fill="#9b2920"/>
+<line x1="1930" y1="1680" x2="1950" y2="1680" stroke="#9b2920" stroke-width="3"/>
+<text x="1922" y="1684.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="end">FPGA_BQ_A_SDA</text>
+<line x1="1950" y1="1680" x2="1995" y2="1680" stroke="#9b2920" stroke-width="3"/>
+<rect x="1995" y="1667" width="110" height="26" stroke="#9b2920" stroke-width="3" fill="none"/>
+<line x1="2105" y1="1680" x2="2150" y2="1680" stroke="#9b2920" stroke-width="3"/>
+<text x="2050" y="1618.24" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="28" text-anchor="middle">R68</text>
+<text x="2050" y="1656.24" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="28" text-anchor="middle">0Ω</text>
+<text x="2050" y="1729.09" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="23" text-anchor="middle">0603 / 可断开调试</text>
+<line x1="2150" y1="1680" x2="2890" y2="1680" stroke="#9b2920" stroke-width="3"/>
+<line x1="2890" y1="1680" x2="2910" y2="1680" stroke="#9b2920" stroke-width="3"/>
+<text x="2918" y="1685.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">BQ_A_SDA</text>
+<text x="2920" y="1734.92" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="start">→ U12-14 SDA</text>
+<line x1="1930" y1="1840" x2="1950" y2="1840" stroke="#9b2920" stroke-width="3"/>
+<text x="1922" y="1844.92" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="end">FPGA_BQ_A_SCL</text>
+<line x1="1950" y1="1840" x2="1995" y2="1840" stroke="#9b2920" stroke-width="3"/>
+<rect x="1995" y="1827" width="110" height="26" stroke="#9b2920" stroke-width="3" fill="none"/>
+<line x1="2105" y1="1840" x2="2150" y2="1840" stroke="#9b2920" stroke-width="3"/>
+<text x="2050" y="1778.24" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="28" text-anchor="middle">R69</text>
+<text x="2050" y="1816.24" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="28" text-anchor="middle">0Ω</text>
+<text x="2050" y="1889.09" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="23" text-anchor="middle">0603 / 可断开调试</text>
+<line x1="2150" y1="1840" x2="2890" y2="1840" stroke="#9b2920" stroke-width="3"/>
+<line x1="2890" y1="1840" x2="2910" y2="1840" stroke="#9b2920" stroke-width="3"/>
+<text x="2918" y="1845.75" fill="#173bc4" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">BQ_A_SCL</text>
+<text x="2920" y="1894.92" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="24" text-anchor="start">→ U12-13 SCL</text>
+<line x1="2580" y1="1668" x2="2580" y2="1692" stroke="#fcfbf7" stroke-width="8"/>
+<line x1="2558" y1="1680" x2="2602" y2="1680" stroke="#9b2920" stroke-width="3"/>
+<polyline points="2580.00,1668.00 2581.88,1668.15 2583.71,1668.59 2585.45,1669.31 2587.05,1670.29 2588.49,1671.51 2589.71,1672.95 2590.69,1674.55 2591.41,1676.29 2591.85,1678.12 2592.00,1680.00 2591.85,1681.88 2591.41,1683.71 2590.69,1685.45 2589.71,1687.05 2588.49,1688.49 2587.05,1689.71 2585.45,1690.69 2583.71,1691.41 2581.88,1691.85 2580.00,1692.00" fill="none" stroke="#fcfbf7" stroke-width="9"/>
+<polyline points="2580.00,1668.00 2581.88,1668.15 2583.71,1668.59 2585.45,1669.31 2587.05,1670.29 2588.49,1671.51 2589.71,1672.95 2590.69,1674.55 2591.41,1676.29 2591.85,1678.12 2592.00,1680.00 2591.85,1681.88 2591.41,1683.71 2590.69,1685.45 2589.71,1687.05 2588.49,1688.49 2587.05,1689.71 2585.45,1690.69 2583.71,1691.41 2581.88,1691.85 2580.00,1692.00" fill="none" stroke="#9b2920" stroke-width="3"/>
+<text x="1660" y="1927.41" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="27" text-anchor="start">上拉用 P7-29 的 SYS_3V3；不接常供电 BQ_A_3V3。</text>
+<text x="1660" y="1971.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">两端参考地仅差 R63 压降；目标 |ΔGND| ≤ 50mV，含充 / 放电。</text>
+<text x="1660" y="2016.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">不得额外将 BQ_A_GND 与 SYS_GND 短接。预留 SCL 拉伸处理。</text>
+<text x="1660" y="2060.75" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="25" text-anchor="start">断电 / 缺电池 / 电机瞬态需实测；本图不承诺任意热插拔。</text>
 <rect x="60" y="2120" width="3280" height="275" stroke="#bdb6a8" stroke-width="2" fill="#fffdf6"/>
 <text x="85" y="2165.24" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="28" text-anchor="start">读图规则：同名蓝色网络相连；红色实心圆表示连接；交叉无圆点不相连；蓝色×表示明确不连接。</text>
 <text x="85" y="2212.41" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="27" text-anchor="start">接地：BQ_A_GND只接BAT_A_NEG的Kelvin点；SYS_GND接PACK_A_NEG。不得额外连线旁路R63。</text>
 <text x="85" y="2258.41" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="27" text-anchor="start">两包：复制A路为B路；BQ_A/B本地地独立，两路PACK负端共系统地；两颗0x55使用两组I²C。</text>
 <text x="85" y="2303.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">配置：3S / VOLTSEL=1 / GNDSEL=0 / TEMPS=1 / LED_Comm=0 / ALERT关闭；逐包校准、ChemID和学习。</text>
-<text x="85" y="2349.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">边界：本图不含主电源保护；BQ本地支路自耗不经R63（隔离器典型约2.8mA），长期SOC需验证。</text>
+<text x="85" y="2349.58" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="26" text-anchor="start">边界：本图不含主电源保护；BQ本地支路自耗不经R63（现已去掉隔离器），长期SOC仍需验证。</text>
 <text x="65" y="2429.09" fill="#202020" font-family="Microsoft YaHei,Arial,sans-serif" font-size="23" text-anchor="start">ACG720 vision robot · 2026-10-07 · 图示参数不代表PCB/整机已验证；未指定具体MLCC料号与分流封装</text>
 </svg>
