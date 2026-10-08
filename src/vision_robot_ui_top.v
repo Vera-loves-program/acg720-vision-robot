@@ -3,7 +3,7 @@
 module vision_robot_ui_top (
     input  wire        clk50M,
     input  wire        reset_n,       // S0 / F15, active low
-    input  wire        button4_n,     // S4 / B21 toggles Gaussian filter
+    input  wire        button4_n,     // S4 / B21 stops armed motors; otherwise toggles filter
     output wire [15:0] TFT_rgb,
     output wire        TFT_hs,
     output wire        TFT_vs,
@@ -11,13 +11,20 @@ module vision_robot_ui_top (
     output wire        TFT_de,
     output wire        TFT_pwm,
     output wire [7:0]  led,
-    // Temporary P7 sensor demo; independent of video/DDR/ethernet clocks.
+    // 2026-10-08 fabricated P7 map; independent 50MHz peripheral controls.
     inout  wire        sensor_scl,
     inout  wire        sensor_sda,
     output wire        ultrasonic_trig,
     input  wire        ultrasonic_echo,
     output wire        bluetooth_tx,
     input  wire        bluetooth_rx,
+    input  wire        encoder1_a, encoder1_b, encoder2_a, encoder2_b,
+    output wire        motor_pwma, motor_ain1, motor_ain2,
+    output wire        motor_pwmb, motor_bin1, motor_bin2,
+    output wire [3:0]  laser_shut,
+    inout  wire        bq_a_scl, bq_a_sda, bq_b_scl, bq_b_sda,
+    output wire        servo_0, servo_1,
+    output wire        step_0, dir_0, step_1, dir_1,
     // Fixed onboard RTC/EEPROM I2C bus and 74HC595 seven-segment display.
     inout  wire        IIC_scl,
     inout  wire        IIC_sda,
@@ -99,6 +106,109 @@ module vision_robot_ui_top (
     wire [1023:0] demo_display_text;
     wire demo_display_text_valid;
     wire touch_stop_pulse;
+    wire pid_page, pid_action_valid, pid_emergency_stop;
+    wire [7:0] pid_action;
+    wire motor_uart_action_valid, motor_uart_emergency, motor_uart_heartbeat;
+    wire [7:0] motor_uart_action;
+    wire signed [31:0] motor_uart_argument;
+    wire [31:0] motor_parse_errors;
+    wire motor_armed, motor_running, motor_mode_position, motor_position_unlocked, motor_link_fault;
+    wire motor_clear_fault, motor_clear_stop, motor_zero_position;
+    wire motor_selected_wheel, motor_edit_position;
+    wire [3:0] motor_selected_field;
+    wire [1:0] motor_step_select;
+    wire motor_invert_left, motor_invert_right;
+    wire signed [15:0] motor_target_speed_left, motor_target_speed_right;
+    wire signed [31:0] motor_target_position_left, motor_target_position_right;
+    wire [15:0] motor_skp_l, motor_ski_l, motor_skd_l, motor_skp_r, motor_ski_r, motor_skd_r;
+    wire [15:0] motor_pkp_l, motor_pki_l, motor_pkd_l, motor_pkp_r, motor_pki_r, motor_pkd_r;
+    wire [9:0] motor_max_duty, motor_min_duty;
+    wire [15:0] motor_speed_db, motor_position_db;
+    wire signed [31:0] motor_selected_value;
+    wire [31:0] motor_selected_step;
+    wire signed [31:0] motor_position_left, motor_position_right;
+    wire signed [31:0] motor_speed_left, motor_speed_right, motor_speed_raw_left, motor_speed_raw_right;
+    wire signed [15:0] motor_effective_left, motor_effective_right, motor_duty_left, motor_duty_right;
+    wire [7:0] motor_fault_left, motor_fault_right;
+    wire [15:0] motor_invalid_left, motor_invalid_right;
+    wire motor_tick;
+    wire [2047:0] motor_text;
+    wire motor_text_valid;
+    // STBY is physically tied high on the submitted PCB: IN00/PWM1 coast STOP
+    // is a software gate, not a power disconnect or configuration-time guarantee.
+    wire motor_safety_stop=stop_latched || !reset_n || pid_emergency_stop || motor_uart_emergency;
+    // Unimplemented peripherals remain inactive; module SHUT is only pulled low.
+    assign laser_shut=4'b0000;
+    assign bq_a_scl=1'bz; assign bq_a_sda=1'bz;
+    assign bq_b_scl=1'bz; assign bq_b_sda=1'bz;
+    assign servo_0=1'b0; assign servo_1=1'b0;
+    assign step_0=1'b0; assign step_1=1'b0;
+    assign dir_0=1'b0; assign dir_1=1'b0;
+    motor_uart_commands u_motor_commands (
+        .clk(clk50M), .reset_n(ready), .byte_valid(demo_rx_byte_valid), .byte_data(demo_rx_byte),
+        .action_valid(motor_uart_action_valid), .action(motor_uart_action), .argument(motor_uart_argument),
+        .emergency_stop_pulse(motor_uart_emergency), .heartbeat(motor_uart_heartbeat), .parse_errors(motor_parse_errors)
+    );
+    motor_tuning_control u_motor_settings (
+        .clk(clk50M), .reset_n(ready), .safety_stop(motor_safety_stop),
+        .fault_left(motor_fault_left), .fault_right(motor_fault_right),
+        .ui_action_valid(pid_action_valid), .ui_action(pid_action),
+        .uart_action_valid(motor_uart_action_valid), .uart_action(motor_uart_action),
+        .uart_argument(motor_uart_argument), .uart_heartbeat(motor_uart_heartbeat),
+        .armed(motor_armed), .running(motor_running), .mode_position(motor_mode_position),
+        .position_unlocked(motor_position_unlocked), .link_fault(motor_link_fault),
+        .clear_fault(motor_clear_fault), .clear_stop(motor_clear_stop), .zero_position(motor_zero_position),
+        .selected_wheel(motor_selected_wheel), .edit_position(motor_edit_position),
+        .selected_field(motor_selected_field), .step_select(motor_step_select),
+        .encoder_invert_left(motor_invert_left), .encoder_invert_right(motor_invert_right),
+        .target_speed_left(motor_target_speed_left), .target_speed_right(motor_target_speed_right),
+        .target_position_left(motor_target_position_left), .target_position_right(motor_target_position_right),
+        .speed_kp_left(motor_skp_l), .speed_ki_left(motor_ski_l), .speed_kd_left(motor_skd_l),
+        .speed_kp_right(motor_skp_r), .speed_ki_right(motor_ski_r), .speed_kd_right(motor_skd_r),
+        .position_kp_left(motor_pkp_l), .position_ki_left(motor_pki_l), .position_kd_left(motor_pkd_l),
+        .position_kp_right(motor_pkp_r), .position_ki_right(motor_pki_r), .position_kd_right(motor_pkd_r),
+        .max_duty_permille(motor_max_duty), .min_duty_permille(motor_min_duty),
+        .speed_deadband(motor_speed_db), .position_deadband(motor_position_db),
+        .selected_value(motor_selected_value), .selected_step(motor_selected_step)
+    );
+    motor_drive_control u_motors (
+        .clk(clk50M), .reset_n(ready), .safety_stop(motor_safety_stop || motor_link_fault),
+        .run_enable(motor_armed && motor_running), .clear_fault(motor_clear_fault),
+        .zero_position(motor_zero_position), .encoder_invert_left(motor_invert_left),
+        .encoder_invert_right(motor_invert_right), .mode_position(motor_mode_position),
+        .encoder1_a(encoder1_a), .encoder1_b(encoder1_b), .encoder2_a(encoder2_a), .encoder2_b(encoder2_b),
+        .target_speed_left(motor_target_speed_left), .target_speed_right(motor_target_speed_right),
+        .target_position_left(motor_target_position_left), .target_position_right(motor_target_position_right),
+        .speed_kp_left(motor_skp_l), .speed_ki_left(motor_ski_l), .speed_kd_left(motor_skd_l),
+        .speed_kp_right(motor_skp_r), .speed_ki_right(motor_ski_r), .speed_kd_right(motor_skd_r),
+        .position_kp_left(motor_pkp_l), .position_ki_left(motor_pki_l), .position_kd_left(motor_pkd_l),
+        .position_kp_right(motor_pkp_r), .position_ki_right(motor_pki_r), .position_kd_right(motor_pkd_r),
+        .speed_deadband(motor_speed_db), .position_deadband(motor_position_db),
+        .max_duty_permille(motor_max_duty), .min_duty_permille(motor_min_duty),
+        .pwma(motor_pwma), .ain1(motor_ain1), .ain2(motor_ain2),
+        .pwmb(motor_pwmb), .bin1(motor_bin1), .bin2(motor_bin2),
+        .position_left(motor_position_left), .position_right(motor_position_right),
+        .speed_left(motor_speed_left), .speed_right(motor_speed_right),
+        .speed_raw_left(motor_speed_raw_left), .speed_raw_right(motor_speed_raw_right),
+        .target_effective_left(motor_effective_left), .target_effective_right(motor_effective_right),
+        .duty_left(motor_duty_left), .duty_right(motor_duty_right),
+        .fault_left(motor_fault_left), .fault_right(motor_fault_right),
+        .invalid_left(motor_invalid_left), .invalid_right(motor_invalid_right), .tick_10ms(motor_tick)
+    );
+    motor_status_text u_motor_text (
+        .clk(clk50M), .reset_n(ready), .armed(motor_armed), .running(motor_running),
+        .safety_stop(motor_safety_stop), .link_fault(motor_link_fault),
+        .mode_position(motor_mode_position), .position_unlocked(motor_position_unlocked),
+        .selected_wheel(motor_selected_wheel), .edit_position(motor_edit_position),
+        .selected_field(motor_selected_field), .selected_value(motor_selected_value), .selected_step(motor_selected_step),
+        .target_effective_left(motor_effective_left), .target_effective_right(motor_effective_right),
+        .speed_left(motor_speed_left), .speed_right(motor_speed_right),
+        .position_left(motor_position_left), .position_right(motor_position_right),
+        .duty_left(motor_duty_left), .duty_right(motor_duty_right),
+        .fault_left(motor_fault_left), .fault_right(motor_fault_right),
+        .invalid_left(motor_invalid_left), .invalid_right(motor_invalid_right),
+        .text_rows(motor_text), .text_valid(motor_text_valid)
+    );
     sensor_demo_commands u_demo_commands (
         .clk(clk50M), .reset_n(ready), .rx(bluetooth_rx),
         .period_cycles(demo_report_period), .command_count(demo_command_count),
@@ -125,6 +235,7 @@ module vision_robot_ui_top (
         .distance_mm(us_distance_mm), .period_cycles(demo_report_period),
         .command_count(demo_command_count), .last_command(demo_last_command),
         .rx_errors(demo_rx_errors), .tx(bluetooth_tx),
+        .motor_text_data(motor_text), .motor_text_valid(motor_text_valid),
         .display_text(demo_display_text), .display_text_valid(demo_display_text_valid)
     );
 
@@ -159,7 +270,7 @@ module vision_robot_ui_top (
         .dio(SEG7_DIO), .rclk(SEG7_RCLK), .sclk(SEG7_SCLK)
     );
 
-    // S4 is debounced. A press toggles the filter, initially ON.
+    // S4 is debounced. Motor stop has priority; idle presses toggle the filter.
     reg button_meta = 1'b1, button_sync = 1'b1;
     reg button_stable = 1'b1;
     reg [19:0] button_count = 0;
@@ -397,6 +508,19 @@ module vision_robot_ui_top (
             end
         end
     end
+    reg [2047:0] pid_text_mailbox;
+    reg pid_text_request;
+    wire pid_text_ack;
+    reg [2:0] pid_text_ack_sync;
+    always @(posedge clk50M or negedge ready) begin
+        if (!ready) begin pid_text_mailbox<=0; pid_text_request<=0; pid_text_ack_sync<=0; end
+        else begin
+            pid_text_ack_sync<={pid_text_ack_sync[1:0],pid_text_ack};
+            if (motor_text_valid && pid_text_request==pid_text_ack_sync[2]) begin
+                pid_text_mailbox<=motor_text; pid_text_request<=~pid_text_request;
+            end
+        end
+    end
     lcd1024_interaction_ui u_lcd (
         .clk(pixel_clk), .run(pixel_run_pipe[1]),
         .camera_pixel(camera_pixel_read),
@@ -422,6 +546,8 @@ module vision_robot_ui_top (
         .detection_ack(detection_ack),
         .sensor_text_request(sensor_text_request), .sensor_text_data(sensor_text_mailbox),
         .sensor_text_ack(sensor_text_ack),
+        .pid_page(pid_page), .pid_text_request(pid_text_request),
+        .pid_text_data(pid_text_mailbox), .pid_text_ack(pid_text_ack),
         .camera_pop(camera_pop), .frame_restart(frame_restart),
         .display_step(lcd_view_step), .display_left(lcd_view_left),
         .display_top(lcd_view_top), .ddr_read_base(lcd_ddr_read_base),
@@ -570,8 +696,12 @@ module vision_robot_ui_top (
         if (!reset_sync) begin
             filter_requested <= 1'b1;
             stop_latched <= 1'b0;
-        end else if (touch_stop_pulse) begin
+        end else if (touch_stop_pulse || pid_emergency_stop || motor_uart_emergency ||
+                     (button_press && (motor_armed || motor_running)) ||
+                     (command_sync[2] != command_sync[1] && command_code==8'd3)) begin
             stop_latched <= 1'b1; // takes priority over host clear on this clock
+        end else if (motor_clear_stop) begin
+            stop_latched <= 1'b0;
         end else if (command_sync[2] != command_sync[1]) begin
             case (command_code)
                 8'd1: filter_requested <= command_value[0];
@@ -617,10 +747,17 @@ module vision_robot_ui_top (
     wire [9:0] zoom_left, focus_x;
     wire zoom_toggle;
     wire [3:0] ui_click_event;
-    touch_gestures u_gestures (
+    pid_touch_controls u_pid_touch (
         .clk(clk50M), .reset_n(ready), .touch_ready(touch_ready),
         .snapshot_valid(touch_snapshot), .snapshot_cancel(touch_snapshot_cancel),
-        .contact_count(touch_count),
+        .contact_count(touch_count), .x0(touch_x0), .y0(touch_y0), .x1(touch_x1), .y1(touch_y1),
+        .id0(touch_id0), .id1(touch_id1), .pid_page(pid_page),
+        .action_valid(pid_action_valid), .action(pid_action), .emergency_stop_pulse(pid_emergency_stop)
+    );
+    touch_gestures u_gestures (
+        .clk(clk50M), .reset_n(ready), .touch_ready(touch_ready),
+        .snapshot_valid(touch_snapshot), .snapshot_cancel(touch_snapshot_cancel || pid_page),
+        .contact_count(pid_page ? 2'd0 : touch_count),
         .x0(touch_x0), .y0(touch_y0), .x1(touch_x1), .y1(touch_y1),
         .id0(touch_id0), .id1(touch_id1),
         .view_step(lcd_view_data[27:19]),

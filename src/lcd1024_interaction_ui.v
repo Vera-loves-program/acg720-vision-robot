@@ -1,4 +1,4 @@
-// R5: source-anchored 1x..4x zoom, unit-bearing sensors, zoom/stop buttons only.
+// Source-anchored 1x..4x zoom, unit-bearing sensors and motor PID tuning page.
 // Camera/DDR timing and the 800x480 viewport remain at the verified geometry.
 module lcd1024_interaction_ui (
     input wire clk, run,
@@ -19,6 +19,10 @@ module lcd1024_interaction_ui (
     input wire sensor_text_request,
     input wire [1023:0] sensor_text_data,
     output reg sensor_text_ack = 0,
+    input wire pid_page,
+    input wire pid_text_request,
+    input wire [2047:0] pid_text_data,
+    output reg pid_text_ack = 0,
     output wire camera_pop, frame_restart,
     output wire [8:0] display_step, display_top,
     output wire [9:0] display_left,
@@ -64,6 +68,28 @@ module lcd1024_interaction_ui (
             if (frame_restart && sensor_request_sync[2]!=sensor_text_ack) begin
                 sensor_rows<=sensor_text_data;
                 sensor_text_ack<=sensor_request_sync[2];
+            end
+        end
+    end
+    // Parameter/status strings are prepared in the control-clock domain.
+    // Hold the 16x16-byte mailbox until the frame-boundary toggle ACK, as for
+    // the sensor mailbox above. Latching the page here avoids mid-frame tears.
+    reg [2:0] pid_request_sync = 0, pid_page_sync = 0;
+    reg pid_page_display = 0;
+    reg [2047:0] pid_rows = {"PID WAIT DATA   ",1920'd0};
+    always @(posedge clk or negedge run) begin
+        if (!run) begin
+            pid_request_sync<=0; pid_page_sync<=0; pid_text_ack<=0;
+            pid_page_display<=0; pid_rows<={"PID WAIT DATA   ",1920'd0};
+        end else begin
+            pid_request_sync<={pid_request_sync[1:0],pid_text_request};
+            pid_page_sync<={pid_page_sync[1:0],pid_page};
+            if (frame_restart) begin
+                pid_page_display<=pid_page_sync[2];
+                if (pid_request_sync[2]!=pid_text_ack) begin
+                    pid_rows<=pid_text_data;
+                    pid_text_ack<=pid_request_sync[2];
+                end
             end
         end
     end
@@ -186,6 +212,10 @@ module lcd1024_interaction_ui (
                 ":":glyph=40'h0036360000; "/":glyph=40'h2010080402;
                 "-":glyph=40'h0808080808; ".":glyph=40'h0060600000;
                 "+":glyph=40'h08083e0808;
+                "=":glyph=40'h1414141414; ">":glyph=40'h0041221408;
+                "<":glyph=40'h0814224100; "%":glyph=40'h6313086463;
+                "_":glyph=40'h4040404040; "?":glyph=40'h0201510906;
+                "[":glyph=40'h007f414100; "]":glyph=40'h0041417f00;
                 default:glyph=40'h0000000000;
             endcase
         end
@@ -196,16 +226,58 @@ module lcd1024_interaction_ui (
     reg [9:0] label_y;
     reg [15:0] label_color;
     reg label_enable;
+    wire [9:0] pid_text_y=ay-10'd76;
+    wire [3:0] pid_text_row=pid_text_y/10'd24;
+    wire [4:0] pid_text_dy=pid_text_y%10'd24;
     always @* begin
         label_text=128'd0; label_x=0; label_y=0;
         label_right=11'd1024; label_color=INK; label_enable=1'b1;
-        if (ay>=10'd14 && ay<10'd30 && ax>=11'd20 && ax<11'd280) begin
-            label_text="STUDY ASSIST R5 "; label_x=11'd20; label_y=10'd14;
+        if (pid_page_display && ax>=11'd36 && ax<11'd228 && ay>=10'd76 && ay<10'd452 && pid_text_dy<16) begin
+            label_text=pid_rows[2047-(pid_text_row*128) -: 128];
+            label_x=11'd36; label_y=10'd76+pid_text_row*10'd24;
+            label_right=11'd228; label_color=INK;
+        end
+        else if (pid_page_display && (ax>=11'd408 && ax<11'd796) &&
+            (ay>=10'd86 && ay<10'd438)) begin
+            // Text starts 8 pixels inside each 188-pixel button. A label
+            // is enabled only in its own rectangle, including row gaps.
+            label_x=ax<11'd608 ? 11'd416 : 11'd616;
+            label_right=ax<11'd608 ? 11'd596 : 11'd796;
+            if (ay>=86 && ay<102) begin
+                label_text=ax<608 ? "WHEEL           " : "EDIT LOOP       "; label_y=86; label_color=BLUE;
+            end else if (ay>=142 && ay<158) begin
+                label_text=ax<608 ? "PREV FIELD      " : "NEXT FIELD      "; label_y=142; label_color=BLUE;
+            end else if (ay>=198 && ay<214) begin
+                label_text=ax<608 ? "VALUE -         " : "VALUE +         "; label_y=198; label_color=BLUE;
+            end else if (ay>=254 && ay<270) begin
+                label_text=ax<608 ? "STEP            " : "ZERO POSITION   "; label_y=254; label_color=BLUE;
+            end else if (ay>=310 && ay<326) begin
+                label_text=ax<608 ? "SPEED MODE      " : "POSITION MODE   "; label_y=310; label_color=BLUE;
+            end else if (ay>=366 && ay<382) begin
+                label_text=ax<608 ? "ARM             " : "RUN             "; label_y=366; label_color=WHITE;
+            end else if (ay>=422 && ay<438) begin
+                label_text=ax<608 ? "CLEAR FAULT     " : "STOP            "; label_y=422;
+                label_color=ax<608 ? BLUE : WHITE;
+            end else label_enable=0;
+            if ((ax>=596 && ax<608) || ax<label_x) label_enable=0;
+        end
+        else if (pid_page_display && ax>=11'd408 && ax<11'd796 && ay>=10'd478 && ay<10'd494) begin
+            label_text="UNLOCK POS      "; label_x=424; label_y=478; label_right=796; label_color=BLUE;
+        end
+        else if (pid_page_display && ax>=11'd408 && ax<11'd796 && ay>=10'd516 && ay<10'd532) begin
+            label_text="STOP BEFORE EDIT"; label_x=408; label_y=516; label_right=796; label_color=MUTED;
+        end
+        else if (ay>=10'd14 && ay<10'd30 && ax>=11'd20 && ax<11'd280) begin
+            label_text=pid_page_display ? "MOTOR PID TUNING" : "STUDY ASSIST R5 "; label_x=11'd20; label_y=10'd14;
             label_right=11'd280; label_color=INK;
         end
         else if (ay>=10'd14 && ay<10'd30 && ax>=11'd852 && ax<11'd1008) begin
             label_text=touch_ready ? "TP OK           " : "TP WAIT         "; label_x=11'd852; label_y=10'd14;
             label_right=11'd1008; label_color=BLUE;
+        end
+        else if (ay>=10'd14 && ay<10'd30 && ax>=11'd600 && ax<11'd800) begin
+            label_text=zoom_active && !zoom_ready ? "ZOOM WAIT       " : {"VIEW ",scale_units,".",scale_tenths,scale_hundredths,"X      "};
+            label_x=11'd600; label_y=10'd14; label_right=11'd800; label_color=BLUE;
         end
         else if (ay>=10'd62 && ay<10'd78 && ax>=11'd840 && ax<11'd1000) begin
             label_text="STATUS          "; label_x=11'd840; label_y=10'd62;
@@ -216,8 +288,8 @@ module lcd1024_interaction_ui (
             label_right=11'd1000; label_color=camera_ready && ddr_ready && ddr_pll_ready ? GREEN : RED;
         end
         else if (ay>=10'd126 && ay<10'd142 && ax>=11'd836 && ax<11'd1008) begin
-            label_text=zoom_active && !zoom_ready ? "ZOOM WAIT       " : {"VIEW ",scale_units,".",scale_tenths,scale_hundredths,"X      "};
-            label_x=11'd836; label_y=10'd126; label_right=11'd1008; label_color=BLUE;
+            label_text=pid_page_display ? "RETURN CAMERA   " : "PID MODE        ";
+            label_x=11'd836; label_y=10'd126; label_right=11'd1008; label_color=pid_page_display ? WHITE : BLUE;
         end
         else if (ay>=10'd174 && ay<10'd190 && ax>=11'd836 && ax<11'd1008) begin
             label_text="ZOOM IN MODE    "; label_x=11'd836; label_y=10'd174;
@@ -260,11 +332,11 @@ module lcd1024_interaction_ui (
             label_right=11'd1008; label_color=WHITE;
         end
         else if (ay>=10'd558 && ay<10'd574 && ax>=11'd20 && ax<11'd280) begin
-            label_text="CAM 800X480     "; label_x=11'd20; label_y=10'd558;
+            label_text=pid_page_display ? "SPD=COUNT/10MS  " : "CAM 800X480     "; label_x=11'd20; label_y=10'd558;
             label_right=11'd280; label_color=INK;
         end
         else if (ay>=10'd558 && ay<10'd574 && ax>=11'd300 && ax<11'd560) begin
-            label_text="UDP 400X240     "; label_x=11'd300; label_y=10'd558;
+            label_text=pid_page_display ? "POS=COUNT       " : "UDP 400X240     "; label_x=11'd300; label_y=10'd558;
             label_right=11'd560; label_color=INK;
         end
         else if (ay>=10'd558 && ay<10'd574 && ax>=11'd600 && ax<11'd820) begin
@@ -272,11 +344,11 @@ module lcd1024_interaction_ui (
             label_right=11'd820; label_color=BLUE;
         end
         else if (ay>=10'd582 && ay<10'd598 && ax>=11'd20 && ax<11'd280) begin
-            label_text="PINCH TO ZOOM   "; label_x=11'd20; label_y=10'd582;
+            label_text=pid_page_display ? "SPEED THEN POS  " : "PINCH TO ZOOM   "; label_x=11'd20; label_y=10'd582;
             label_right=11'd280; label_color=MUTED;
         end
         else if (ay>=10'd582 && ay<10'd598 && ax>=11'd300 && ax<11'd560) begin
-            label_text=zoom_mode ? "TAP TAP FOCUS   " : debug_mode ? "TAP TAP SELECT  " : "DEBUG TO SELECT "; label_x=11'd300; label_y=10'd582;
+            label_text=pid_page_display ? "ONE TAP PER STEP" : zoom_mode ? "TAP TAP FOCUS   " : debug_mode ? "TAP TAP SELECT  " : "DEBUG TO SELECT "; label_x=11'd300; label_y=10'd582;
             label_right=11'd560; label_color=MUTED;
         end
         else if (ay>=10'd582 && ay<10'd598 && ax>=11'd600 && ax<11'd856) begin
@@ -343,6 +415,11 @@ module lcd1024_interaction_ui (
         begin in_rect=x>=left && x<right && y>=top && y<bottom; end
     endfunction
     reg [15:0] base_color;
+    wire pid_left_button=ax>=11'd408 && ax<11'd596;
+    wire pid_right_button=ax>=11'd608 && ax<11'd796;
+    wire pid_button_row=(ay>=72 && ay<116) || (ay>=128 && ay<172) ||
+        (ay>=184 && ay<228) || (ay>=240 && ay<284) ||
+        (ay>=296 && ay<340) || (ay>=352 && ay<396) || (ay>=408 && ay<452);
     always @* begin
         base_color=BACKGROUND;
         if (active) begin
@@ -352,6 +429,8 @@ module lcd1024_interaction_ui (
             if (video_area) base_color=display_valid ? display_pixel : BLACK;
             if (in_rect(ax,11'd828,11'd1012,ay,10'd52,10'd108)) base_color=BORDER;
             if (in_rect(ax,11'd829,11'd1011,ay,10'd53,10'd107)) base_color=WHITE;
+            if (in_rect(ax,11'd832,11'd1008,ay,10'd112,10'd152)) base_color=BORDER;
+            if (in_rect(ax,11'd833,11'd1007,ay,10'd113,10'd151)) base_color=pid_page_display ? BLUE : SOFT_BLUE;
             if (in_rect(ax,11'd832,11'd1008,ay,10'd160,10'd200)) base_color=BORDER;
             if (in_rect(ax,11'd833,11'd1007,ay,10'd161,10'd199)) base_color=zoom_mode ? BLUE : SOFT_BLUE;
             if (in_rect(ax,11'd828,11'd1012,ay,10'd212,10'd476)) base_color=BORDER;
@@ -366,6 +445,20 @@ module lcd1024_interaction_ui (
                  ((source_y==roi_y0 || source_y==roi_y1) && source_x>=roi_x0 && source_x<=roi_x1)))
                 base_color=ORANGE;
             if (video_area && display_valid && dog_border) base_color=GREEN;
+            // Keep consuming the camera stream with exactly the same zoom
+            // geometry; only the final LCD colors are covered by this page.
+            // Network video and the camera/DDR clocks therefore continue.
+            if (pid_page_display && video_area) begin
+                base_color=BACKGROUND;
+                if (in_rect(ax,11'd28,11'd388,ay,10'd64,10'd464)) base_color=BORDER;
+                if (in_rect(ax,11'd29,11'd387,ay,10'd65,10'd463)) base_color=WHITE;
+                if ((pid_left_button || pid_right_button) && pid_button_row) begin
+                    base_color=SOFT_BLUE;
+                    if (ay>=352 && ay<396) base_color=pid_left_button ? BLUE : GREEN;
+                    if (pid_right_button && ay>=408 && ay<452) base_color=RED;
+                end
+                if (in_rect(ax,11'd408,11'd796,ay,10'd464,10'd508)) base_color=SOFT_BLUE;
+            end
         end
     end
 

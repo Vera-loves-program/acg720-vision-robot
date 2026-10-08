@@ -21,6 +21,14 @@
     <File path="src/sensor_demo_uart.v" type="file.verilog" enable="1"/>
     <File path="src/sensor_demo_text.v" type="file.verilog" enable="1"/>
     <File path="src/sensor_demo_commands.v" type="file.verilog" enable="1"/>
+    <File path="src/encoder_quadrature.v" type="file.verilog" enable="1"/>
+    <File path="src/tb6612_axis_pwm.v" type="file.verilog" enable="1"/>
+    <File path="src/motor_axis_control.v" type="file.verilog" enable="1"/>
+    <File path="src/motor_drive_control.v" type="file.verilog" enable="1"/>
+    <File path="src/motor_tuning_control.v" type="file.verilog" enable="1"/>
+    <File path="src/motor_uart_commands.v" type="file.verilog" enable="1"/>
+    <File path="src/motor_status_text.v" type="file.verilog" enable="1"/>
+    <File path="src/pid_touch_controls.v" type="file.verilog" enable="1"/>
     <File path="src/rtc_calendar_valid.v" type="file.verilog" enable="1"/>
     <File path="src/uart_rtc_set_parser.v" type="file.verilog" enable="1"/>
     <File path="src/bm8563_clock.v" type="file.verilog" enable="1"/>

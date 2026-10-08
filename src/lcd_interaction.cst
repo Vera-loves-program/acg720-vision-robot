@@ -239,8 +239,9 @@ IO_PORT "rgmii_rxd[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
 IO_LOC "rgmii_rx_clk" W19;
 IO_PORT "rgmii_rx_clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
 
-// Temporary sensor demo on the actual 20x2 P7 header (60K board).
-// P7 1=SCL, 2=SDA: open drain, external/module pull-ups to 3.3 V required.
+// 2026-10-08 expansion PCB, verified against .tel and physical P7 (60K board).
+// Shared IMU/TOF SCL/SDA: no expansion-board pull-ups; IMU module has 4.7k.
+// Keep FPGA weak pull-ups OFF. TOF module pull-up values/voltage remain unknown.
 IO_LOC "sensor_scl" A13;
 IO_PORT "sensor_scl" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4 BANK_VCCIO=3.3;
 IO_LOC "sensor_sda" A14;
@@ -250,11 +251,67 @@ IO_LOC "ultrasonic_trig" E13;
 IO_PORT "ultrasonic_trig" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
 IO_LOC "ultrasonic_echo" E14;
 IO_PORT "ultrasonic_echo" IO_TYPE=LVCMOS33 PULL_MODE=DOWN BANK_VCCIO=3.3;
-// P7 28=FPGA_TX -> HC-06 RX, P7 31=FPGA_RX <- HC-06 TX (3.3 V UART).
-IO_LOC "bluetooth_tx" C19;
+// P7 14=FPGA_TX -> HC-06 RX, P7 13=FPGA_RX <- HC-06 TX (3.3 V UART).
+IO_LOC "bluetooth_tx" B13;
 IO_PORT "bluetooth_tx" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4 BANK_VCCIO=3.3;
-IO_LOC "bluetooth_rx" F16;
+IO_LOC "bluetooth_rx" C13;
 IO_PORT "bluetooth_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// P7 23/26 = encoder1 A/B, 25/28 = encoder2 A/B; inputs MUST be 3.3V compatible.
+IO_LOC "encoder1_a" E16;
+IO_PORT "encoder1_a" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "encoder1_b" B18;
+IO_PORT "encoder1_b" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "encoder2_a" B17;
+IO_PORT "encoder2_a" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+IO_LOC "encoder2_b" C19;
+IO_PORT "encoder2_b" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+// TB6612 STBY is hardwired high on PCB. Coast STOP is IN1=IN2=0,PWM=1.
+// Pull settings are not a substitute for a hardware default-disable circuit.
+IO_LOC "motor_ain1" C15;
+IO_PORT "motor_ain1" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "motor_ain2" C14;
+IO_PORT "motor_ain2" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "motor_pwma" B16;
+IO_PORT "motor_pwma" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "motor_bin1" B15;
+IO_PORT "motor_bin1" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "motor_bin2" C17;
+IO_PORT "motor_bin2" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "motor_pwmb" D17;
+IO_PORT "motor_pwmb" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4 BANK_VCCIO=3.3;
+// Four SHUT controls, presently held LOW; TOF initialization not implemented.
+IO_LOC "laser_shut[0]" A15;
+IO_PORT "laser_shut[0]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "laser_shut[1]" A16;
+IO_PORT "laser_shut[1]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "laser_shut[2]" A18;
+IO_PORT "laser_shut[2]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "laser_shut[3]" A19;
+IO_PORT "laser_shut[3]" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+// Each BQ bus already has two board 4.7k pull-ups to SYSTEM 3V3; parked at Z.
+IO_LOC "bq_a_scl" F13;
+IO_PORT "bq_a_scl" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "bq_a_sda" F14;
+IO_PORT "bq_a_sda" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "bq_b_scl" D14;
+IO_PORT "bq_b_scl" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "bq_b_sda" D15;
+IO_PORT "bq_b_sda" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4 BANK_VCCIO=3.3;
+// Reserved servo/stepper signals are presently held LOW, no driver is claimed.
+IO_LOC "servo_0" C18;
+IO_PORT "servo_0" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "servo_1" D16;
+IO_PORT "servo_1" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "step_0" F16;
+IO_PORT "step_0" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "dir_0" C20;
+IO_PORT "dir_0" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "step_1" D20;
+IO_PORT "step_1" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "dir_1" D19;
+IO_PORT "dir_1" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
+// P7-11/12/29/30 are power/ground; P7-32 NC and spare35/37/38/39/40 unused.
 
 // Onboard BM8563T/24LC64 I2C bus: schematic and 60K pin table verified.
 // R27/R28 are onboard 4.7k pull-ups to 3.3 V; independent of P7 sensor bus.

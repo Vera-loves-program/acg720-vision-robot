@@ -1,12 +1,12 @@
 // HC-06 command receiver: 50 MHz, 115200 baud, 8N1. All commands are single
 // ASCII bytes; CR/LF and unknown bytes are ignored by P/F/S/N decoding.
-// Correctly framed bytes are also forwarded to the separate RTC time parser.
+// Correctly framed bytes also feed separate RTC and framed motor parsers.
 // This is telemetry control
 // only. It contains no motor-enable, motor-start, or motion-command logic.
 //
 // P = ping/acknowledgement only; F = 20 Hz; S = 5 Hz; N = default 10 Hz.
-// Accepted commands update command_count/last_command; the next numeric CSV
-// report is the acknowledgement. last_command is the ASCII byte as an integer.
+// Accepted commands update command_count/last_command; the next text report
+// is the acknowledgement. Bytes inside @ motor frames do not change this mode.
 // rx_errors counts false starts and bad stop bits, never unknown text bytes.
 module sensor_demo_commands #(
     parameter CLK_HZ = 50000000,
@@ -19,7 +19,7 @@ module sensor_demo_commands #(
     output reg [31:0] command_count,
     output reg [7:0] last_command,
     output reg [31:0] rx_errors,
-    // Raw correctly framed bytes for the independent RTC calibration parser.
+    // Raw correctly framed bytes for independent RTC and motor parsers.
     output reg [7:0] rx_byte,
     output reg rx_byte_valid
 );
@@ -38,6 +38,8 @@ module sensor_demo_commands #(
     reg [31:0] bit_clock_count;
     reg [2:0] bit_index;
     reg [7:0] received;
+    reg motor_frame;
+    reg [31:0] motor_frame_age;
 
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
@@ -59,12 +61,18 @@ module sensor_demo_commands #(
             rx_errors <= 0;
             rx_byte <= 0;
             rx_byte_valid <= 0;
+            motor_frame <= 0;
+            motor_frame_age <= 0;
             state <= WAIT_IDLE;
             bit_clock_count <= 0;
             bit_index <= 0;
             received <= 0;
         end else begin
             rx_byte_valid <= 0;
+            if (motor_frame) begin
+                if (motor_frame_age>=CLK_HZ/4-1) motor_frame<=0;
+                else motor_frame_age<=motor_frame_age+1'b1;
+            end
             case (state)
                 WAIT_IDLE: begin
                     // At boot and after a framing error, wait for one whole
@@ -124,7 +132,10 @@ module sensor_demo_commands #(
                             // straight to edge detection to accept consecutive
                             // correctly framed bytes without requiring a gap.
                             state <= WAIT_START;
-                            case (received)
+                            motor_frame_age<=0;
+                            if (received=="@") motor_frame<=1;
+                            else if (received==8'h0d || received==8'h0a || received=="!") motor_frame<=0;
+                            if (!motor_frame) case (received)
                                 8'h50: begin // P
                                     command_count <= command_count + 1'b1;
                                     last_command <= received;

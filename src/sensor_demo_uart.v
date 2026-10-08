@@ -19,6 +19,8 @@ module sensor_demo_uart #(
     input wire [31:0] command_count,
     input wire [7:0] last_command,
     input wire [31:0] rx_errors,
+    input wire [2047:0] motor_text_data,
+    input wire motor_text_valid,
     output wire [1023:0] display_text,
     output wire display_text_valid,
     output wire tx
@@ -34,10 +36,17 @@ module sensor_demo_uart #(
     );
     localparam IDLE=0, BODY=1, BODY_SEPARATOR=2, PREFIX=3, LOAD=4, CONVERT=5,
         DIGIT=6, AFTER_DIGIT=7, NEXT_FIELD=8, LAST_PREFIX=9, LAST_CHAR=10,
-        CR=11, LF=12, WAIT_ACCEPT=13, WAIT_DONE=14;
-    reg [3:0] state, after_byte;
+        CR=11, LF=12, WAIT_ACCEPT=13, WAIT_DONE=14,
+        MOTOR_PREFIX=15, MOTOR_BODY=16, MOTOR_SEPARATOR=17;
+    reg [4:0] state, after_byte;
     reg [1023:0] held_text;
     reg [167:0] held_meta;
+    reg [2047:0] latest_motor, held_motor;
+    reg motor_seen, held_motor_seen;
+    reg [7:0] motor_index;
+    reg [4:0] motor_prefix_index;
+    localparam MOTOR_PREFIX_LENGTH=32;
+    wire [MOTOR_PREFIX_LENGTH*8-1:0] motor_prefix=" | PID SPD=COUNT/10MS POS=COUNT ";
     reg [6:0] text_index;
     reg [2:0] field_index, prefix_index;
     reg [3:0] digit_index;
@@ -80,13 +89,18 @@ module sensor_demo_uart #(
         if (!reset_n) begin
             state<=IDLE; after_byte<=IDLE; held_text<=0; held_meta<=0;
             text_index<=0; field_index<=0; prefix_index<=0;
+            latest_motor<=0; held_motor<=0; motor_seen<=0; held_motor_seen<=0;
+            motor_index<=0; motor_prefix_index<=0;
             binary_shift<=0; decimal_digits<=0; conversion_step<=0;
             digit_index<=9; digit_started<=0; tx_start<=0; tx_data<=0;
         end else begin
             tx_start<=0;
+            if (motor_text_valid) begin latest_motor<=motor_text_data; motor_seen<=1; end
             case (state)
                 IDLE: if (display_text_valid) begin
                     held_text<=display_text; held_meta<=formatted_meta;
+                    held_motor<=latest_motor;
+                    held_motor_seen<=motor_seen;
                     text_index<=0; state<=BODY;
                 end
                 BODY: begin
@@ -141,8 +155,25 @@ module sensor_demo_uart #(
                 end
                 LAST_CHAR: begin
                     tx_data<=held_meta[7:0]==0 ? "-" : held_meta[7:0];
-                    tx_start<=1; after_byte<=CR; state<=WAIT_ACCEPT;
+                    tx_start<=1; after_byte<=held_motor_seen ? MOTOR_PREFIX : CR; state<=WAIT_ACCEPT;
+                    motor_index<=0; motor_prefix_index<=0;
                 end
+                MOTOR_PREFIX:begin
+                    tx_data<=motor_prefix[MOTOR_PREFIX_LENGTH*8-1-motor_prefix_index*8 -: 8]; tx_start<=1;
+                    if (motor_prefix_index==MOTOR_PREFIX_LENGTH-1) after_byte<=MOTOR_BODY;
+                    else begin motor_prefix_index<=motor_prefix_index+1'b1; after_byte<=MOTOR_PREFIX; end
+                    state<=WAIT_ACCEPT;
+                end
+                MOTOR_BODY:begin
+                    tx_data<=held_motor[2047-motor_index*8 -: 8]; tx_start<=1;
+                    if (motor_index==255) after_byte<=CR;
+                    else begin
+                        motor_index<=motor_index+1'b1;
+                        after_byte<=motor_index[3:0]==15 ? MOTOR_SEPARATOR : MOTOR_BODY;
+                    end
+                    state<=WAIT_ACCEPT;
+                end
+                MOTOR_SEPARATOR:begin tx_data<="|"; tx_start<=1; after_byte<=MOTOR_BODY; state<=WAIT_ACCEPT; end
                 CR: begin tx_data<=8'h0d; tx_start<=1; after_byte<=LF; state<=WAIT_ACCEPT; end
                 LF: begin tx_data<=8'h0a; tx_start<=1; after_byte<=IDLE; state<=WAIT_ACCEPT; end
                 WAIT_ACCEPT: if (tx_busy) state<=WAIT_DONE;

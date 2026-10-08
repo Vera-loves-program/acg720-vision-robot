@@ -5,7 +5,8 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^COM[0-9]+$')]
     [string]$Port,
-    [string]$LogPath = (Join-Path $PSScriptRoot '..\dataset\sensor_demo.txt')
+    [string]$LogPath = (Join-Path $PSScriptRoot '..\dataset\sensor_demo.txt'),
+    [switch]$MotorControl
 )
 $ErrorActionPreference = 'Stop'
 $serial = New-Object System.IO.Ports.SerialPort($Port, 115200,
@@ -28,9 +29,45 @@ try {
     $writer.AutoFlush = $true
     Write-Host "Opened $Port at 115200 8N1. Log: $resolvedLog"
     Write-Host 'P=ping, F=20Hz, S=5Hz, N=10Hz, T=set RTC from PC local time, Q=quit.'
+    if ($MotorControl) {
+        Write-Host 'Motor mode: type @ commands then Enter; !=immediate E-STOP. Heartbeat every 500ms.'
+        Write-Host 'No automatic ARM/RUN. Q or closing this monitor sends E-STOP.'
+    }
+    $commandBuffer = ''
+    $heartbeatClock = [System.Diagnostics.Stopwatch]::StartNew()
     while ($true) {
+        if ($MotorControl -and $heartbeatClock.ElapsedMilliseconds -ge 500) {
+            $serial.Write("@H`n")
+            $heartbeatClock.Restart()
+        }
         if ([Console]::KeyAvailable) {
-            $key = [Console]::ReadKey($true).KeyChar.ToString().ToUpperInvariant()
+            $pressed = [Console]::ReadKey($true)
+            $key = $pressed.KeyChar.ToString().ToUpperInvariant()
+            if ($MotorControl -and $key -eq '!') {
+                $serial.Write('!')
+                $commandBuffer = ''
+                Write-Host 'Sent E-STOP. CLEAR + ARM + RUN are required to resume.'
+                continue
+            }
+            if ($MotorControl -and ($commandBuffer.Length -gt 0 -or $key -eq '@')) {
+                if ($pressed.Key -eq [ConsoleKey]::Enter) {
+                    if ($commandBuffer -match '^@(?:[ARSCZUH]|[WL][01]|F[0-8]|V[+-]?[0-9]+|Q[0-2]|M[01])$') {
+                        $serial.Write($commandBuffer + "`n")
+                        Write-Host ("Sent {0}" -f $commandBuffer)
+                    } else { Write-Host 'Invalid command; nothing sent.' }
+                    $commandBuffer = ''
+                } elseif ($pressed.Key -eq [ConsoleKey]::Escape) {
+                    $commandBuffer = ''
+                    Write-Host 'Input cancelled.'
+                } elseif ($pressed.Key -eq [ConsoleKey]::Backspace) {
+                    if ($commandBuffer.Length -gt 0) {
+                        $commandBuffer = $commandBuffer.Substring(0, $commandBuffer.Length - 1)
+                    }
+                } elseif ($key -match '^[A-Z0-9@+-]$' -and $commandBuffer.Length -lt 32) {
+                    $commandBuffer += $key
+                }
+                continue
+            }
             if ($key -eq 'Q') { break }
             if ($key -in @('P', 'F', 'S', 'N')) {
                 $serial.Write($key)
@@ -46,12 +83,15 @@ try {
         catch [System.TimeoutException] { continue }
         # Ignore an incomplete first line after opening halfway through a report.
         if ($line -notmatch '^I:(OK|E[0-9]{3}) +U:(OK|E[0-9]{3}) ' -or
-            $line -notmatch ' RXERR=[0-9]+ LAST=[PFSN-]$') { continue }
+            $line -notmatch ' RXERR=[0-9]+ LAST=[PFSN-](?:$| \| PID )') { continue }
         $writer.WriteLine(('{0} {1}' -f [DateTime]::UtcNow.ToString('o'), $line))
         Write-Host $line
     }
 } finally {
     if ($null -ne $writer) { $writer.Dispose() }
+    if ($MotorControl -and $serial.IsOpen) {
+        try { $serial.Write('!') } catch { Write-Warning 'Could not send E-STOP; remote watchdog should expire.' }
+    }
     if ($serial.IsOpen) { $serial.Close() }
     $serial.Dispose()
 }
