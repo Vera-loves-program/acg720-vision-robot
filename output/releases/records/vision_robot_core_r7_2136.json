@@ -1,0 +1,101 @@
+{
+  "revision": "core-r7",
+  "built_local": "2026-10-25T21:36:26.823409+08:00",
+  "bitstream": "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\output\\releases\\vision_robot_core_r7_2136_NOT_TIMING_CLOSED.fs",
+  "sha256": "6b568daa36a80b907aa6e48d988d23549b63fb84282c45bbc5659654c091c99a",
+  "bytes": 20059640,
+  "build_completed": true,
+  "timing_closed": false,
+  "fully_validated_build": false,
+  "timing": {
+    "clocks": [
+      {
+        "clock": "clk50M",
+        "required_mhz": 50.0,
+        "actual_mhz": 50.034
+      },
+      {
+        "clock": "camera_pclk",
+        "required_mhz": 50.0,
+        "actual_mhz": 191.915
+      },
+      {
+        "clock": "rgmii_rx_clk",
+        "required_mhz": 125.0,
+        "actual_mhz": 125.559
+      },
+      {
+        "clock": "lcd_pclk",
+        "required_mhz": 45.0,
+        "actual_mhz": 50.921
+      },
+      {
+        "clock": "ddr_memory_clk",
+        "required_mhz": 400.0,
+        "actual_mhz": 2016.128
+      },
+      {
+        "clock": "ddr_ui_clk",
+        "required_mhz": 100.0,
+        "actual_mhz": 182.815
+      },
+      {
+        "clock": "u_net_pll/u_pll/PLLA_inst/CLKOUT1.default_gen_clk",
+        "required_mhz": 125.0,
+        "actual_mhz": 125.0
+      }
+    ],
+    "setup_violated_endpoints": 1270,
+    "hold_violated_endpoints": 21,
+    "timing_closed": false
+  },
+  "timing_audit": {
+    "same_clock_setup_hold_violated_endpoints": 0,
+    "targeted_setup_slack_ns": {
+      "clk50M": 0.014,
+      "rgmii_rx_clk": 0.036,
+      "lcd_pclk": 2.584
+    },
+    "remaining_hold": "21 cross-clock paths; first-stage synchronizers and vendor FIFO/reset",
+    "remaining_setup": "1270 aggregate endpoints; exhaustive cross-clock setup detail not requested",
+    "recovery_worst_ns": -7.309,
+    "recovery_path": "50 MHz ready -> LCD-domain asynchronous CLEAR",
+    "caveats": [
+      "Thin positive setup margin; TX Fmax rounded exactly 125.000 MHz",
+      "PRIMARY and LW clock resources remain 8/8; route congestion remains high",
+      "Cross-clock/reset exceptions were not added; full timing closure not achieved"
+    ]
+  },
+  "resources": {
+    "logic": 38248,
+    "lut": 31364,
+    "alu": 6836,
+    "register": 19853,
+    "cls": 24970,
+    "bsram": 60,
+    "dsp": 7.5
+  },
+  "previous_failed_r6_delta": {
+    "logic": -1442,
+    "lut": -1137,
+    "alu": -305,
+    "register": -2284,
+    "cls": -483,
+    "dsp": -2
+  },
+  "source_build_manifest": "tmp/core-route-20261025/build-212729.json",
+  "source_snapshot": "output/releases/records/vision_robot_core_r7_2136_sources.zip",
+  "source_snapshot_sha256": "edd746c4473bd608bb378d33803eb1bbc0e05a0683cbdf73d2462e2129a70b1c",
+  "offline_validation": "tmp/core-route-20261025/r7-offline-validation.json",
+  "offline_checks_passed": 27,
+  "hardware_tested": false,
+  "hdl_simulated": false,
+  "protected_files_unchanged": true,
+  "pi_client": "output\\releases\\acg720-orangepi-v22-code.zip",
+  "pi_client_sha256": "1159f0f013c0931491a553952af745b1308c9a4e167df1022b578228de43a243",
+  "original_ide_impl_updated": false,
+  "programming_note": "R7 was built in an isolated directory; select the explicit released R7 file. The user started a separate IDE build after 21:49; judge that result from its own fresh log.",
+  "organization_note": "Historical release files moved to archive/cleanup-20261025-evening/old-releases; no source, constraint or active impl files changed.",
+  "pi_client_bundle_revision": 2,
+  "pi_packaging_fix": "POSIX shell LF/BOM normalization; shell syntax and executable preamble checks passed; old bundle preserved in archive/pi-v22-crlf-before-fix; no FPGA input changes"
+}

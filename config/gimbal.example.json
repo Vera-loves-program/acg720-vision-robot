@@ -1,0 +1,36 @@
+{
+  "axes": {
+    "pan": {
+      "safe_min_us": null,
+      "safe_max_us": null,
+      "explore_min_us": 500,
+      "explore_max_us": 2500,
+      "fine_us": 5,
+      "coarse_us": 50,
+      "slew_us_per_s": 150,
+      "calibration_points": [],
+      "calibration_confirmed": false
+    },
+    "tilt": {
+      "safe_min_us": null,
+      "safe_max_us": null,
+      "explore_min_us": 500,
+      "explore_max_us": 2500,
+      "fine_us": 5,
+      "coarse_us": 50,
+      "slew_us_per_s": 150,
+      "calibration_points": [],
+      "calibration_confirmed": false
+    }
+  },
+  "camera": {},
+  "mount": {"upright_tilt_deg": 180},
+  "tracking": {
+    "deadband": 0.04,
+    "gain": 2.0,
+    "normalized_gain_dps": 35.0,
+    "max_rate_dps": 25.0,
+    "loss_gap_s": 1.5
+  },
+  "_notes": "No measured limits or angles are supplied. PWM stays OFF until the enable button is clicked. Manual +/- changes the pending pulse while OFF, and the PWM request while ON. Exploration bounds are software bounds, not measured mechanical limits. Measure monotonic angle/pulse pairs before tracking and retain the continuous joint coordinates. For this car the camera is upright at TILT180 and inverted at0, with90 pointing up; mount.upright_tilt_deg records this fact without changing the pulse/angle table. PAN zero still requires a mechanical car reference. Manual image calibration records a fixed target before/after one-axis PWM moves; collect at least four independent samples and explicitly apply the fitted image response. This is local image centering, not absolute pose or position recovery. Actual samples and installation settings persist in config/gimbal.json, which this example never overwrites."
+}

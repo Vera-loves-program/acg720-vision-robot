@@ -29,6 +29,23 @@
     <File path="src/motor_uart_commands.v" type="file.verilog" enable="1"/>
     <File path="src/motor_status_text.v" type="file.verilog" enable="1"/>
     <File path="src/pid_touch_controls.v" type="file.verilog" enable="1"/>
+    <File path="src/actuator_test_control.v" type="file.verilog" enable="1"/>
+    <File path="src/unsigned_divmod.v" type="file.verilog" enable="1"/>
+    <File path="src/rplidar_c1.v" type="file.verilog" enable="1"/>
+    <File path="src/robot_navigation.v" type="file.verilog" enable="1"/>
+    <File path="src/lidar_grid_map.v" type="file.verilog" enable="1"/>
+    <File path="src/lidar_path_planner.v" type="file.verilog" enable="1"/>
+    <File path="src/robot_ui_control.v" type="file.verilog" enable="1"/>
+    <File path="src/robot_status_text.v" type="file.verilog" enable="1"/>
+    <File path="src/robot_control_panel.v" type="file.verilog" enable="1"/>
+    <File path="src/robot_mission_control.v" type="file.verilog" enable="1"/>
+    <File path="src/robot_subsystem.v" type="file.verilog" enable="1"/>
+    <File path="src/actuator_test_panel.v" type="file.verilog" enable="1"/>
+    <File path="src/servo_pulse_output.v" type="file.verilog" enable="1"/>
+    <File path="src/bq34z100_i2c_master.v" type="file.verilog" enable="1"/>
+    <File path="src/bq34z100_board_setup.v" type="file.verilog" enable="1"/>
+    <File path="src/bq34z100_gauge.v" type="file.verilog" enable="1"/>
+    <File path="src/bq34z100_status_text.v" type="file.verilog" enable="1"/>
     <File path="src/rtc_calendar_valid.v" type="file.verilog" enable="1"/>
     <File path="src/uart_rtc_set_parser.v" type="file.verilog" enable="1"/>
     <File path="src/bm8563_clock.v" type="file.verilog" enable="1"/>

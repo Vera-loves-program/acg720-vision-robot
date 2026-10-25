@@ -51,7 +51,7 @@ try {
             }
             if ($MotorControl -and ($commandBuffer.Length -gt 0 -or $key -eq '@')) {
                 if ($pressed.Key -eq [ConsoleKey]::Enter) {
-                    if ($commandBuffer -match '^@(?:[ARSCZUH]|[WL][01]|F[0-8]|V[+-]?[0-9]+|Q[0-2]|M[01])$') {
+                    if ($commandBuffer -match '^@(?:[ARSCZUH]|[WL][01]|F[0-9]|V[+-]?[0-9]+|Q[0-2]|M[01])$') {
                         $serial.Write($commandBuffer + "`n")
                         Write-Host ("Sent {0}" -f $commandBuffer)
                     } else { Write-Host 'Invalid command; nothing sent.' }

@@ -1,0 +1,2 @@
+# Orange Pi executes these with POSIX sh; Windows CRLF breaks `set -eu`.
+*.sh text eol=lf

@@ -31,14 +31,18 @@ def nearest_q8(value):
 
 
 def reference_integral_step(previous, error, kp, ki, delta_measurement, kd, limit):
-    """One mathematical conditional-integration step; no clocked model."""
+    """One mathematical conditional-integration step; no clocked model.
+
+    Ki0 clears the old weighted contribution. Rejecting further windup clips
+    stored old I to the live limit but keeps the candidate output for this tick.
+    """
+    previous = previous if ki else 0
     candidate = limit_symmetric(previous + error * ki, limit * 256)
     raw = error * kp + candidate - delta_measurement * kd
     pushes_high = raw > limit * 256 and error > 0
     pushes_low = raw < -limit * 256 and error < 0
     if pushes_high or pushes_low:
-        candidate = previous
-        raw = error * kp + previous - delta_measurement * kd
+        candidate = limit_symmetric(previous, limit * 256)
     output = nearest_q8(limit_symmetric(raw, limit * 256))
     return candidate, limit_symmetric(output, limit)
 
@@ -83,6 +87,24 @@ def check_arithmetic_boundaries():
         < 100 * 256,
         "integration must be allowed to recover from saturation",
     )
+    for direction in (-1, 1):
+        integral, commands = 0, []
+        for _ in range(4):
+            integral, output = reference_integral_step(integral, direction*3,
+                                                       50*256, 5*256, 0, 0, 200)
+            commands.append(output)
+        require(commands == [direction*v for v in (165, 180, 195, 200)],
+                "rejecting I must not strand output at195 instead of the200 cap")
+        require(reference_integral_step(0, direction*2, 80*256, 30*256, 0, 0, 200)
+                == (0, direction*200), "PI must use the full cap on either rail")
+        require(reference_integral_step(direction*900*256, direction*3,
+                                       50*256, 0, 0, 0, 200) == (0, direction*150),
+                "Ki0 must clear a stale integral during online P tuning")
+        require(reference_integral_step(direction*900*256, direction*3,
+                                       50*256, 5*256, 0, 0, 50)
+                == (direction*50*256, direction*50),
+                "a lower live cap must bound the rejected old integral too")
+        cases += 7
 
     for raw in [-1000, -1, 0, 1, 1000]:
         state = 0

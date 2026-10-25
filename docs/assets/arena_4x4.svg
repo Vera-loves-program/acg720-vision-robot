@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1520" height="1160" viewBox="0 0 1520 1160" role="img" aria-labelledby="title desc">
+<title id="title">4×4米八分区机器人演示场地</title>
+<desc id="desc">八个地面语义区，七个停车任务点，中央L形固定地标，南侧临时障碍。蓝线为A到G的8.1米绕行路线，虚线为无障碍时的2.7米直达路线。所有尺寸单位米，非已经实现的实车导航。</desc>
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1 1 L8 5 L1 9" fill="none" stroke="#2863be" stroke-width="1.6" /></marker><pattern id="grid" width="105" height="105" patternUnits="userSpaceOnUse" x="90" y="180"><path d="M105 0H0V105" fill="none" stroke="#dfe7ef" stroke-width="1" /></pattern></defs>
+<style>text{font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#17334e}.muted{fill:#5a7188}.small{font-size:17px}.zone-title{font-size:22px;font-weight:700;paint-order:stroke fill;stroke:#ffffff;stroke-width:5px;stroke-linejoin:round}.label{font-size:19px;font-weight:600}</style>
+<rect width="1520" height="1160" fill="#f0f5fa" />
+<rect x="56" y="132" width="905" height="966" rx="18" fill="white" />
+<rect x="982" y="132" width="482" height="966" rx="18" fill="white" />
+<rect x="90" y="180" width="840" height="840" fill="#fcfdff" />
+<rect x="111.00" y="768.00" width="231.00" height="231.00" fill="#dff3eb" stroke="#cad7e4" rx="12" />
+<rect x="111.00" y="484.50" width="231.00" height="231.00" fill="#e2ecff" stroke="#cad7e4" rx="12" />
+<rect x="111.00" y="201.00" width="231.00" height="231.00" fill="#e9e3fa" stroke="#cad7e4" rx="12" />
+<rect x="394.50" y="201.00" width="231.00" height="231.00" fill="#fff1d8" stroke="#cad7e4" rx="12" />
+<rect x="678.00" y="201.00" width="231.00" height="231.00" fill="#fbe5df" stroke="#cad7e4" rx="12" />
+<rect x="678.00" y="484.50" width="231.00" height="231.00" fill="#f3e5f2" stroke="#cad7e4" rx="12" />
+<rect x="678.00" y="768.00" width="231.00" height="231.00" fill="#e3f2f4" stroke="#cad7e4" rx="12" />
+<rect x="394.50" y="768.00" width="231.00" height="231.00" fill="#fff0df" stroke="#cad7e4" rx="12" />
+<rect x="90" y="180" width="840" height="840" fill="url(#grid)" opacity=".55" />
+<path d="M226.5 883.5 H793.5" fill="none" stroke="#d68e45" stroke-width="5" stroke-dasharray="12 9" />
+<path d="M226.50 883.50 L226.50 600.00 L226.50 316.50 L510.00 316.50 L793.50 316.50 L793.50 600.00 L793.50 883.50" fill="none" stroke="#2863be" stroke-width="7" stroke-linejoin="round" />
+<path d="M226.5 761.595 L226.5 719.0699999999999" stroke="#2863be" stroke-width="6" marker-end="url(#arrow)" />
+<path d="M348.40500000000003 316.5 L390.93 316.5" stroke="#2863be" stroke-width="6" marker-end="url(#arrow)" />
+<path d="M793.5 438.4050000000001 L793.5 480.92999999999995" stroke="#2863be" stroke-width="6" marker-end="url(#arrow)" />
+<rect x="384.00" y="600.00" width="84.00" height="84.00" fill="#2b4358" stroke="white" stroke-width="2" />
+<rect x="468.00" y="600.00" width="84.00" height="84.00" fill="#2b4358" stroke="white" stroke-width="2" />
+<rect x="552.00" y="600.00" width="84.00" height="84.00" fill="#2b4358" stroke="white" stroke-width="2" />
+<rect x="552.00" y="516.00" width="84.00" height="84.00" fill="#2b4358" stroke="white" stroke-width="2" />
+<rect x="468.00" y="841.50" width="84.00" height="84.00" fill="#ef9b36" stroke="#a96012" stroke-width="3" />
+<circle cx="226.50" cy="883.50" r="22" fill="#2863be" stroke="white" stroke-width="3" />
+<circle cx="226.50" cy="600.00" r="22" fill="#2863be" stroke="white" stroke-width="3" />
+<circle cx="226.50" cy="316.50" r="22" fill="#2863be" stroke="white" stroke-width="3" />
+<circle cx="510.00" cy="316.50" r="22" fill="#2863be" stroke="white" stroke-width="3" />
+<circle cx="793.50" cy="316.50" r="22" fill="#2863be" stroke="white" stroke-width="3" />
+<circle cx="793.50" cy="600.00" r="22" fill="#2863be" stroke="white" stroke-width="3" />
+<circle cx="793.50" cy="883.50" r="22" fill="#2863be" stroke="white" stroke-width="3" />
+<circle cx="226.50" cy="883.50" r="103.22" fill="none" stroke="#278e72" stroke-width="2.2" stroke-dasharray="7 6" />
+<rect x="90" y="180" width="840" height="840" fill="none" stroke="#263e52" stroke-width="5" />
+<path d="M1008 752 H1438" stroke="#d8e2ed" />
+<path d="M1008 910 H1438" stroke="#d8e2ed" />
+<text x="70" y="60" font-size="35" font-weight="700">同一张地图，八种任务：4×4米场地布置稿</text>
+<text x="72" y="100" font-size="20" class="muted">车体30×50cm · 地面分区共享开放通道 · 固定地标用于定位，区域用途由程序保存</text>
+<text x="226.5" y="801.0" class="zone-title" text-anchor="middle">A  待机 / 补给</text>
+<text x="226.5" y="517.5" class="zone-title" text-anchor="middle">B  学习提醒</text>
+<text x="226.5" y="234.0" class="zone-title" text-anchor="middle">C  阅读陪伴</text>
+<text x="510.0" y="234.0" class="zone-title" text-anchor="middle">D  资料领取</text>
+<text x="793.5" y="234.0" class="zone-title" text-anchor="middle">E  目标搜索</text>
+<text x="793.5" y="517.5" class="zone-title" text-anchor="middle">F  休息互动</text>
+<text x="793.5" y="801.0" class="zone-title" text-anchor="middle">G  物品送达</text>
+<text x="510.0" y="801.0" class="zone-title" text-anchor="middle">H  动态绕障区</text>
+<text x="499.5" y="730.0" text-anchor="middle" class="label">固定L形纸箱地标</text>
+<text x="499.5" y="754.0" text-anchor="middle" class="small muted">40cm箱 × 4</text>
+<text x="510.0" y="890.5" text-anchor="middle" font-size="18" font-weight="700">临时箱</text>
+<text x="510.0" y="973.8" text-anchor="middle" font-size="17" fill="#9b5a18">堵路时走另一侧环路</text>
+<text x="226.5" y="890.5" text-anchor="middle" font-size="23" font-weight="700" fill="white" style="fill:white">A</text>
+<text x="226.5" y="931.5" text-anchor="middle" class="small muted">(0.65, 0.65)</text>
+<text x="226.5" y="607.0" text-anchor="middle" font-size="23" font-weight="700" fill="white" style="fill:white">B</text>
+<text x="226.5" y="648.0" text-anchor="middle" class="small muted">(0.65, 2.00)</text>
+<text x="226.5" y="323.5" text-anchor="middle" font-size="23" font-weight="700" fill="white" style="fill:white">C</text>
+<text x="226.5" y="364.5" text-anchor="middle" class="small muted">(0.65, 3.35)</text>
+<text x="510.0" y="323.5" text-anchor="middle" font-size="23" font-weight="700" fill="white" style="fill:white">D</text>
+<text x="510.0" y="364.5" text-anchor="middle" class="small muted">(2.00, 3.35)</text>
+<text x="793.5" y="323.5" text-anchor="middle" font-size="23" font-weight="700" fill="white" style="fill:white">E</text>
+<text x="793.5" y="364.5" text-anchor="middle" class="small muted">(3.35, 3.35)</text>
+<text x="793.5" y="607.0" text-anchor="middle" font-size="23" font-weight="700" fill="white" style="fill:white">F</text>
+<text x="793.5" y="648.0" text-anchor="middle" class="small muted">(3.35, 2.00)</text>
+<text x="793.5" y="890.5" text-anchor="middle" font-size="23" font-weight="700" fill="white" style="fill:white">G</text>
+<text x="793.5" y="931.5" text-anchor="middle" class="small muted">(3.35, 0.65)</text>
+<text x="226.5" y="965.5" text-anchor="middle" font-size="15" fill="#278e72">含余量旋转包络</text>
+<text x="90.0" y="1053.0" text-anchor="middle" class="small muted">0</text>
+<text x="73.0" y="1026.0" text-anchor="end" class="small muted">0</text>
+<text x="300.0" y="1053.0" text-anchor="middle" class="small muted">1</text>
+<text x="73.0" y="816.0" text-anchor="end" class="small muted">1</text>
+<text x="510.0" y="1053.0" text-anchor="middle" class="small muted">2</text>
+<text x="73.0" y="606.0" text-anchor="end" class="small muted">2</text>
+<text x="720.0" y="1053.0" text-anchor="middle" class="small muted">3</text>
+<text x="73.0" y="396.0" text-anchor="end" class="small muted">3</text>
+<text x="930.0" y="1053.0" text-anchor="middle" class="small muted">4</text>
+<text x="73.0" y="186.0" text-anchor="end" class="small muted">4</text>
+<text x="920.0" y="1080.0" text-anchor="end" class="small muted">x / m</text>
+<text x="73.0" y="160.0" class="small muted">y / m</text>
+<text x="510.0" y="161.0" text-anchor="middle" class="label">围挡内尺寸 4.00m × 4.00m</text>
+<text x="1008.0" y="174.0" font-size="24" font-weight="700">分区更丰富，通道保持宽敞</text>
+<text x="1008.0" y="215.0" font-size="21" font-weight="700">A 待机 / 补给</text>
+<text x="1008.0" y="240.0" class="small muted">固定起点；仅模拟充电任务</text>
+<text x="1008.0" y="281.0" font-size="21" font-weight="700">B 学习提醒</text>
+<text x="1008.0" y="306.0" class="small muted">定点到达，触发提醒</text>
+<text x="1008.0" y="347.0" font-size="21" font-weight="700">C 阅读陪伴</text>
+<text x="1008.0" y="372.0" class="small muted">朝向指定区域，展示交互</text>
+<text x="1008.0" y="413.0" font-size="21" font-weight="700">D 资料领取</text>
+<text x="1008.0" y="438.0" class="small muted">视觉确认；人工放置物品</text>
+<text x="1008.0" y="479.0" font-size="21" font-weight="700">E 目标搜索</text>
+<text x="1008.0" y="504.0" class="small muted">到点后扫描并识别目标</text>
+<text x="1008.0" y="545.0" font-size="21" font-weight="700">F 休息互动</text>
+<text x="1008.0" y="570.0" class="small muted">定点停车，执行陪伴任务</text>
+<text x="1008.0" y="611.0" font-size="21" font-weight="700">G 物品送达</text>
+<text x="1008.0" y="636.0" class="small muted">到点提示；不预设机械臂</text>
+<text x="1008.0" y="677.0" font-size="21" font-weight="700">H 动态绕障</text>
+<text x="1008.0" y="702.0" class="small muted">放临时箱，验证减速与绕行</text>
+<text x="1008.0" y="786.0" font-size="23" font-weight="700">两次演示，同一目的地G</text>
+<text x="1008.0" y="821.0" font-size="20">无临时箱：A → G，2.70m</text>
+<text x="1008.0" y="855.0" font-size="17">有临时箱：A → B → C → D → E → F → G</text>
+<text x="1008.0" y="886.0" font-size="22" fill="#2863be" font-weight="700">绕行中心线：8.10m</text>
+<text x="1008.0" y="943.0" font-size="23" font-weight="700">布置时保留三个区别</text>
+<text x="1008.0" y="978.0" class="small muted">彩色块是地面分区，不是隔墙。</text>
+<text x="1008.0" y="1006.0" class="small muted">深色纸箱是固定地标，橙箱可移动。</text>
+<text x="1008.0" y="1034.0" class="small muted">围挡和箱体要穿过雷达扫描平面。</text>
+<text x="1008.0" y="1062.0" class="small muted">几何已检查；定位和控制仍需上车实现。</text>
+<text x="72.0" y="1133.0" font-size="18" class="muted">2026-10-16 · 自定演示场地，非官方规定地图。坐标与净空预算见《扩展板规划》第37节。</text>
+</svg>

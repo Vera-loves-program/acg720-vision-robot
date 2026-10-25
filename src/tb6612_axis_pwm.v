@@ -10,6 +10,7 @@ module tb6612_axis_pwm #(
     input wire clk,
     input wire reset_n,
     input wire enable,
+    input wire drive_invert,
     input wire signed [15:0] duty_permille,
     output wire pwm,
     output wire in1,
@@ -17,17 +18,35 @@ module tb6612_axis_pwm #(
 );
     localparam integer PERIOD_CYCLES = CLK_HZ / PWM_HZ;
     localparam integer BLANK_CYCLES = (CLK_HZ / 1000000) * REVERSE_BLANK_US;
-    reg [31:0] pwm_counter;
-    reg [31:0] blank_remaining;
+    localparam integer PWM_COUNTER_BITS=PERIOD_CYCLES>1 ? $clog2(PERIOD_CYCLES) : 1;
+    localparam integer BLANK_COUNTER_BITS=BLANK_CYCLES>0 ? $clog2(BLANK_CYCLES+1) : 1;
+    reg [PWM_COUNTER_BITS-1:0] pwm_counter;
+    reg [BLANK_COUNTER_BITS-1:0] blank_remaining;
     reg active_direction;
     reg direction_valid;
     reg drive_active;
-    wire requested_direction = !duty_permille[15];
+    // Polarity swaps the bridge direction only; the signed16 magnitude,
+    // including -32768, is unchanged. The owner changes this only stopped.
+    wire requested_direction = (!duty_permille[15]) ^ drive_invert;
     wire requested_nonzero = (duty_permille != 0);
-    wire signed [31:0] duty_wide = {{16{duty_permille[15]}}, duty_permille};
-    wire [31:0] magnitude = duty_wide < 0 ? -duty_wide : duty_wide;
-    wire [31:0] bounded_magnitude = magnitude > 1000 ? 1000 : magnitude;
-    wire [31:0] on_cycles = (bounded_magnitude * PERIOD_CYCLES) / 1000;
+    // Unsigned magnitude deliberately represents abs(-32768)=32768.
+    wire [15:0] magnitude=duty_permille[15] ? -duty_permille : duty_permille;
+    wire [9:0] bounded_magnitude=magnitude>1000 ? 10'd1000 : magnitude[9:0];
+    wire [PWM_COUNTER_BITS:0] on_cycles;
+    generate
+        if(PERIOD_CYCLES==2500)begin:gen_default_period
+            // Exact floor(mag*2500/1000)=floor(5*mag/2), including odd mag.
+            // No variable divide or general multiplier in the 20 kHz bridge.
+            wire [12:0] five_magnitude=({3'd0,bounded_magnitude}<<2)+
+                                       {3'd0,bounded_magnitude};
+            assign on_cycles=five_magnitude[12:1];
+        end else begin:gen_other_period
+            // Preserve arbitrary legal CLK_HZ/PWM_HZ parameter combinations.
+            // The product has exactly the width required by a 10-bit magnitude.
+            wire [PWM_COUNTER_BITS+9:0] product=bounded_magnitude*PERIOD_CYCLES;
+            assign on_cycles=product/1000;
+        end
+    endgenerate
     // Include live requests in the output gate: STOP or a direction change
     // cannot leave the former drive state asserted until the next PID sample.
     wire drive_allowed = reset_n && enable && drive_active &&

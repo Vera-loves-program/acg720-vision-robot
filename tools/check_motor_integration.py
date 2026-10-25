@@ -27,10 +27,16 @@ NEW_MODULES = (
     "encoder_quadrature", "tb6612_axis_pwm", "motor_axis_control",
     "motor_drive_control", "motor_tuning_control", "motor_uart_commands",
     "motor_status_text", "pid_touch_controls",
+    "actuator_test_control", "actuator_test_panel", "servo_pulse_output",
+    "unsigned_divmod",
+    "bq34z100_i2c_master", "bq34z100_board_setup", "bq34z100_gauge", "bq34z100_status_text",
+    "rplidar_c1", "robot_navigation", "lidar_grid_map", "lidar_path_planner",
+    "robot_ui_control", "robot_status_text", "robot_control_panel",
+    "robot_mission_control", "robot_subsystem",
 )
 SOURCE_MODULES = NEW_MODULES + (
     "vision_robot_ui_top", "lcd1024_interaction_ui", "sensor_demo_uart",
-    "sensor_demo_commands",
+    "sensor_demo_commands", "sensor_demo_text", "cs100a_demo",
 )
 # Physical P7 numbers, frozen board net names, RTL ports, GW5AT-60B balls.
 # The physical orientation is lower-right 1, lower-left 2, ascending upward.
@@ -65,8 +71,10 @@ P7 = {
     33: ("STP_PE1", "step_1", "D20"),
     34: ("DIR_PE0", "dir_0", "C20"),
     36: ("DIR_PE1", "dir_1", "D19"),
+    38: ("PIN38", "lidar_tx", "E18"),
+    40: ("PIN40", "lidar_rx", "F20"),
 }
-UNUSED_P7 = {32: "E17", 35: "E19", 37: "F18", 38: "E18", 39: "F19", 40: "F20"}
+UNUSED_P7 = {32: "E17", 35: "E19", 37: "F18", 39: "F19"}
 POWER_P7 = {11: "5V", 12: "GND", 29: "3V3", 30: "GND"}
 STRING = re.compile(r'"(?:\\.|[^"\\])*"')
 
@@ -140,7 +148,7 @@ def module_ports(source: str) -> dict[str, set[str]]:
 def instances(source: str, known: dict[str, set[str]]):
     """Find named instances of modules included in this integration audit."""
     for module in known:
-        for match in re.finditer(rf"\b{re.escape(module)}\s*", source):
+        for match in re.finditer(rf"\b{re.escape(module)}\b\s*", source):
             cursor = match.end()
             if source[cursor:cursor + 1] == "#":
                 cursor = source.index("(", cursor)
@@ -344,9 +352,9 @@ def main() -> int:
         command_patterns = re.findall(r"-match\s+'(\^@[^']+)'", monitor)
         require(len(command_patterns) == 1, "Monitor motor command regex missing")
         if command_patterns:
-            for frame in ("@A", "@R", "@S", "@C", "@Z", "@U", "@H", "@W0", "@L1", "@F8", "@V-200", "@Q2", "@M1"):
+            for frame in ("@A", "@R", "@S", "@C", "@Z", "@U", "@H", "@W0", "@L1", "@F8", "@F9", "@V-200", "@Q2", "@M1"):
                 require(re.fullmatch(command_patterns[0], frame), f"Monitor rejects documented command {frame}")
-            for frame in ("@R0", "@H123", "@W2", "@F9", "@Q3", "@M2", "@V", "@V--1"):
+            for frame in ("@R0", "@H123", "@W2", "@F10", "@Q3", "@M2", "@V", "@V--1"):
                 require(not re.fullmatch(command_patterns[0], frame), f"Monitor accepts malformed command {frame}")
         passed("Monitor regex: sensor-only/PID-suffix reports and command syntax checked")
     except (OSError, ValueError, IndexError, TypeError, ET.ParseError, subprocess.CalledProcessError) as error:

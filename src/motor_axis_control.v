@@ -28,6 +28,9 @@ module motor_axis_control #(
     input wire clear_fault,
     input wire zero_position,
     input wire encoder_invert,
+    input wire drive_invert,
+    input wire calibration_enable,
+    input wire signed [15:0] calibration_duty,
     input wire mode_position,
     input wire encoder_a,
     input wire encoder_b,
@@ -50,7 +53,7 @@ module motor_axis_control #(
     output reg signed [31:0] speed,
     output reg signed [31:0] speed_raw,
     output reg signed [15:0] target_effective,
-    output reg signed [15:0] duty,
+    output wire signed [15:0] duty,
     output reg [7:0] fault,
     output wire [15:0] invalid
 );
@@ -58,14 +61,27 @@ module motor_axis_control #(
     // 2=invalid quadrature transitions, 3=position overflow,
     // 4=raw speed beyond design limit. Not collision/current/battery protection.
     wire encoder_overflow;
-    reg applied_invert;
+    reg applied_invert,applied_drive_invert;
+    reg signed [15:0] pid_duty;
     // Direction edits are accepted only while disarmed. They also establish a
     // new zero and filter baseline, so prior coordinate history is not reused.
-    wire safe_zero = !run_enable && (zero_position || encoder_invert != applied_invert);
-    wire enabled = run_enable && !safety_stop && fault == 0;
+    wire motion_requested = run_enable || calibration_enable;
+    wire safe_zero = !motion_requested && (zero_position || encoder_invert != applied_invert ||
+                                           drive_invert != applied_drive_invert);
+    wire bridge_enabled = reset_n && motion_requested && !safety_stop && fault == 0;
+    // Open-loop calibration has explicit priority and cancels the PID job;
+    // neither uncalibrated feedback direction nor zero gains can start PID.
+    wire enabled = run_enable && !calibration_enable && !safety_stop && fault == 0;
+    wire [9:0] calibration_limit=max_duty_permille>200 ? 10'd200 : max_duty_permille;
+    wire signed [15:0] calibration_limit_signed=$signed({6'd0,calibration_limit});
+    wire signed [15:0] calibration_command=calibration_duty>calibration_limit_signed ? calibration_limit_signed :
+        calibration_duty< -calibration_limit_signed ? -calibration_limit_signed : calibration_duty;
+    assign duty=bridge_enabled ? (calibration_enable ? calibration_command : pid_duty) : 16'sd0;
     always @(posedge clk or negedge reset_n) begin
-        if (!reset_n) applied_invert <= 0;
-        else if (!run_enable) applied_invert <= encoder_invert;
+        if (!reset_n) begin applied_invert<=0;applied_drive_invert<=0;end
+        else if (!motion_requested) begin
+            applied_invert<=encoder_invert;applied_drive_invert<=drive_invert;
+        end
     end
     encoder_quadrature #(.FILTER_CYCLES(ENCODER_FILTER_CYCLES)) encoder (
         .clk(clk), .reset_n(reset_n), .encoder_a(encoder_a),
@@ -74,431 +90,501 @@ module motor_axis_control #(
         .invalid_count(invalid), .overflow(encoder_overflow)
     );
     tb6612_axis_pwm #(.CLK_HZ(CLK_HZ)) bridge (
-        .clk(clk), .reset_n(reset_n), .enable(enabled),
+        .clk(clk), .reset_n(reset_n), .enable(bridge_enabled),.drive_invert(applied_drive_invert),
         .duty_permille(duty), .pwm(pwm), .in1(in1), .in2(in2)
     );
 
-    function signed [63:0] extend32;
-        input signed [31:0] value;
-        begin extend32 = {{32{value[31]}}, value}; end
+    // Width proof (all legal 32-bit positions and all unsigned 16-bit gains):
+    // raw/filtered speed: signed32; speed Q8: signed40; its subtraction: 41.
+    // speed derivative: signed33 -> Q8 signed41; its subtraction: signed42.
+    // position derivative: saturated signed32 -> Q8 signed40.
+    // error32 * gain16 fits signed48 (gain has no negative values).
+    // P + D + bounded I fits signed49. Position I <=32768*256 fits signed25;
+    // speed I <=900*256 fits signed19. None of these bounds assume UI gains.
+    function signed [31:0] saturate33;
+        input signed [32:0] value;
+        begin
+            if (value > 33'sd2147483647) saturate33=32'sh7fffffff;
+            else if (value < -33'sd2147483648) saturate33=32'sh80000000;
+            else saturate33=value[31:0];
+        end
     endfunction
-    function signed [63:0] extend16;
+    function [32:0] abs33;
+        input signed [32:0] value;
+        begin abs33=value[32] ? -value : value; end
+    endfunction
+    function [31:0] abs32;
+        input signed [31:0] value;
+        begin abs32=value[31] ? -value : value; end
+    endfunction
+    function [15:0] abs16;
         input signed [15:0] value;
-        begin extend16 = {{48{value[15]}}, value}; end
+        begin abs16=value[15] ? -value : value; end
     endfunction
-    function signed [31:0] saturate32;
-        input signed [63:0] value;
+    function signed [31:0] round_filter_q8;
+        input signed [41:0] value;
+        reg signed [41:0] adjusted,rounded;
         begin
-            if (value > 64'sd2147483647) saturate32 = 32'sh7fffffff;
-            else if (value < -64'sd2147483648) saturate32 = 32'sh80000000;
-            else saturate32 = value[31:0];
+            // Identical to -((-value+128)>>8) for negative values, without
+            // two wide negations. Ties still round away from zero.
+            adjusted=value+(value[41] ? 42'sd127 : 42'sd128);
+            rounded=adjusted>>>8;
+            if(rounded>42'sd2147483647) round_filter_q8=32'sh7fffffff;
+            else if(rounded< -42'sd2147483648) round_filter_q8=32'sh80000000;
+            else round_filter_q8=rounded[31:0];
         end
     endfunction
-    function signed [63:0] abs64;
-        input signed [63:0] value;
-        begin abs64 = value < 0 ? -value : value; end
-    endfunction
-    function signed [63:0] clamp64;
-        input signed [63:0] value;
-        input signed [63:0] limit;
+    function signed [16:0] round_command_q8;
+        input signed [24:0] value;
+        reg signed [24:0] adjusted;
         begin
-            if (value > limit) clamp64 = limit;
-            else if (value < -limit) clamp64 = -limit;
-            else clamp64 = value;
+            adjusted=value+(value[24] ? 25'sd127 : 25'sd128);
+            round_command_q8=adjusted>>>8;
         end
     endfunction
-    function signed [63:0] multiply_gain;
-        input signed [31:0] value;
-        input [15:0] gain;
-        begin multiply_gain = $signed(value) * $signed({1'b0, gain}); end
-    endfunction
-    function signed [31:0] round_q8;
-        input signed [63:0] value;
-        reg signed [63:0] rounded;
+    function signed [15:0] clamp_speed;
+        input signed [15:0] value;
+        input [15:0] limit;
+        reg signed [16:0] v,l;
         begin
-            // Symmetric round-to-nearest; negative values do not acquire a
-            // permanent -1 bias merely from an arithmetic right shift.
-            if (value < 0) rounded = -((-value + 64'sd128) >>> 8);
-            else rounded = (value + 64'sd128) >>> 8;
-            round_q8 = saturate32(rounded);
+            v={value[15],value}; l={1'b0,limit};
+            if(v>l) clamp_speed=l[15:0];
+            else if(v< -l) clamp_speed=-l;
+            else clamp_speed=value;
         end
     endfunction
 
-    // Sampling pipeline stays active while disarmed, so hand-turning the wheel
-    // is visible. Zero clears count/filter history together while disarmed.
-    reg [2:0] sample_state;
-    reg sample_ready;
-    reg sampled_outer_tick;
-    reg signed [31:0] previous_position;
-    reg signed [31:0] sampled_position;
-    reg signed [31:0] previous_speed;
+    // Sampling remains active while disarmed. Extra 50 MHz stages are not
+    // extra 10 ms sample periods: one sample is published after eight clocks.
+    reg [3:0] sample_state;
+    reg sample_ready,sampled_outer_tick;
+    reg signed [31:0] previous_position,sampled_position,previous_speed;
     reg [15:0] sampled_invalid;
-    reg signed [63:0] speed_filter_q8;
-    reg signed [63:0] derivative_filter_q8;
-    wire signed [63:0] delta_position = extend32(position) - extend32(previous_position);
+    reg signed [39:0] speed_filter_q8,position_derivative_q8;
+    reg signed [40:0] speed_filter_difference;
+    reg signed [40:0] derivative_filter_q8;
+    reg signed [41:0] derivative_filter_difference;
+    reg signed [32:0] speed_measurement_delta;
+    wire signed [32:0] delta_position=
+        {position[31],position}-{previous_position[31],previous_position};
     always @(posedge clk or negedge reset_n) begin
-        if (!reset_n) begin
-            sample_state <= 0;
-            sample_ready <= 0;
-            sampled_outer_tick <= 0;
-            previous_position <= 0;
-            sampled_position <= 0;
-            previous_speed <= 0;
-            sampled_invalid <= 0;
-            speed <= 0;
-            speed_raw <= 0;
-            speed_filter_q8 <= 0;
-            derivative_filter_q8 <= 0;
-        end else if (safe_zero) begin
-            sample_state <= 0;
-            sample_ready <= 0;
-            sampled_outer_tick <= 0;
-            previous_position <= 0;
-            sampled_position <= 0;
-            previous_speed <= 0;
-            sampled_invalid <= 0;
-            speed <= 0;
-            speed_raw <= 0;
-            speed_filter_q8 <= 0;
-            derivative_filter_q8 <= 0;
+        if(!reset_n) begin
+            sample_state<=0;sample_ready<=0;sampled_outer_tick<=0;
+            previous_position<=0;sampled_position<=0;previous_speed<=0;
+            sampled_invalid<=0;speed<=0;speed_raw<=0;speed_filter_q8<=0;
+            speed_filter_difference<=0;derivative_filter_q8<=0;
+            derivative_filter_difference<=0;speed_measurement_delta<=0;
+        end else if(safe_zero) begin
+            sample_state<=0;sample_ready<=0;sampled_outer_tick<=0;
+            previous_position<=0;sampled_position<=0;previous_speed<=0;
+            sampled_invalid<=0;speed<=0;speed_raw<=0;speed_filter_q8<=0;
+            speed_filter_difference<=0;derivative_filter_q8<=0;
+            derivative_filter_difference<=0;speed_measurement_delta<=0;
         end else begin
-            sample_ready <= 0;
-            case (sample_state)
-                0: if (tick_10ms) begin
-                    speed_raw <= saturate32(delta_position);
-                    previous_position <= position;
-                    sampled_position <= position;
-                    sampled_invalid <= invalid;
-                    sampled_outer_tick <= tick_50ms;
-                    sample_state <= 1;
+            sample_ready<=0;
+            case(sample_state)
+                0:if(tick_10ms)begin
+                    speed_raw<=saturate33(delta_position);
+                    previous_position<=position;sampled_position<=position;
+                    sampled_invalid<=invalid;sampled_outer_tick<=tick_50ms;
+                    sample_state<=1;
                 end
-                1: begin
-                    speed_filter_q8 <= speed_filter_q8 +
-                        (((extend32(speed_raw) <<< 8) - speed_filter_q8) >>> 2);
-                    sample_state <= 2;
+                1:begin
+                    speed_filter_difference<=
+                        $signed({speed_raw[31],speed_raw,8'd0})-
+                        $signed({speed_filter_q8[39],speed_filter_q8});
+                    sample_state<=2;
                 end
-                2: begin
-                    speed <= round_q8(speed_filter_q8);
-                    sample_state <= 3;
+                2:begin
+                    speed_filter_q8<=$signed({speed_filter_q8[39],speed_filter_q8})+
+                        (speed_filter_difference>>>2);
+                    sample_state<=3;
                 end
-                3: begin
-                    derivative_filter_q8 <= derivative_filter_q8 +
-                        ((((extend32(speed) - extend32(previous_speed)) <<< 8) -
-                           derivative_filter_q8) >>> 2);
-                    previous_speed <= speed;
-                    sample_ready <= 1;
-                    sample_state <= 0;
+                3:begin speed<=round_filter_q8(speed_filter_q8);sample_state<=4;end
+                4:begin
+                    speed_measurement_delta<=
+                        $signed({speed[31],speed})-$signed({previous_speed[31],previous_speed});
+                    previous_speed<=speed;sample_state<=5;
                 end
-                default: sample_state <= 0;
+                5:begin
+                    derivative_filter_difference<=
+                        $signed({speed_measurement_delta[32],speed_measurement_delta,8'd0})-
+                        $signed({derivative_filter_q8[40],derivative_filter_q8});
+                    sample_state<=6;
+                end
+                6:begin
+                    derivative_filter_q8<=$signed({derivative_filter_q8[40],derivative_filter_q8})+
+                        (derivative_filter_difference>>>2);
+                    sample_state<=7;
+                end
+                7:begin sample_ready<=1;sample_state<=0;end
+                default:sample_state<=0;
             endcase
         end
     end
 
-    localparam [3:0] IDLE = 0, POS_PREP = 1, POS_MUL = 2,
-        POS_INTEGRATE = 3, POS_APPLY = 4, SPEED_PREP = 5,
-        SPEED_ERROR = 6, SPEED_MUL = 7, SPEED_INTEGRATE = 8,
-        SPEED_APPLY = 9, CHECK_FAULTS = 10, POS_FILTER = 11, POS_DERIVATIVE = 12;
-    reg [3:0] control_state;
-    reg signed [31:0] outer_previous_position;
-    reg signed [15:0] outer_speed;
-    reg signed [15:0] desired_speed;
-    reg signed [31:0] sampled_target_position;
-    reg [15:0] speed_kp_sample, speed_ki_sample, speed_kd_sample;
-    reg [15:0] position_kp_sample, position_ki_sample, position_kd_sample;
-    reg [15:0] speed_deadband_sample, position_deadband_sample;
-    reg signed [63:0] speed_limit;
-    reg signed [63:0] duty_limit;
-    reg signed [63:0] minimum_duty;
-    reg signed [63:0] position_integral_q8;
-    reg signed [63:0] position_derivative_q8;
-    reg signed [63:0] speed_integral_q8;
-    reg signed [31:0] error;
-    reg signed [31:0] measurement_delta;
-    reg signed [63:0] p_term;
-    reg signed [63:0] i_step;
-    reg signed [63:0] d_term;
-    reg signed [63:0] integral_candidate;
-    reg signed [63:0] raw_command;
-    reg [15:0] previous_invalid;
-    reg [15:0] startup_samples;
-    reg [15:0] stall_samples;
-    reg [15:0] reverse_samples;
-    reg last_target_sign;
-    reg target_sign_valid;
-    // Blocking temporaries are local arithmetic within a stage, not state.
-    reg signed [63:0] temporary;
-    reg signed [63:0] selected_integral;
-    reg signed [63:0] selected_command;
-    reg signed [63:0] rounded_command;
-    reg signed [63:0] slew_command;
-
+    // One exact signed32 x unsigned16 right-shift partial-product unit for
+    // every P/I/D product in BOTH loops. The signed upper sum needs 33 bits,
+    // not a 48-bit shifting addend plus accumulator and duplicate product.
+    // mul_value is held by the job sequencer until mul_done. A product takes
+    // 16 iterations; stop/fault cancels it immediately, including partial bits.
+    reg mul_start,mul_busy,mul_done;
+    reg signed [31:0] mul_value;
+    reg [15:0] mul_gain,mul_gain_bits;
+    reg signed [32:0] mul_partial;
+    reg [3:0] mul_index;
+    wire signed [32:0] mul_sum=mul_partial+
+        (mul_gain_bits[0] ? $signed({mul_value[31],mul_value}) : 33'sd0);
+    wire signed [47:0] mul_product={mul_partial[31:0],mul_gain_bits};
     always @(posedge clk or negedge reset_n) begin
-        if (!reset_n) begin
-            control_state <= IDLE;
-            outer_previous_position <= 0;
-            outer_speed <= 0;
-            desired_speed <= 0;
-            sampled_target_position <= 0;
-            speed_kp_sample <= 0;
-            speed_ki_sample <= 0;
-            speed_kd_sample <= 0;
-            position_kp_sample <= 0;
-            position_ki_sample <= 0;
-            position_kd_sample <= 0;
-            speed_deadband_sample <= 0;
-            position_deadband_sample <= 0;
-            speed_limit <= 0;
-            duty_limit <= 0;
-            minimum_duty <= 0;
-            position_integral_q8 <= 0;
-            position_derivative_q8 <= 0;
-            speed_integral_q8 <= 0;
-            error <= 0;
-            measurement_delta <= 0;
-            p_term <= 0;
-            i_step <= 0;
-            d_term <= 0;
-            integral_candidate <= 0;
-            raw_command <= 0;
-            previous_invalid <= 0;
-            startup_samples <= 0;
-            stall_samples <= 0;
-            reverse_samples <= 0;
-            last_target_sign <= 0;
-            target_sign_valid <= 0;
-            target_effective <= 0;
-            duty <= 0;
-            fault <= 0;
-            temporary = 0;
-            selected_integral = 0;
-            selected_command = 0;
-            rounded_command = 0;
-            slew_command = 0;
+        if(!reset_n)begin
+            mul_busy<=0;mul_done<=0;mul_gain_bits<=0;
+            mul_partial<=0;mul_index<=0;
+        end else if(!enabled)begin
+            mul_busy<=0;mul_done<=0;mul_gain_bits<=0;
+            mul_partial<=0;mul_index<=0;
         end else begin
-            if (clear_fault && !run_enable) fault <= 0;
-            if (!enabled) begin
-                control_state <= IDLE;
-                outer_previous_position <= safe_zero ? 0 : position;
-                outer_speed <= 0;
-                desired_speed <= 0;
-                position_integral_q8 <= 0;
-                position_derivative_q8 <= 0;
-                speed_integral_q8 <= 0;
-                target_effective <= 0;
-                duty <= 0;
-                previous_invalid <= safe_zero ? 0 : invalid;
-                startup_samples <= 0;
-                stall_samples <= 0;
-                reverse_samples <= 0;
-                target_sign_valid <= 0;
+            mul_done<=0;
+            if(!mul_busy)begin
+                if(mul_start)begin
+                    mul_gain_bits<=mul_gain;
+                    mul_partial<=0;mul_index<=0;mul_busy<=1;
+                end
             end else begin
-                case (control_state)
-                    IDLE: if (sample_ready) begin
-                        // Snapshot one complete parameter set at sample start.
-                        sampled_target_position <= target_position;
-                        speed_kp_sample <= speed_kp;
-                        speed_ki_sample <= speed_ki;
-                        speed_kd_sample <= speed_kd;
-                        position_kp_sample <= position_kp;
-                        position_ki_sample <= position_ki;
-                        position_kd_sample <= position_kd;
-                        speed_deadband_sample <= speed_deadband;
-                        position_deadband_sample <= position_deadband;
-                        temporary = abs64(extend16(target_speed));
-                        if (temporary > MAX_SPEED_COUNTS) temporary = MAX_SPEED_COUNTS;
-                        speed_limit <= temporary;
-                        temporary = max_duty_permille;
-                        if (temporary > 900) temporary = 900;
-                        duty_limit <= temporary;
-                        minimum_duty <= min_duty_permille;
-                        if (mode_position && sampled_outer_tick)
-                            control_state <= POS_PREP;
+                // Together these two assignments perform an arithmetic right
+                // shift of {signed33 upper sum,unsigned16 remaining bits}.
+                mul_partial<={mul_sum[32],mul_sum[32:1]};
+                mul_gain_bits<={mul_sum[0],mul_gain_bits[15:1]};
+                if(mul_index==15)begin
+                    mul_busy<=0;mul_done<=1;
+                end else mul_index<=mul_index+1'b1;
+            end
+        end
+    end
+
+    localparam [4:0] IDLE=0,POS_PREP=1,POS_FILTER_DIFF=2,POS_FILTER_APPLY=3,
+        POS_DERIVATIVE=4,SPEED_PREP=5,SPEED_ERROR=6,
+        PID_P_START=7,PID_P_WAIT=8,PID_I_WAIT=9,PID_D_WAIT=10,
+        PID_INTEGRATE=12,PID_COMMAND=13,PID_SELECT=14,
+        PID_CLAMP=15,PID_ROUND=16,PID_APPLY=17,
+        SPEED_FLOOR=18,SPEED_POLARITY=19,SPEED_SLEW=20,
+        SPEED_LIMIT=21,CHECK_FAULTS=22,PID_REJECT_COMMAND=23;
+    reg [4:0] control_state;
+    reg pid_outer;
+    reg signed [31:0] outer_previous_position,sampled_target_position;
+    reg signed [15:0] outer_speed,desired_speed;
+    reg [15:0] speed_kp_sample,speed_ki_sample,speed_kd_sample;
+    reg [15:0] position_kp_sample,position_ki_sample,position_kd_sample;
+    reg [15:0] speed_deadband_sample,position_deadband_sample,speed_limit;
+    reg [9:0] duty_limit,minimum_duty;
+    reg signed [24:0] position_integral_q8,integral_old,integral_candidate;
+    reg signed [18:0] speed_integral_q8;
+    reg signed [24:0] pid_limit_q8,command_clamped_q8;
+    reg signed [40:0] position_filter_difference;
+    reg signed [31:0] error,measurement_delta;
+    reg signed [48:0] pd_sum,pid_value;
+    reg signed [16:0] rounded_command;
+    reg signed [10:0] floor_command;
+    reg signed [11:0] duty_delta,slew_delta;
+    reg signed [12:0] duty_after_slew;
+    localparam integer STARTUP_COUNTER_BITS=STARTUP_GRACE_SAMPLES>=0 && STARTUP_GRACE_SAMPLES<65535 ?
+        (STARTUP_GRACE_SAMPLES>0 ? $clog2(STARTUP_GRACE_SAMPLES+1) : 1) : 16;
+    localparam integer STALL_COUNTER_BITS=STALL_SAMPLES>0 && STALL_SAMPLES<=65535 ?
+        (STALL_SAMPLES>1 ? $clog2(STALL_SAMPLES) : 1) : 16;
+    localparam integer REVERSE_COUNTER_BITS=REVERSE_SAMPLES>0 && REVERSE_SAMPLES<=65535 ?
+        (REVERSE_SAMPLES>1 ? $clog2(REVERSE_SAMPLES) : 1) : 16;
+    reg [15:0] previous_invalid;
+    reg [STARTUP_COUNTER_BITS-1:0] startup_samples;
+    reg [STALL_COUNTER_BITS-1:0] stall_samples;
+    reg [REVERSE_COUNTER_BITS-1:0] reverse_samples;
+    reg last_target_sign,target_sign_valid;
+    wire [15:0] target_magnitude=abs16(target_speed);
+    localparam [15:0] MAX_TARGET_MAGNITUDE=
+        MAX_SPEED_COUNTS>32768 ? 16'd32768 : MAX_SPEED_COUNTS;
+    wire [15:0] bounded_target_magnitude=
+        target_magnitude>MAX_SPEED_COUNTS ? MAX_SPEED_COUNTS : target_magnitude;
+    wire signed [32:0] position_error_full=
+        $signed({sampled_target_position[31],sampled_target_position})-
+        $signed({sampled_position[31],sampled_position});
+    wire signed [32:0] position_delta_full=
+        $signed({sampled_position[31],sampled_position})-
+        $signed({outer_previous_position[31],outer_previous_position});
+    wire signed [16:0] target_difference=
+        $signed({desired_speed[15],desired_speed})-
+        $signed({target_effective[15],target_effective});
+    wire signed [32:0] speed_error_full=
+        $signed({{17{target_effective[15]}},target_effective})-
+        $signed({speed[31],speed});
+    wire [31:0] invalid_delta={16'd0,sampled_invalid}-{16'd0,previous_invalid};
+    // P/I/D and conditional integration use ONE 49-bit add/subtract datapath.
+    // The appended low bit supplies carry-in to that same addition for a-b:
+    // floor(((a<<1)|1)+((~b<<1)|1))/2 == a+~b+1 (modulo 2^49).
+    reg signed [48:0] pid_operand_a,pid_operand_b;
+    reg pid_subtract;
+    wire [49:0] pid_alu_full={pid_operand_a,1'b1}+
+        {pid_operand_b^{49{pid_subtract}},pid_subtract};
+    wire signed [48:0] pid_alu_result=pid_alu_full[49:1];
+    always @(*) begin
+        pid_operand_a=0;pid_operand_b=0;pid_subtract=0;
+        case(control_state)
+            PID_I_WAIT:begin
+                pid_operand_a={{24{integral_old[24]}},integral_old};
+                pid_operand_b={mul_product[47],mul_product};
+            end
+            PID_D_WAIT:begin
+                pid_operand_a=pd_sum;pid_operand_b={mul_product[47],mul_product};pid_subtract=1;
+            end
+            PID_COMMAND:begin
+                pid_operand_a=pd_sum;
+                pid_operand_b={{24{integral_candidate[24]}},integral_candidate};
+            end
+            default:begin end
+        endcase
+    end
+    // Both loops have nonnegative limits <=32768*256, which fit signed25.
+    // Values outside signed25 are classified by their full signed49 sign;
+    // only values that are an exact sign extension enter the 25-bit compares.
+    // This retains every wide input bit without duplicating 49-bit comparators.
+    wire pid_fits25=pid_value[48:24]=={25{pid_value[24]}};
+    wire signed [24:0] pid_negative_limit=-pid_limit_q8;
+    wire pid_above_limit=(!pid_fits25 && !pid_value[48]) ||
+        (pid_fits25 && $signed(pid_value[24:0])>pid_limit_q8);
+    wire pid_below_limit=(!pid_fits25 && pid_value[48]) ||
+        (pid_fits25 && $signed(pid_value[24:0])<pid_negative_limit);
+    wire signed [24:0] pid_clamped_q8=pid_above_limit ? pid_limit_q8 :
+        pid_below_limit ? pid_negative_limit : $signed(pid_value[24:0]);
+    // Blocking values are narrow, within one arithmetic stage, never state.
+    reg signed [16:0] target_temporary;
+    reg signed [10:0] floor_temporary,minimum_effective;
+
+    // Worst case: eight sampling clocks + <=150 control clocks, including six
+    // 16-iteration products (outer+inner). At 50 MHz this is <3.2 us, compared
+    // with a 10000 us inner period. No arithmetic waits for another sample.
+    always @(posedge clk or negedge reset_n) begin
+        if(!reset_n)begin
+            control_state<=IDLE;pid_outer<=0;outer_previous_position<=0;
+            outer_speed<=0;desired_speed<=0;sampled_target_position<=0;
+            speed_kp_sample<=0;speed_ki_sample<=0;speed_kd_sample<=0;
+            position_kp_sample<=0;position_ki_sample<=0;position_kd_sample<=0;
+            speed_deadband_sample<=0;position_deadband_sample<=0;speed_limit<=0;
+            duty_limit<=0;minimum_duty<=0;position_integral_q8<=0;
+            position_derivative_q8<=0;speed_integral_q8<=0;position_filter_difference<=0;
+            error<=0;measurement_delta<=0;
+            integral_old<=0;integral_candidate<=0;
+            pid_limit_q8<=0;command_clamped_q8<=0;pd_sum<=0;pid_value<=0;
+            rounded_command<=0;floor_command<=0;duty_delta<=0;slew_delta<=0;duty_after_slew=0;
+            previous_invalid<=0;startup_samples<=0;stall_samples<=0;reverse_samples<=0;
+            last_target_sign<=0;target_sign_valid<=0;target_effective<=0;pid_duty<=0;fault<=0;
+            mul_start<=0;mul_value<=0;mul_gain<=0;
+            target_temporary=0;floor_temporary=0;minimum_effective=0;
+        end else begin
+            mul_start<=0;
+            if(clear_fault && !motion_requested)fault<=0;
+            if(!enabled)begin
+                control_state<=IDLE;outer_previous_position<=safe_zero ? 0 : position;
+                outer_speed<=0;desired_speed<=0;position_integral_q8<=0;
+                position_derivative_q8<=0;speed_integral_q8<=0;
+                target_effective<=0;pid_duty<=0;
+                // Match the sampled counter, not a newer live value: enabling
+                // between sample capture and sample_ready must not subtract
+                // an older sample from a newer baseline and look like wrap.
+                if(!bridge_enabled)previous_invalid<=safe_zero ? 0 : sampled_invalid;
+                startup_samples<=0;stall_samples<=0;reverse_samples<=0;target_sign_valid<=0;
+                mul_start<=0;
+            end else case(control_state)
+                IDLE:if(sample_ready)begin
+                    sampled_target_position<=target_position;
+                    speed_kp_sample<=speed_kp;speed_ki_sample<=speed_ki;speed_kd_sample<=speed_kd;
+                    position_kp_sample<=position_kp;position_ki_sample<=position_ki;position_kd_sample<=position_kd;
+                    speed_deadband_sample<=speed_deadband;position_deadband_sample<=position_deadband;
+                    speed_limit<=bounded_target_magnitude;
+                    duty_limit<=max_duty_permille>900 ? 10'd900 : max_duty_permille;
+                    minimum_duty<=min_duty_permille;
+                    if(mode_position && sampled_outer_tick)control_state<=POS_PREP;
+                    else begin
+                        if(mode_position)desired_speed<=clamp_speed(outer_speed,bounded_target_magnitude);
                         else begin
-                            if (mode_position) begin
-                                // Honor a lowered outer speed ceiling immediately,
-                                // even between the 50 ms outer-loop updates.
-                                temporary = abs64(extend16(target_speed));
-                                if (temporary > MAX_SPEED_COUNTS) temporary = MAX_SPEED_COUNTS;
-                                temporary = clamp64(extend16(outer_speed), temporary);
-                                desired_speed <= temporary[15:0];
-                            end
-                            else begin
-                                temporary = clamp64(extend16(target_speed), MAX_SPEED_COUNTS);
-                                desired_speed <= temporary[15:0];
-                                position_integral_q8 <= 0;
-                                position_derivative_q8 <= 0;
-                                outer_previous_position <= sampled_position;
-                            end
-                            control_state <= SPEED_PREP;
+                            desired_speed<=clamp_speed(target_speed,MAX_TARGET_MAGNITUDE);
+                            position_integral_q8<=0;position_derivative_q8<=0;
+                            outer_previous_position<=sampled_position;
                         end
+                        control_state<=SPEED_PREP;
                     end
-                    POS_PREP: begin
-                        temporary = extend32(sampled_target_position) - extend32(sampled_position);
-                        if (abs64(temporary) <= position_deadband_sample) begin
-                            desired_speed <= 0;
-                            outer_speed <= 0;
-                            position_integral_q8 <= 0;
-                            position_derivative_q8 <= 0;
-                            outer_previous_position <= sampled_position;
-                            control_state <= SPEED_PREP;
-                        end else begin
-                            error <= saturate32(temporary);
-                            measurement_delta <= saturate32(extend32(sampled_position) -
-                                                             extend32(outer_previous_position));
-                            outer_previous_position <= sampled_position;
-                            control_state <= POS_FILTER;
-                        end
+                end
+                POS_PREP:begin
+                    if(abs33(position_error_full)<=position_deadband_sample)begin
+                        desired_speed<=0;outer_speed<=0;position_integral_q8<=0;
+                        position_derivative_q8<=0;outer_previous_position<=sampled_position;
+                        control_state<=SPEED_PREP;
+                    end else begin
+                        error<=saturate33(position_error_full);
+                        measurement_delta<=saturate33(position_delta_full);
+                        outer_previous_position<=sampled_position;control_state<=POS_FILTER_DIFF;
                     end
-                    POS_FILTER: begin
-                        position_derivative_q8 <= position_derivative_q8 +
-                            (((extend32(measurement_delta) <<< 8) - position_derivative_q8) >>> 2);
-                        control_state <= POS_DERIVATIVE;
+                end
+                POS_FILTER_DIFF:begin
+                    position_filter_difference<=
+                        $signed({measurement_delta[31],measurement_delta,8'd0})-
+                        $signed({position_derivative_q8[39],position_derivative_q8});
+                    control_state<=POS_FILTER_APPLY;
+                end
+                POS_FILTER_APPLY:begin
+                    position_derivative_q8<=$signed({position_derivative_q8[39],position_derivative_q8})+
+                        (position_filter_difference>>>2);
+                    control_state<=POS_DERIVATIVE;
+                end
+                POS_DERIVATIVE:begin
+                    measurement_delta<=round_filter_q8(position_derivative_q8);
+                    pid_outer<=1;control_state<=PID_P_START;
+                end
+                SPEED_PREP:begin
+                    if(desired_speed==0)begin
+                        target_effective<=0;speed_integral_q8<=0;pid_duty<=0;control_state<=CHECK_FAULTS;
+                    end else begin
+                        if(target_difference>TARGET_SLEW_COUNTS)
+                            target_temporary=$signed({target_effective[15],target_effective})+TARGET_SLEW_COUNTS;
+                        else if(target_difference< -TARGET_SLEW_COUNTS)
+                            target_temporary=$signed({target_effective[15],target_effective})-TARGET_SLEW_COUNTS;
+                        else target_temporary={desired_speed[15],desired_speed};
+                        target_effective<=target_temporary[15:0];control_state<=SPEED_ERROR;
                     end
-                    POS_DERIVATIVE: begin
-                        measurement_delta <= round_q8(position_derivative_q8);
-                        control_state <= POS_MUL;
+                end
+                SPEED_ERROR:begin
+                    if(target_effective==0)begin
+                        speed_integral_q8<=0;pid_duty<=0;control_state<=CHECK_FAULTS;
+                    end else begin
+                        error<=abs33(speed_error_full)<=speed_deadband_sample ? 32'sd0 : saturate33(speed_error_full);
+                        measurement_delta<=round_filter_q8(derivative_filter_q8);
+                        pid_outer<=0;control_state<=PID_P_START;
                     end
-                    POS_MUL: begin
-                        p_term <= multiply_gain(error, position_kp_sample);
-                        i_step <= multiply_gain(error, position_ki_sample);
-                        d_term <= -multiply_gain(measurement_delta, position_kd_sample);
-                        control_state <= POS_INTEGRATE;
+                end
+                PID_P_START:begin
+                    // Ki=0 explicitly disables and clears the weighted I term.
+                    // Live tuning must not keep an old integral bias when the
+                    // operator switches back to a P-only experiment.
+                    integral_old<=pid_outer ? (position_ki_sample==0 ? 25'sd0 : position_integral_q8) :
+                        (speed_ki_sample==0 ? 25'sd0 : {{6{speed_integral_q8[18]}},speed_integral_q8});
+                    pid_limit_q8<=pid_outer ? $signed({1'b0,speed_limit,8'd0}) :
+                        $signed({7'd0,duty_limit,8'd0});
+                    mul_value<=error;mul_gain<=pid_outer ? position_kp_sample : speed_kp_sample;
+                    mul_start<=1;control_state<=PID_P_WAIT;
+                end
+                PID_P_WAIT:if(mul_done)begin
+                    pd_sum<={mul_product[47],mul_product};mul_value<=error;
+                    mul_gain<=pid_outer ? position_ki_sample : speed_ki_sample;
+                    mul_start<=1;control_state<=PID_I_WAIT;
+                end
+                PID_I_WAIT:if(mul_done)begin
+                    pid_value<=pid_alu_result;mul_value<=measurement_delta;
+                    mul_gain<=pid_outer ? position_kd_sample : speed_kd_sample;
+                    mul_start<=1;control_state<=PID_INTEGRATE;
+                end
+                PID_D_WAIT:if(mul_done)begin
+                    pd_sum<=pid_alu_result;control_state<=PID_COMMAND;
+                end
+                PID_INTEGRATE:begin
+                    integral_candidate<=pid_clamped_q8;control_state<=PID_D_WAIT;
+                end
+                PID_COMMAND:begin
+                    pid_value<=pid_alu_result;control_state<=PID_SELECT;
+                end
+                PID_SELECT:begin
+                    if((pid_above_limit && error>0) || (pid_below_limit && error<0))begin
+                        // Reject further windup, but still use the available
+                        // saturated output this sample. Recomputing P+old I
+                        // here can strand the command below the duty limit.
+                        // Reuse the same clamp for old I after a live limit
+                        // reduction; no second wide comparator/ALU is needed.
+                        command_clamped_q8<=pid_clamped_q8;
+                        pid_value<={{24{integral_old[24]}},integral_old};
+                        control_state<=PID_REJECT_COMMAND;
+                    end else control_state<=PID_CLAMP;
+                end
+                PID_REJECT_COMMAND:begin
+                    integral_candidate<=pid_clamped_q8;
+                    pid_value<={{24{command_clamped_q8[24]}},command_clamped_q8};
+                    control_state<=PID_CLAMP;
+                end
+                PID_CLAMP:begin
+                    if(pid_outer)position_integral_q8<=integral_candidate;
+                    else speed_integral_q8<=integral_candidate[18:0];
+                    command_clamped_q8<=pid_clamped_q8;control_state<=PID_ROUND;
+                end
+                PID_ROUND:begin rounded_command<=round_command_q8(command_clamped_q8);control_state<=PID_APPLY;end
+                PID_APPLY:begin
+                    if(pid_outer)begin
+                        outer_speed<=rounded_command[15:0];desired_speed<=rounded_command[15:0];
+                        control_state<=SPEED_PREP;
+                    end else control_state<=SPEED_FLOOR;
+                end
+                SPEED_FLOOR:begin
+                    floor_temporary=rounded_command[10:0];
+                    minimum_effective=minimum_duty>duty_limit ? $signed({1'b0,duty_limit}) :
+                        $signed({1'b0,minimum_duty});
+                    if(floor_temporary>0 && floor_temporary<minimum_effective)floor_temporary=minimum_effective;
+                    else if(floor_temporary<0 && floor_temporary> -minimum_effective)floor_temporary=-minimum_effective;
+                    floor_command<=floor_temporary;control_state<=SPEED_POLARITY;
+                end
+                SPEED_POLARITY:begin
+                    if((pid_duty>0 && floor_command<0) || (pid_duty<0 && floor_command>0) || floor_command==0)begin
+                        pid_duty<=0;control_state<=CHECK_FAULTS;
+                    end else begin
+                        duty_delta<=$signed({floor_command[10],floor_command})-
+                            $signed({pid_duty[10],pid_duty[10:0]});
+                        control_state<=SPEED_SLEW;
                     end
-                    POS_INTEGRATE: begin
-                        temporary = clamp64(position_integral_q8 + i_step, speed_limit <<< 8);
-                        integral_candidate <= temporary;
-                        raw_command <= p_term + temporary + d_term;
-                        control_state <= POS_APPLY;
+                end
+                SPEED_SLEW:begin
+                    if(duty_delta>PWM_SLEW_PERMILLE)slew_delta<=PWM_SLEW_PERMILLE;
+                    else if(duty_delta< -PWM_SLEW_PERMILLE)slew_delta<=-PWM_SLEW_PERMILLE;
+                    else slew_delta<=duty_delta;
+                    control_state<=SPEED_LIMIT;
+                end
+                SPEED_LIMIT:begin
+                    // Two sequential stages separate slew limiting from the
+                    // final absolute duty clamp. The duty output is unchanged
+                    // until both calculations are complete.
+                    duty_after_slew=$signed({{2{pid_duty[10]}},pid_duty[10:0]})+
+                        $signed({slew_delta[11],slew_delta});
+                    if(duty_after_slew>$signed({3'd0,duty_limit}))pid_duty<=$signed({6'd0,duty_limit});
+                    else if(duty_after_slew< -$signed({3'd0,duty_limit}))pid_duty<=-$signed({6'd0,duty_limit});
+                    else pid_duty<={{3{duty_after_slew[12]}},duty_after_slew};
+                    control_state<=CHECK_FAULTS;
+                end
+                CHECK_FAULTS:begin
+                    if(target_effective==0)begin
+                        target_sign_valid<=0;startup_samples<=0;stall_samples<=0;reverse_samples<=0;
+                    end else if(!target_sign_valid || last_target_sign!=target_effective[15])begin
+                        target_sign_valid<=1;last_target_sign<=target_effective[15];
+                        startup_samples<=0;stall_samples<=0;reverse_samples<=0;
+                    end else if(startup_samples<STARTUP_GRACE_SAMPLES)begin
+                        startup_samples<=startup_samples+1'b1;stall_samples<=0;reverse_samples<=0;
+                    end else begin
+                        if(abs16(pid_duty)>=MOTION_DUTY_THRESHOLD &&
+                           abs16(target_effective)>=MOTION_SPEED_THRESHOLD && abs32(speed_raw)<=1)begin
+                            if(stall_samples>=STALL_SAMPLES-1)fault[0]<=1;
+                            else stall_samples<=stall_samples+1'b1;
+                        end else stall_samples<=0;
+                        if(abs16(pid_duty)>=MOTION_DUTY_THRESHOLD &&
+                           abs16(target_effective)>=MOTION_SPEED_THRESHOLD &&
+                           abs32(speed_raw)>=MOTION_SPEED_THRESHOLD &&
+                           speed_raw[31]!=target_effective[15])begin
+                            if(reverse_samples>=REVERSE_SAMPLES-1)fault[1]<=1;
+                            else reverse_samples<=reverse_samples+1'b1;
+                        end else reverse_samples<=0;
                     end
-                    POS_APPLY: begin
-                        selected_integral = integral_candidate;
-                        selected_command = raw_command;
-                        if ((raw_command > (speed_limit <<< 8) && error > 0) ||
-                            (raw_command < -(speed_limit <<< 8) && error < 0)) begin
-                            selected_integral = position_integral_q8;
-                            selected_command = p_term + position_integral_q8 + d_term;
-                        end
-                        position_integral_q8 <= selected_integral;
-                        temporary = round_q8(clamp64(selected_command, speed_limit <<< 8));
-                        outer_speed <= temporary[15:0];
-                        desired_speed <= temporary[15:0];
-                        control_state <= SPEED_PREP;
-                    end
-                    SPEED_PREP: begin
-                        // Zero target is an explicit stop, never a stiction command.
-                        if (desired_speed == 0) begin
-                            target_effective <= 0;
-                            speed_integral_q8 <= 0;
-                            duty <= 0;
-                            control_state <= CHECK_FAULTS;
-                        end else begin
-                            temporary = extend16(desired_speed) - extend16(target_effective);
-                            if (temporary > TARGET_SLEW_COUNTS)
-                                temporary = extend16(target_effective) + TARGET_SLEW_COUNTS;
-                            else if (temporary < -TARGET_SLEW_COUNTS)
-                                temporary = extend16(target_effective) - TARGET_SLEW_COUNTS;
-                            else temporary = extend16(desired_speed);
-                            target_effective <= temporary[15:0];
-                            control_state <= SPEED_ERROR;
-                        end
-                    end
-                    SPEED_ERROR: begin
-                        if (target_effective == 0) begin
-                            speed_integral_q8 <= 0;
-                            duty <= 0;
-                            control_state <= CHECK_FAULTS;
-                        end else begin
-                            temporary = extend16(target_effective) - extend32(speed);
-                            if (abs64(temporary) <= speed_deadband_sample) temporary = 0;
-                            error <= saturate32(temporary);
-                            measurement_delta <= round_q8(derivative_filter_q8);
-                            control_state <= SPEED_MUL;
-                        end
-                    end
-                    SPEED_MUL: begin
-                        p_term <= multiply_gain(error, speed_kp_sample);
-                        i_step <= multiply_gain(error, speed_ki_sample);
-                        d_term <= -multiply_gain(measurement_delta, speed_kd_sample);
-                        control_state <= SPEED_INTEGRATE;
-                    end
-                    SPEED_INTEGRATE: begin
-                        temporary = clamp64(speed_integral_q8 + i_step, duty_limit <<< 8);
-                        integral_candidate <= temporary;
-                        raw_command <= p_term + temporary + d_term;
-                        control_state <= SPEED_APPLY;
-                    end
-                    SPEED_APPLY: begin
-                        selected_integral = integral_candidate;
-                        selected_command = raw_command;
-                        if ((raw_command > (duty_limit <<< 8) && error > 0) ||
-                            (raw_command < -(duty_limit <<< 8) && error < 0)) begin
-                            selected_integral = speed_integral_q8;
-                            selected_command = p_term + speed_integral_q8 + d_term;
-                        end
-                        speed_integral_q8 <= selected_integral;
-                        rounded_command = round_q8(clamp64(selected_command, duty_limit <<< 8));
-                        // Optional minimum MOVING duty floor. It is not applied
-                        // at zero command and is always bounded by max duty.
-                        temporary = minimum_duty > duty_limit ? duty_limit : minimum_duty;
-                        if (rounded_command > 0 && rounded_command < temporary)
-                            rounded_command = temporary;
-                        else if (rounded_command < 0 && rounded_command > -temporary)
-                            rounded_command = -temporary;
-                        // Never jump directly from positive PWM to negative PWM.
-                        if ((duty > 0 && rounded_command < 0) ||
-                            (duty < 0 && rounded_command > 0)) begin
-                            duty <= 0;
-                        end else if (rounded_command == 0) begin
-                            duty <= 0;
-                        end else begin
-                            slew_command = clamp64(rounded_command - extend16(duty), PWM_SLEW_PERMILLE);
-                            temporary = clamp64(extend16(duty) + slew_command, duty_limit);
-                            duty <= temporary[15:0];
-                        end
-                        control_state <= CHECK_FAULTS;
-                    end
-                    CHECK_FAULTS: begin
-                        previous_invalid <= sampled_invalid;
-                        if (encoder_overflow) fault[3] <= 1;
-                        if (abs64(extend32(speed_raw)) > MAX_SPEED_COUNTS) fault[4] <= 1;
-                        if (sampled_invalid == 16'hffff ||
-                            (sampled_invalid - previous_invalid) >= INVALID_PER_SAMPLE)
-                            fault[2] <= 1;
-                        // Reset startup grace on every nonzero target sign change.
-                        if (target_effective == 0) begin
-                            target_sign_valid <= 0;
-                            startup_samples <= 0;
-                            stall_samples <= 0;
-                            reverse_samples <= 0;
-                        end else if (!target_sign_valid || last_target_sign != target_effective[15]) begin
-                            target_sign_valid <= 1;
-                            last_target_sign <= target_effective[15];
-                            startup_samples <= 0;
-                            stall_samples <= 0;
-                            reverse_samples <= 0;
-                        end else if (startup_samples < STARTUP_GRACE_SAMPLES) begin
-                            startup_samples <= startup_samples + 1'b1;
-                            stall_samples <= 0;
-                            reverse_samples <= 0;
-                        end else begin
-                            if (abs64(extend16(duty)) >= MOTION_DUTY_THRESHOLD &&
-                                abs64(extend16(target_effective)) >= MOTION_SPEED_THRESHOLD &&
-                                abs64(extend32(speed_raw)) <= 1) begin
-                                if (stall_samples >= STALL_SAMPLES - 1) fault[0] <= 1;
-                                else stall_samples <= stall_samples + 1'b1;
-                            end else stall_samples <= 0;
-                            if (abs64(extend16(duty)) >= MOTION_DUTY_THRESHOLD &&
-                                abs64(extend16(target_effective)) >= MOTION_SPEED_THRESHOLD &&
-                                abs64(extend32(speed_raw)) >= MOTION_SPEED_THRESHOLD &&
-                                speed_raw[31] != target_effective[15]) begin
-                                if (reverse_samples >= REVERSE_SAMPLES - 1) fault[1] <= 1;
-                                else reverse_samples <= reverse_samples + 1'b1;
-                            end else reverse_samples <= 0;
-                        end
-                        control_state <= IDLE;
-                    end
-                    default: control_state <= IDLE;
-                endcase
+                    control_state<=IDLE;
+                end
+                default:control_state<=IDLE;
+            endcase
+            // These encoder guards apply to BOTH closed-loop and calibration
+            // drive, once per existing 10 ms sample. Only the PID-specific
+            // stall/opposite-target heuristics remain in CHECK_FAULTS above.
+            if(bridge_enabled && sample_ready)begin
+                previous_invalid<=sampled_invalid;
+                if(encoder_overflow)fault[3]<=1;
+                if(abs32(speed_raw)>MAX_SPEED_COUNTS)fault[4]<=1;
+                if(sampled_invalid==16'hffff || invalid_delta>=INVALID_PER_SAMPLE)fault[2]<=1;
             end
         end
     end

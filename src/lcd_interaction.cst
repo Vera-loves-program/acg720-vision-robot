@@ -298,7 +298,8 @@ IO_LOC "bq_b_scl" D14;
 IO_PORT "bq_b_scl" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4 BANK_VCCIO=3.3;
 IO_LOC "bq_b_sda" D15;
 IO_PORT "bq_b_sda" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=4 BANK_VCCIO=3.3;
-// Reserved servo/stepper signals are presently held LOW, no driver is claimed.
+// SERVO0=P7-27 (upper), SERVO1=P7-24 (base): calibrated 50 Hz pulse outputs.
+// Stepper signals remain held LOW. No pin location has changed.
 IO_LOC "servo_0" C18;
 IO_PORT "servo_0" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
 IO_LOC "servo_1" D16;
@@ -311,7 +312,13 @@ IO_LOC "step_1" D20;
 IO_PORT "step_1" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
 IO_LOC "dir_1" D19;
 IO_PORT "dir_1" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=4 BANK_VCCIO=3.3;
-// P7-11/12/29/30 are power/ground; P7-32 NC and spare35/37/38/39/40 unused.
+// C1: P7-38/PIN38=E18 FPGA TX -> C1 RX; P7-40/PIN40=F20 FPGA RX <- C1 TX.
+// 5V is sensor power, UART is 3.3V. Keep the original Bluetooth UART separate.
+IO_LOC "lidar_tx" E18;
+IO_PORT "lidar_tx" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=4 BANK_VCCIO=3.3;
+IO_LOC "lidar_rx" F20;
+IO_PORT "lidar_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+// P7-11/12/29/30 are power/ground; P7-32 NC and spare35/37/39 unused.
 
 // Onboard BM8563T/24LC64 I2C bus: schematic and 60K pin table verified.
 // R27/R28 are onboard 4.7k pull-ups to 3.3 V; independent of P7 sensor bus.

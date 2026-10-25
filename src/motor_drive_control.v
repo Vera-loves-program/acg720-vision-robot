@@ -14,6 +14,11 @@ module motor_drive_control #(
     input wire zero_position,
     input wire encoder_invert_left,
     input wire encoder_invert_right,
+    input wire drive_invert_left,
+    input wire drive_invert_right,
+    input wire calibration_enable,
+    input wire signed [15:0] calibration_duty_left,
+    input wire signed [15:0] calibration_duty_right,
     input wire mode_position,
     input wire encoder1_a,
     input wire encoder1_b,
@@ -62,7 +67,9 @@ module motor_drive_control #(
     output reg tick_10ms
 );
     localparam integer SAMPLE_CYCLES = CLK_HZ / 100;
-    reg [31:0] sample_counter;
+    localparam integer SAMPLE_COUNTER_BITS=SAMPLE_CYCLES>0 ?
+        (SAMPLE_CYCLES>1 ? $clog2(SAMPLE_CYCLES) : 1) : 32;
+    reg [SAMPLE_COUNTER_BITS-1:0] sample_counter;
     reg [2:0] outer_counter;
     reg tick_50ms;
     wire combined_stop = safety_stop || fault_left != 0 || fault_right != 0;
@@ -91,6 +98,8 @@ module motor_drive_control #(
         .clk(clk), .reset_n(reset_n), .tick_10ms(tick_10ms), .tick_50ms(tick_50ms),
         .safety_stop(combined_stop), .run_enable(run_enable), .clear_fault(clear_fault),
         .zero_position(zero_position), .encoder_invert(encoder_invert_left),
+        .drive_invert(drive_invert_left),.calibration_enable(calibration_enable),
+        .calibration_duty(calibration_duty_left),
         .mode_position(mode_position), .encoder_a(encoder1_a), .encoder_b(encoder1_b),
         .target_speed(target_speed_left), .target_position(target_position_left),
         .speed_kp(speed_kp_left), .speed_ki(speed_ki_left), .speed_kd(speed_kd_left),
@@ -106,6 +115,8 @@ module motor_drive_control #(
         .clk(clk), .reset_n(reset_n), .tick_10ms(tick_10ms), .tick_50ms(tick_50ms),
         .safety_stop(combined_stop), .run_enable(run_enable), .clear_fault(clear_fault),
         .zero_position(zero_position), .encoder_invert(encoder_invert_right),
+        .drive_invert(drive_invert_right),.calibration_enable(calibration_enable),
+        .calibration_duty(calibration_duty_right),
         .mode_position(mode_position), .encoder_a(encoder2_a), .encoder_b(encoder2_b),
         .target_speed(target_speed_right), .target_position(target_position_right),
         .speed_kp(speed_kp_right), .speed_ki(speed_ki_right), .speed_kd(speed_kd_right),

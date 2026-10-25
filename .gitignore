@@ -27,3 +27,28 @@ models/dog_plush/*.pt
 models/dog_plush/*.onnx
 models/dog_plush/*.onnx.data
 models/face_yunet/*.onnx
+
+# Local investigations, archives, browser profiles and handoff notes.
+/tmp/
+/archive/
+/交接PROMPT_*.md
+
+# Share release instructions/record; generate binary deliverables locally.
+/output/*
+!/output/releases/
+/output/releases/*
+!/output/releases/README.md
+!/output/releases/records/
+/output/releases/records/*
+!/output/releases/records/vision_robot_core_r7_2136.json
+
+# Measured per-car configuration and environment secrets.
+/config/gimbal.json
+/config/visual_task.json
+.env
+.env.*
+!.env.example
+id_rsa
+id_ed25519
+*.pem
+*.key

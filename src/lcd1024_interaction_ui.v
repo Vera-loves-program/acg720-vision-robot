@@ -1,6 +1,8 @@
 // Source-anchored 1x..4x zoom, unit-bearing sensors and motor PID tuning page.
 // Camera/DDR timing and the 800x480 viewport remain at the verified geometry.
-module lcd1024_interaction_ui (
+module lcd1024_interaction_ui #(
+    parameter BYTE_TEXT_MODE=0
+) (
     input wire clk, run,
     input wire [15:0] camera_pixel,
     input wire camera_pixel_valid,
@@ -23,6 +25,28 @@ module lcd1024_interaction_ui (
     input wire pid_text_request,
     input wire [2047:0] pid_text_data,
     output reg pid_text_ack = 0,
+    input wire actuator_test,
+    input wire test_status_request,
+    input wire [2064:0] test_status_data,
+    output reg test_status_ack = 0,
+    input wire battery_status_request,
+    input wire [1921:0] battery_status_data,
+    output reg battery_status_ack = 0,
+    input wire robot_control,
+    input wire robot_status_request,
+    input wire [2079:0] robot_status_data,
+    output reg robot_status_ack=0,
+    // Optional synchronous byte snapshots replace the two wide PID/NAV
+    // mailboxes. Their one-clock RAM Q is the existing character A stage.
+    input wire [7:0] robot_byte_character,pid_byte_character,sensor_byte_character,
+    input wire [31:0] robot_byte_meta,
+    output wire robot_byte_read_en,pid_byte_read_en,sensor_byte_read_en,
+    output wire [7:0] byte_text_read_index,
+    input wire [1:0] map_cell,
+    input wire [39:0] map_car_model,
+    input wire map_read_valid,
+    output wire map_read_en,
+    output wire [6:0] map_read_x,map_read_y,
     output wire camera_pop, frame_restart,
     output wire [8:0] display_step, display_top,
     output wire [9:0] display_left,
@@ -53,6 +77,44 @@ module lcd1024_interaction_ui (
     wire [10:0] fetch_x_wide = ax-11'd15;
     wire [9:0] fetch_y_wide = ay-10'd56;
     assign frame_restart = run && h==H_TOTAL-1'b1 && v==V_TOTAL-1'b1;
+    reg [2:0] robot_request_sync=0;
+    reg [2079:0] robot_status=0;
+    always @(posedge clk or negedge run)begin
+        if(!run)begin robot_request_sync<=0;robot_status_ack<=0;robot_status<=0;end
+        else begin
+            robot_request_sync<={robot_request_sync[1:0],robot_status_request};
+            if(!BYTE_TEXT_MODE && frame_restart && robot_request_sync[2]!=robot_status_ack)begin
+                robot_status<=robot_status_data;robot_status_ack<=robot_request_sync[2];
+            end
+        end
+    end
+    reg [2:0] test_request_sync=0;
+    reg [2064:0] test_status=0;
+    reg [2:0] battery_request_sync=0;
+    reg [1921:0] battery_status={2'b00,"A BQ WAIT       ","B BQ WAIT       ",
+        "A N~----- I-----","B N~----- I-----","A:--- B:--- NTC~",1280'b0};
+    always @(posedge clk or negedge run) begin
+        if (!run) begin
+            battery_request_sync<=0;battery_status_ack<=0;
+            battery_status<={2'b00,"A BQ WAIT       ","B BQ WAIT       ",
+                "A N~----- I-----","B N~----- I-----","A:--- B:--- NTC~",1280'b0};
+        end else begin
+            battery_request_sync<={battery_request_sync[1:0],battery_status_request};
+            if (frame_restart && battery_request_sync[2]!=battery_status_ack) begin
+                battery_status<=battery_status_data;battery_status_ack<=battery_request_sync[2];
+            end
+        end
+    end
+    always @(posedge clk or negedge run) begin
+        if (!run) begin test_request_sync<=0;test_status_ack<=0;test_status<=0;end
+        else begin
+            test_request_sync<={test_request_sync[1:0],test_status_request};
+            if (frame_restart && test_request_sync[2]!=test_status_ack) begin
+                test_status<=test_status_data;
+                test_status_ack<=test_request_sync[2];
+            end
+        end
+    end
     // Unit-bearing sensor text is held in the 50 MHz source mailbox until
     // this frame-boundary ACK. No raw multi-bit sensor bus crosses to pixels.
     reg [2:0] sensor_request_sync = 0;
@@ -65,7 +127,7 @@ module lcd1024_interaction_ui (
                 "AX -.---G       ","AY -.---G       ","AZ -.---G       ","US WAIT         "};
         end else begin
             sensor_request_sync<={sensor_request_sync[1:0],sensor_text_request};
-            if (frame_restart && sensor_request_sync[2]!=sensor_text_ack) begin
+            if (!BYTE_TEXT_MODE && frame_restart && sensor_request_sync[2]!=sensor_text_ack) begin
                 sensor_rows<=sensor_text_data;
                 sensor_text_ack<=sensor_request_sync[2];
             end
@@ -75,18 +137,23 @@ module lcd1024_interaction_ui (
     // Hold the 16x16-byte mailbox until the frame-boundary toggle ACK, as for
     // the sensor mailbox above. Latching the page here avoids mid-frame tears.
     reg [2:0] pid_request_sync = 0, pid_page_sync = 0;
-    reg pid_page_display = 0;
+    reg pid_page_legacy = 0;
+    // Robot titles, menu highlights and PID cards select the SAME mailbox
+    // page committed at frame_restart; the independent legacy toggle must
+    // not select cards ahead of the matching robot status/title snapshot.
+    wire [31:0] robot_display_flags=BYTE_TEXT_MODE ? robot_byte_meta : robot_status[2079:2048];
+    wire pid_page_display=robot_control ? (robot_display_flags[2:0]==3'd1) : pid_page_legacy;
     reg [2047:0] pid_rows = {"PID WAIT DATA   ",1920'd0};
     always @(posedge clk or negedge run) begin
         if (!run) begin
             pid_request_sync<=0; pid_page_sync<=0; pid_text_ack<=0;
-            pid_page_display<=0; pid_rows<={"PID WAIT DATA   ",1920'd0};
+            pid_page_legacy<=0; pid_rows<={"PID WAIT DATA   ",1920'd0};
         end else begin
             pid_request_sync<={pid_request_sync[1:0],pid_text_request};
             pid_page_sync<={pid_page_sync[1:0],pid_page};
             if (frame_restart) begin
-                pid_page_display<=pid_page_sync[2];
-                if (pid_request_sync[2]!=pid_text_ack) begin
+                pid_page_legacy<=pid_page_sync[2];
+                if (!BYTE_TEXT_MODE && pid_request_sync[2]!=pid_text_ack) begin
                     pid_rows<=pid_text_data;
                     pid_text_ack<=pid_request_sync[2];
                 end
@@ -212,6 +279,7 @@ module lcd1024_interaction_ui (
                 ":":glyph=40'h0036360000; "/":glyph=40'h2010080402;
                 "-":glyph=40'h0808080808; ".":glyph=40'h0060600000;
                 "+":glyph=40'h08083e0808;
+                "~":glyph=40'h0804081008;
                 "=":glyph=40'h1414141414; ">":glyph=40'h0041221408;
                 "<":glyph=40'h0814224100; "%":glyph=40'h6313086463;
                 "_":glyph=40'h4040404040; "?":glyph=40'h0201510906;
@@ -226,6 +294,36 @@ module lcd1024_interaction_ui (
     reg [9:0] label_y;
     reg [15:0] label_color;
     reg label_enable;
+    wire [127:0] test_label_text;
+    wire [10:0] test_label_x,test_label_right;
+    wire [9:0] test_label_y;
+    wire [15:0] test_label_color,test_base_color;
+    wire test_label_enable;
+    wire [2:0] robot_label_source;
+    wire [3:0] robot_label_row;
+    wire [6:0] robot_label_literal;
+    wire [10:0] robot_label_x,robot_label_right;
+    wire [9:0] robot_label_y;
+    wire [15:0] robot_label_color,robot_base_color;
+    wire robot_label_enable,robot_override_label,robot_override_base;
+    robot_control_panel u_robot_panel (
+        .x(ax),.y(ay),.flags(robot_display_flags),
+        .map_cell(map_cell),.map_read_valid(map_read_valid),
+        .map_car_model(map_car_model),
+        .map_read_en(map_read_en),.map_read_x(map_read_x),.map_read_y(map_read_y),
+        .label_source(robot_label_source),.label_row(robot_label_row),.label_literal(robot_label_literal),
+        .label_x(robot_label_x),.label_right(robot_label_right),
+        .label_y(robot_label_y),.label_color(robot_label_color),.base_color(robot_base_color),
+        .label_enable(robot_label_enable),.override_label(robot_override_label),.override_base(robot_override_base)
+    );
+    actuator_test_panel u_test_panel (
+        .x(ax),.y(ay),.rows(test_status[2047:0]),.flags(test_status[2063:2048]),
+        .sensor_rows(sensor_rows),.label_text(test_label_text),
+        .battery_rows(battery_status[1919:1280]),.battery_valid(battery_status[1921:1920]),
+        .diagnostic_rows(battery_status[1279:0]),.bq_info(test_status[2064]),
+        .label_x(test_label_x),.label_right(test_label_right),.label_y(test_label_y),
+        .label_color(test_label_color),.base_color(test_base_color),.label_enable(test_label_enable)
+    );
     wire [9:0] pid_text_y=ay-10'd76;
     wire [3:0] pid_text_row=pid_text_y/10'd24;
     wire [4:0] pid_text_dy=pid_text_y%10'd24;
@@ -359,22 +457,85 @@ module lcd1024_interaction_ui (
             label_right=11'd856; label_color=detection_valid && detection_box ? GREEN : MUTED;
         end
         else label_enable=1'b0;
+        if (actuator_test) begin
+            label_text=test_label_text;label_x=test_label_x;label_y=test_label_y;
+            label_right=test_label_right;label_color=test_label_color;label_enable=test_label_enable;
+        end
+        // Robot pages provide ALL of their text, including PID and blank slots.
+        // The constant top-level ROBOT build can therefore prune the complete
+        // legacy label-selection tree instead of retaining overlapping layouts.
+        if(robot_control)begin
+            // ROBOT text is a descriptor, not a 128-bit whole-row selector.
+            // Keep the legacy/test row path intact for ROBOT_MODE=0.
+            label_text=128'd0;label_x=robot_label_x;label_y=robot_label_y;
+            label_right=robot_label_right;label_color=robot_label_color;label_enable=robot_label_enable;
+        end
     end
 
     wire [10:0] dx = ax-label_x;
     wire [9:0] dy = ay-label_y;
     wire in_label = label_enable && ax>=label_x && ax<label_right && dx<11'd192 &&
                     ay>=label_y && dy<10'd16;
-    // 10px glyph plus 2px spacing; the column stays readable without wide gaps.
-    wire [3:0] char_ix = dx/11'd12;
-    wire [3:0] glyph_x_now = (dx%11'd12)>>1;
-    wire [3:0] glyph_y_now = dy[3:1];
-    wire [7:0] character = label_text[127-(char_ix*8) -: 8];
+    // Split layout selection from character addressing. The layout task mux,
+    // coordinate subtraction and /12/string mux must not all occupy one pixel
+    // clock. All fields in this snapshot belong to the same source pixel.
+    reg [127:0] label_text_l = 0;
+    reg robot_control_l = 0;
+    reg [2:0] robot_label_source_l = 0;
+    reg [3:0] robot_label_row_l = 0;
+    reg [6:0] robot_label_literal_l = 0;
+    reg [10:0] label_dx_l = 0;
+    reg [3:0] label_dy_l = 0;
+    reg in_label_l = 0;
+    reg [15:0] label_color_l = 0, base_color_l = BLACK;
+    reg de_l = 0, hs_l = 1, vs_l = 1;
+    // 10px glyph plus 2px spacing; only snapshot values feed this stage.
+    wire [3:0] char_ix = label_dx_l/11'd12;
+    wire [3:0] glyph_x_now = (label_dx_l%11'd12)>>1;
+    wire [3:0] glyph_y_now = label_dy_l[3:1];
+    wire [7:0] character = label_text_l[127-(char_ix*8) -: 8];
+    assign byte_text_read_index={robot_label_row_l,char_ix};
+    assign robot_byte_read_en=BYTE_TEXT_MODE && run && in_label_l &&
+        robot_control_l && robot_label_source_l==3'd1;
+    assign pid_byte_read_en=BYTE_TEXT_MODE && run && in_label_l &&
+        robot_control_l && robot_label_source_l==3'd2;
+    assign sensor_byte_read_en=BYTE_TEXT_MODE && run && in_label_l &&
+        robot_control_l && robot_label_source_l==3'd3;
+    // Frame-boundary mailboxes remain stable throughout the visible raster.
+    // Select ONE dynamic byte in the character stage; do not first select a
+    // 128-bit row through every layout branch. Concatenated MSBs avoid wide
+    // subtract/multiply index arithmetic and preserve left-to-right bytes.
+    wire [10:0] robot_byte_msb={~robot_label_row_l,~char_ix,3'b111};
+    wire [9:0] sensor_byte_msb={~robot_label_row_l[2:0],~char_ix,3'b111};
+    wire [9:0] battery_byte_msb={3'd4-robot_label_row_l[2:0],~char_ix,3'b111};
+    wire [639:0] robot_battery_rows=battery_status[1919:1280];
+    reg [7:0] robot_dynamic_character;
+    always @* begin
+        case(robot_label_source_l)
+            3'd1:robot_dynamic_character=BYTE_TEXT_MODE ? 8'h20 : robot_status[robot_byte_msb-:8];
+            3'd2:robot_dynamic_character=BYTE_TEXT_MODE ? 8'h20 : pid_rows[robot_byte_msb-:8];
+            3'd3:robot_dynamic_character=BYTE_TEXT_MODE ? 8'h20 : sensor_rows[sensor_byte_msb-:8];
+            3'd4:robot_dynamic_character=robot_battery_rows[battery_byte_msb-:8];
+            default:robot_dynamic_character=8'h20;
+        endcase
+    end
+    wire [7:0] robot_constant_character_a;
+    robot_label_rom u_robot_labels (
+        .clk(clk),.label_id(robot_label_literal_l),.character_index(char_ix),
+        .character(robot_constant_character_a)
+    );
 
-    // Three registered display stages: character/background -> glyph -> RGB.
-    // Capture the FWFT camera pixel in the FIRST stage, on camera_pop's edge.
-    // Delay DE/HS/VS with RGB so the image geometry stays aligned.
+    // Four registered stages: layout/background -> character -> glyph -> RGB.
+    // Capture the FWFT camera pixel in the FIRST layout stage, on camera_pop's
+    // original edge. RGB/DE/HS/VS all gain one pixel clock of latency; raster
+    // periods, fetch/pop timing, frame_restart, PLL and output edge stay intact.
     reg [7:0] character_a = 0;
+    reg robot_constant_a = 0;
+    reg [1:0] robot_byte_source_a = 0;
+    wire [7:0] glyph_dynamic_character_a=robot_byte_source_a==2'd1 ? robot_byte_character :
+        robot_byte_source_a==2'd2 ? pid_byte_character :
+        robot_byte_source_a==2'd3 ? sensor_byte_character : character_a;
+    wire [7:0] glyph_character_a=robot_constant_a ? robot_constant_character_a : glyph_dynamic_character_a;
     reg [3:0] glyph_x_a = 0, glyph_y_a = 0;
     reg [3:0] glyph_x_b = 0, glyph_y_b = 0;
     reg [39:0] font_b = 0;
@@ -447,7 +608,7 @@ module lcd1024_interaction_ui (
             if (video_area && display_valid && dog_border) base_color=GREEN;
             // Keep consuming the camera stream with exactly the same zoom
             // geometry; only the final LCD colors are covered by this page.
-            // Network video and the camera/DDR clocks therefore continue.
+            // Camera/DDR clocks continue; the top separately gates UDP video.
             if (pid_page_display && video_area) begin
                 base_color=BACKGROUND;
                 if (in_rect(ax,11'd28,11'd388,ay,10'd64,10'd464)) base_color=BORDER;
@@ -460,6 +621,8 @@ module lcd1024_interaction_ui (
                 if (in_rect(ax,11'd408,11'd796,ay,10'd464,10'd508)) base_color=SOFT_BLUE;
             end
         end
+        if (actuator_test) base_color=test_base_color;
+        if(robot_control && robot_override_base)base_color=robot_base_color;
     end
 
     always @(posedge clk or negedge run) begin
@@ -467,7 +630,11 @@ module lcd1024_interaction_ui (
             h<=0; v<=0; rgb<=BLACK;
             de<=0; hs<=1; vs<=1;
             frame_div<=0; frame_heartbeat<=0;
-            character_a<=0; font_b<=0;
+            label_text_l<=0; label_dx_l<=0; label_dy_l<=0;
+            robot_control_l<=0;robot_label_source_l<=0;robot_label_row_l<=0;robot_label_literal_l<=0;
+            in_label_l<=0; label_color_l<=0; base_color_l<=BLACK;
+            de_l<=0; hs_l<=1; vs_l<=1;
+            character_a<=0;robot_constant_a<=0;robot_byte_source_a<=0;font_b<=0;
             glyph_x_a<=0; glyph_y_a<=0; glyph_x_b<=0; glyph_y_b<=0;
             in_label_a<=0; in_label_b<=0;
             label_color_a<=0; label_color_b<=0;
@@ -483,14 +650,29 @@ module lcd1024_interaction_ui (
                     end else frame_div<=frame_div+1'b1;
                 end else v<=v+1'b1;
             end else h<=h+1'b1;
-            character_a<=character;
-            glyph_x_a<=glyph_x_now; glyph_y_a<=glyph_y_now;
-            in_label_a<=active && in_label;
-            label_color_a<=label_color;
-            base_color_a<=base_color;
-            de_a<=active; hs_a<=(h>=H_SYNC); vs_a<=(v>=V_SYNC);
+            label_text_l<=label_text; label_dx_l<=dx; label_dy_l<=dy[3:0];
+            robot_control_l<=robot_control;robot_label_source_l<=robot_label_source;
+            robot_label_row_l<=robot_label_row;robot_label_literal_l<=robot_label_literal;
+            in_label_l<=active && in_label;
+            label_color_l<=label_color; base_color_l<=base_color;
+            de_l<=active; hs_l<=(h>=H_SYNC); vs_l<=(v>=V_SYNC);
 
-            font_b<=glyph(character_a);
+            character_a<=robot_control_l ? robot_dynamic_character : character;
+            robot_constant_a<=robot_control_l && robot_label_source_l==3'd0;
+            // The external byte RAMs clock their Q on this SAME A edge.
+            // Register only the selector here: registering their Q again
+            // would add an unwanted fifth pixel stage.
+            robot_byte_source_a<=BYTE_TEXT_MODE && robot_control_l ?
+                (robot_label_source_l==3'd1 ? 2'd1 :
+                 robot_label_source_l==3'd2 ? 2'd2 :
+                 robot_label_source_l==3'd3 ? 2'd3 : 2'd0) : 2'd0;
+            glyph_x_a<=glyph_x_now; glyph_y_a<=glyph_y_now;
+            in_label_a<=in_label_l;
+            label_color_a<=label_color_l;
+            base_color_a<=base_color_l;
+            de_a<=de_l; hs_a<=hs_l; vs_a<=vs_l;
+
+            font_b<=glyph(glyph_character_a);
             glyph_x_b<=glyph_x_a; glyph_y_b<=glyph_y_a;
             in_label_b<=in_label_a; label_color_b<=label_color_a;
             base_color_b<=base_color_a;
@@ -500,4 +682,133 @@ module lcd1024_interaction_ui (
             rgb<=text_pixel ? label_color_b : base_color_b;
         end
     end
+endmodule
+
+// One ordered 256-byte text snapshot, with independent physical DPBs for
+// the active LCD bank and the producer's inactive bank. The source never
+// starts a new frame while a published bank awaits a frame-boundary ACK.
+// This is ownership isolation, not a promise of old/new collision data:
+// actual DPB CEA/CEB stay off for every bank owned by the other clock.
+//
+// reset_n MUST assert in BOTH domains together (top uses ready && pixel PLL
+// lock). read_run only pauses reads/commits; it never resets bank ownership.
+// Neither RAM contents nor their output registers require a reset. Until a
+// complete frame has committed, read_seen=0 and the visible byte is SPACE.
+module lcd_text_byte_snapshot (
+    input wire write_clk,reset_n,
+    input wire byte_valid,
+    input wire [7:0] byte_data,byte_index,
+    output wire byte_ready,
+    input wire frame_commit,
+    input wire [31:0] frame_meta,
+    input wire read_clk,read_run,frame_restart,read_en,
+    input wire [7:0] read_index,
+    output wire [7:0] read_byte,
+    output reg [31:0] read_meta,
+    output reg read_seen
+);
+    reg write_bank,publish_pending,frame_open,frame_complete;
+    reg [7:0] expected_index;
+    reg snapshot_request,snapshot_bank;
+    reg [31:0] snapshot_meta;
+    reg [2:0] ack_sync;
+    reg [2:0] request_sync;
+    reg snapshot_ack,active_bank,read_bank_q;
+
+    // State-only permission is essential to the top's atomic UART/LCD join:
+    // UART valid is gated by this permission, never by its own grant/ready.
+    // Missing/invalid indices are consumed and discarded, so a reset during
+    // an ongoing producer frame can recover at its next byte zero.
+    assign byte_ready=reset_n && !publish_pending && !frame_complete;
+    wire byte_accept=byte_valid && byte_ready;
+    wire ordered_byte=byte_index==8'd0 || (frame_open && byte_index==expected_index);
+    wire byte_write=byte_accept && ordered_byte;
+
+    always @(posedge write_clk or negedge reset_n) begin
+        if(!reset_n)begin
+            write_bank<=1'b1;publish_pending<=0;frame_open<=0;frame_complete<=0;
+            expected_index<=0;snapshot_request<=0;snapshot_bank<=0;snapshot_meta<=0;ack_sync<=0;
+        end else begin
+            ack_sync<={ack_sync[1:0],snapshot_ack};
+            if(publish_pending && snapshot_request==ack_sync[2])begin
+                publish_pending<=0;write_bank<=~write_bank;
+            end
+            if(byte_accept)begin
+                if(byte_index==8'd0)begin
+                    frame_open<=1;expected_index<=8'd1;
+                end else if(frame_open && byte_index==expected_index)begin
+                    if(byte_index==8'd255)begin
+                        frame_open<=0;frame_complete<=1;
+                    end else expected_index<=expected_index+1'b1;
+                end else begin
+                    // No RAM write on malformed/incomplete frames: an idle
+                    // write_bank may refer to a previous completed snapshot.
+                    frame_open<=0;
+                end
+            end
+            // The formatter raises text_valid only AFTER accepted byte255.
+            // Its matching flags are updated at COMMIT, so publishing here
+            // keeps the page/title and all characters in the same epoch.
+            if(frame_commit && frame_complete && !publish_pending)begin
+                snapshot_bank<=write_bank;snapshot_meta<=frame_meta;
+                snapshot_request<=~snapshot_request;publish_pending<=1;
+                frame_complete<=0;
+            end
+        end
+    end
+
+    always @(posedge read_clk or negedge reset_n) begin
+        if(!reset_n)begin
+            request_sync<=0;snapshot_ack<=0;active_bank<=0;read_bank_q<=0;
+            read_seen<=0;read_meta<=0;
+        end else begin
+            request_sync<={request_sync[1:0],snapshot_request};
+            if(read_run && frame_restart && request_sync[2]!=snapshot_ack)begin
+                active_bank<=snapshot_bank;read_meta<=snapshot_meta;
+                read_seen<=1;snapshot_ack<=request_sync[2];
+            end
+            if(read_run && read_seen && read_en)read_bank_q<=active_bank;
+        end
+    end
+
+    wire [7:0] bank0_q,bank1_q;
+    lcd_text_snapshot_bank u_bank0 (
+        .write_clk(write_clk),.read_clk(read_clk),.reset_n(reset_n),
+        .write_enable(byte_write && !write_bank),
+        .read_enable(read_run && read_seen && read_en && !active_bank),
+        .write_index(byte_index),.read_index(read_index),.write_data(byte_data),.read_data(bank0_q)
+    );
+    lcd_text_snapshot_bank u_bank1 (
+        .write_clk(write_clk),.read_clk(read_clk),.reset_n(reset_n),
+        .write_enable(byte_write && write_bank),
+        .read_enable(read_run && read_seen && read_en && active_bank),
+        .write_index(byte_index),.read_index(read_index),.write_data(byte_data),.read_data(bank1_q)
+    );
+    assign read_byte=read_seen && read_run ? (read_bank_q ? bank1_q : bank0_q) : 8'h20;
+endmodule
+
+// 256 addressed bytes use the low 256 bytes of each 2KiB DPB. At width8 the
+// three low physical address bits are zero; ADA[13:3] is the byte address.
+// CEA and CEB enforce physical-bank ownership even for adjacent bytes that
+// share the same ADA[13:4] physical row. OCE alone would not isolate a port.
+module lcd_text_snapshot_bank (
+    input wire write_clk,read_clk,reset_n,write_enable,read_enable,
+    input wire [7:0] write_index,read_index,write_data,
+    output wire [7:0] read_data
+);
+    wire [15:0] read_word;
+    DPB #(
+        .BIT_WIDTH_0(8),.BIT_WIDTH_1(8),
+        .WRITE_MODE0(2'b00),.WRITE_MODE1(2'b00),
+        .READ_MODE0(1'b0),.READ_MODE1(1'b0),
+        .BLK_SEL_0(3'b000),.BLK_SEL_1(3'b000),.RESET_MODE("SYNC")
+    ) u_ram (
+        .DOA(),.DOB(read_word),.DIA({8'd0,write_data}),.DIB(16'd0),
+        .BLKSELA(3'b000),.BLKSELB(3'b000),
+        .ADA({3'b000,write_index,3'b000}),.ADB({3'b000,read_index,3'b000}),
+        .WREA(1'b1),.WREB(1'b0),.CLKA(write_clk),.CLKB(read_clk),
+        .CEA(reset_n && write_enable),.CEB(reset_n && read_enable),
+        .OCEA(1'b1),.OCEB(1'b1),.RESETA(1'b0),.RESETB(1'b0)
+    );
+    assign read_data=read_word[7:0];
 endmodule

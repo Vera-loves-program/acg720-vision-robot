@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>代码怎样变成电路 · FPGA交互小实验</title>
+<style>
+:root{color-scheme:light;--ink:#18334c;--muted:#5c7185;--line:#dce5ed;--blue:#225fc8;--good:#146c54;--bad:#b43d42;--paper:#fff;--bg:#f1f5fa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 "Microsoft YaHei","PingFang SC",system-ui,sans-serif}main{max-width:1160px;margin:auto;padding:40px 28px 60px}h1{font-size:clamp(27px,4vw,43px);line-height:1.25;margin:10px 0 15px;letter-spacing:-1px}h2{font-size:23px;line-height:1.4;margin:0 0 12px}h3{font-size:17px;margin:0 0 8px}p{margin:8px 0 16px}.eyebrow{font-size:13px;font-weight:700;letter-spacing:2px;color:var(--blue)}.intro{max-width:850px;color:var(--muted)}.note{font-size:13px;color:var(--muted)}nav{display:flex;flex-wrap:wrap;gap:8px;margin:25px 0 20px}button,select,input{font:inherit}button,select{border:1px solid var(--line);background:white;border-radius:9px;padding:9px 14px;color:var(--ink)}button{cursor:pointer}button:hover{border-color:var(--blue)}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #9bbdf6;outline-offset:3px}nav button[aria-selected=true],.primary{background:var(--blue);border-color:var(--blue);color:white}.panel{background:white;border:1px solid var(--line);border-radius:18px;padding:26px;box-shadow:0 6px 30px #18334c06}.panel[hidden]{display:none}.twocol{display:grid;grid-template-columns:minmax(250px,1fr) minmax(350px,1.6fr);gap:26px}.controls{display:grid;gap:17px}.slider-label{display:flex;justify-content:space-between;gap:12px;margin-bottom:6px;font-size:14px}.slider-label output{color:var(--blue);font-weight:700}input[type=range]{width:100%;accent-color:var(--blue)}.metric-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0 18px}.metric{background:var(--bg);padding:13px;border-radius:11px}.metric span{display:block;color:var(--muted);font-size:12px}.metric strong{display:block;font-size:24px;line-height:1.7}.status{border-radius:11px;padding:13px 16px;background:#eaf5f0;color:var(--good);font-weight:700}.status.fail{background:#fceced;color:var(--bad)}.presets{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}.presets button{font-size:13px;padding:6px 9px}.diagram{width:100%;height:auto;display:block}.formula{font-family:ui-monospace,Consolas,monospace;font-size:14px;background:var(--bg);padding:12px 15px;border-radius:9px;overflow-wrap:anywhere}.lesson{border-top:1px solid var(--line);margin-top:22px;padding-top:18px}.stages{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:25px 0}.stage{position:relative;border:1px solid var(--line);padding:15px 12px;border-radius:12px;text-align:center}.stage:not(:last-child):after{content:'→';position:absolute;right:-14px;top:34px;color:var(--muted)}.stage small{color:var(--muted);font-size:12px}.token{display:block;margin:12px auto 4px;padding:11px;border-radius:8px;background:#e7effd;color:var(--blue);font-size:24px;font-weight:700}.token.empty{background:var(--bg);color:#a5b2c0}.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.checkbox{display:flex;gap:7px;align-items:center;font-size:14px}.table-wrap{overflow:auto}table{border-collapse:collapse;width:100%;font-size:14px;margin-top:20px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:9px 11px;white-space:nowrap}th{color:var(--muted);font-weight:500}.bar-row{margin:14px 0}.bar-title{display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px}.bar{height:10px;background:#eaf0f5;border-radius:8px;overflow:hidden}.bar div{height:100%;background:var(--blue);border-radius:8px;transition:width .2s}.bar.high div{background:#ba7831}.field{display:grid;gap:6px;margin:12px 0}.field input[type=number]{border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;color:var(--ink)}.callout{background:#edf3fc;border-left:3px solid var(--blue);padding:13px 17px;border-radius:0 8px 8px 0;margin:16px 0}.mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}a{color:var(--blue);text-underline-offset:3px}footer{margin-top:24px;font-size:13px;color:var(--muted)}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+@media(max-width:760px){main{padding:25px 15px 40px}.panel{padding:19px}.twocol,.mini-grid{grid-template-columns:1fr}.metric-grid{gap:6px}.metric{padding:10px}.metric strong{font-size:21px}.stages{gap:10px}.stage{padding:12px 4px}.stage:not(:last-child):after{right:-11px}.stage h3{font-size:14px}.token{font-size:21px}nav button{flex:1;padding:8px 7px;font-size:14px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body><main>
+<div class="eyebrow">ACG720 · 从代码走到电路</div>
+<h1>时钟不会等待你的表达式</h1>
+<p class="intro">代码决定电路怎样连接、在哪个时钟沿采样。物理电路还需要时间传播。用下面四个小实验，把这两件事接起来。</p>
+<nav aria-label="实验选择" role="tablist">
+<button role="tab" id="tab-timing" aria-controls="timing" aria-selected="true">1 · 为什么时序不对</button>
+<button role="tab" id="tab-pipeline" aria-controls="pipeline" aria-selected="false">2 · 像素怎样流水</button>
+<button role="tab" id="tab-resource" aria-controls="resource" aria-selected="false">3 · 资源如何估算</button>
+<button role="tab" id="tab-uart" aria-controls="uart" aria-selected="false">4 · 雷达吞吐量</button>
+</nav>
+
+<section id="timing" class="panel" role="tabpanel" aria-labelledby="tab-timing">
+<h2>同一个表达式，换一条连线也可能来不及</h2>
+<p class="note">这是同域setup的简化教学模型，假设零时钟偏斜。增加流水级时理想均分逻辑与布线；实际需要重新布局布线，不能保证均分。</p>
+<div class="twocol"><div class="controls">
+<label><span class="slider-label">实际时钟频率<output id="freqValue"></output></span><input id="freq" type="range" min="10" max="150" step="1" value="50"></label>
+<label><span class="slider-label">组合逻辑传播时间<output id="logicValue"></output></span><input id="logic" type="range" min="0" max="35" step="0.1" value="12"></label>
+<label><span class="slider-label">布线传播时间<output id="routeValue"></output></span><input id="route" type="range" min="0" max="25" step="0.1" value="9"></label>
+<label><span class="slider-label">理想流水分段数<output id="cutsValue"></output></span><input id="cuts" type="range" min="1" max="4" step="1" value="1"></label>
+<p class="note">每段另计：clock-to-Q 0.3ns，setup 0.4ns，不确定性0.3ns。这里调整“实际时钟”是教学操作；真实工程只改SDC不会改变物理频率。</p>
+</div><div>
+<div class="metric-grid"><div class="metric"><span>一个周期</span><strong id="period"></strong></div><div class="metric"><span>每段所需时间</span><strong id="need"></strong></div><div class="metric"><span>Setup余量</span><strong id="slack"></strong></div></div>
+<div id="timingStatus" class="status" aria-live="polite"></div>
+<svg id="timingSvg" class="diagram" viewBox="0 0 700 220" role="img" aria-label="每段传播与周期截止线"></svg>
+<div class="formula" id="timingFormula"></div>
+</div></div>
+<div class="presets"><button data-preset="slow">恢复50MHz慢路径</button><button data-preset="split">分成理想两级</button><button data-preset="wire">线路变拥挤</button><button data-preset="slower">同一电路实际降频</button></div>
+<div class="lesson"><h3>看懂这件事，再回到工程</h3><p id="timingLesson"></p><p class="note">本实验只演示setup。保持时间、异步输入、跨时钟、复位释放与外部接口还需独立检查。把流水分段数改大，也不等于已经在Verilog里自动插好了寄存器。</p></div>
+</section>
+
+<section id="pipeline" class="panel" role="tabpanel" aria-labelledby="tab-pipeline" hidden>
+<h2>四级同时工作，处理的是四个不同像素</h2>
+<p>每点一次按钮前进一个采样沿。P0、P1代表连续像素；寄存器接收前一级在这个沿到来前的值。</p>
+<div class="actions"><button id="step" class="primary">前进一个时钟沿</button><button id="resetPipe">从头观察</button><span id="edgeLabel">还未采样</span></div>
+<div class="stages">
+<div class="stage"><h3>区域/背景</h3><small>第1组寄存器</small><span class="token empty" id="pixel0">—</span></div>
+<div class="stage"><h3>字符选择</h3><small>第2组寄存器</small><span class="token empty" id="pixel1">—</span></div>
+<div class="stage"><h3>字形查询</h3><small>第3组寄存器</small><span class="token empty" id="pixel2">—</span></div>
+<div class="stage"><h3>RGB输出</h3><small>第4组寄存器</small><span class="token empty" id="pixel3">—</span></div>
+</div>
+<label class="checkbox"><input type="checkbox" id="align" checked>把坐标/有效信息与像素一起延迟</label>
+<div id="pipeStatus" class="status" style="margin-top:15px" aria-live="polite"></div>
+<div class="table-wrap"><table><thead><tr><th>沿编号</th><th>区域</th><th>字符</th><th>字形</th><th>RGB</th><th>输出绑定的坐标编号</th></tr></thead><tbody id="pipeLog"></tbody></table></div>
+<div class="lesson"><p>首沿P0进第1级，后续三个沿到第4级。流水填满后，每一个沿仍可输出一个像素。新增一级使同一像素晚一拍，但不让输出间隔变成四拍。</p><p class="note">坐标编号用于展示数据与元信息错位；真实DE/HS/VS还包含消隐和行帧时序。这里不是完整LCD波形仿真。</p></div>
+</section>
+
+<section id="resource" class="panel" role="tabpanel" aria-labelledby="tab-resource" hidden>
+<h2>先算位数，再看工具怎样装进物理资源</h2>
+<p class="note">基线为2026-10-16 20:25最终P&R报告。不同资源百分比不能相加；下面新增RAM仅作固定模式的教学估算。</p>
+<div class="twocol"><div>
+<h3>当前工程</h3><div id="resourceBars"></div>
+<div class="callout">Logic约51%，CLS约80%。CLS是物理组合单元，一个块没有装满，也会占用一个块；并不是把空闲LUT随意凑到一起就一定放得下。</div>
+</div><div>
+<div class="mini-grid"><label class="field">候选FIFO深度<input id="depth" type="number" min="1" max="65536" step="1" value="1024"></label><label class="field">每项位宽<input id="width" type="number" min="1" max="128" step="1" value="16"></label></div>
+<div class="metric-grid"><div class="metric"><span>数据本身</span><strong id="ramBytes"></strong></div><div class="metric"><span>固定1K×16估计</span><strong id="ramBlocks"></strong></div><div class="metric"><span>加到当前BSRAM</span><strong id="ramTotal"></strong></div></div>
+<p class="note">块数采用⌈深度/1024⌉×⌈位宽/16⌉，只演示固定1K×16模式的向上取整；工具可能选择2K×8、1K×18等模式。端口、双缓存和控制逻辑另算。</p>
+<label class="field">50MHz计数器要覆盖多少毫秒<input id="timerMs" type="number" min="0.001" max="60000" step="1" value="100"></label>
+<div class="formula" id="counterBits"></div>
+<p class="note">只计算从0数到N−1所需的状态位，不包含加法、终值比较和使能电路。Verilog数组或变量也不总是映射成相同资源。</p>
+</div></div>
+</section>
+
+<section id="uart" class="panel" role="tabpanel" aria-labelledby="tab-uart" hidden>
+<h2>接得住字节，与做得完导航算法，是两个预算</h2>
+<label class="field">选择一个例子<select id="lidar"><option value="c1">C1 · Standard · 5000点/秒</option><option value="ld19">LD19 · 12点一帧 · 4500点/秒</option><option value="a1">A1反例 · 把宣传8k强行当标准流点频</option></select></label>
+<div class="metric-grid"><div class="metric"><span>数据流估计</span><strong id="dataRate"></strong></div><div class="metric"><span>8N1字节上限</span><strong id="uartCapacity"></strong></div><div class="metric"><span>满载每字节间隔</span><strong id="cyclesPerByte"></strong></div></div>
+<div id="uartStatus" class="status" aria-live="polite"></div>
+<div class="formula" id="uartFormula" style="margin-top:15px"></div>
+<div class="lesson"><h3>这能证明什么</h3><p>50MHz下，上千拍才来一个串口字节，包头、字段、校验等接收处理不需要一台Linux电脑才能完成。后续的扫描匹配、规划和控制仍需另算操作次数、RAM端口和时间期限。</p><p>当前工程尚未接入上述雷达RTL；这个计算不代表已经通过资源、时序或实物验收。</p><p class="note">C1与LD19的具体版本、协议与官方来源见<a href="../激光雷达选型.md">雷达选型资料</a>。A1选项刻意展示量测频率与串口有效流不能混为一谈，不是在宣称实际会输出这份超限数据。</p></div>
+</section>
+<footer><a href="../FPGA工程教学.md">回到完整工程教程</a> · 本文件可离线打开，不加载外部脚本。所有交互为教学计算，不驱动真实硬件。</footer>
+</main>
+<script>
+'use strict';
+const byId=id=>document.getElementById(id);
+const ids=['timing','pipeline','resource','uart'];
+document.querySelectorAll('[role=tab]').forEach(tab=>tab.addEventListener('click',()=>{for(const id of ids){const active=tab.id==='tab-'+id;byId(id).hidden=!active;byId('tab-'+id).setAttribute('aria-selected',String(active));}}));
+function timingModel(freq,logic,route,cuts){const period=1000/freq;const need=(logic+route)/cuts+1;return{period,need,slack:period-need,fmax:1000/need};}
+function updateTiming(){const freq=+byId('freq').value,logic=+byId('logic').value,route=+byId('route').value,cuts=+byId('cuts').value;const m=timingModel(freq,logic,route,cuts);byId('freqValue').textContent=freq+' MHz';byId('logicValue').textContent=logic.toFixed(1)+' ns';byId('routeValue').textContent=route.toFixed(1)+' ns';byId('cutsValue').textContent=cuts+' 段';byId('period').textContent=m.period.toFixed(2)+' ns';byId('need').textContent=m.need.toFixed(2)+' ns';byId('slack').textContent=(m.slack>=0?'+':'')+m.slack.toFixed(2)+' ns';const good=m.slack>=0;byId('timingStatus').className='status'+(good?'':' fail');byId('timingStatus').textContent=good?'在这个简化模型中，这一段setup赶得上。':'采样沿照常到达；这段电路不能保证在期限内稳定。';byId('timingFormula').textContent='Slack = '+m.period.toFixed(2)+' − [0.3 + ('+logic.toFixed(1)+' + '+route.toFixed(1)+')/'+cuts+' + 0.4 + 0.3] = '+m.slack.toFixed(2)+' ns';byId('timingLesson').textContent=cuts===1?'逻辑关系不变，线路变长也会增加传播时间。这里估计可满足的最高频率约'+m.fmax.toFixed(1)+'MHz；实际时钟仍是你设置的'+freq+'MHz，不会自动降到这个估计值。':'理想均分后，每段变短，但需要真正加入寄存器，并把有效位、坐标等一起延迟。可设计成每拍接收新任务；端到端延迟增加。每段估计能力约'+m.fmax.toFixed(1)+'MHz。';
+const max=Math.max(m.period,m.need)*1.2,scale=580/max,x0=62;const parts=[{v:.3,c:'#8395aa',t:'Q延迟'},{v:logic/cuts,c:'#3675d7',t:'逻辑'},{v:route/cuts,c:'#41a395',t:'布线'},{v:.7,c:'#d39b4c',t:'建立/余量'}];let x=x0;let s='<line x1="62" y1="60" x2="650" y2="60" stroke="#b9c8d6"/><text x="62" y="35" font-size="14" fill="#5c7185">发出本段新值</text>';s+='<line x1="'+(x0+m.period*scale)+'" y1="45" x2="'+(x0+m.period*scale)+'" y2="160" stroke="#b43d42" stroke-width="2" stroke-dasharray="5 4"/><text x="'+Math.min(525,x0+m.period*scale+4)+'" y="180" font-size="13" fill="#b43d42">下一采样沿 '+m.period.toFixed(2)+'ns</text>';for(const p of parts){const w=p.v*scale;s+='<rect x="'+x+'" y="80" width="'+w+'" height="42" fill="'+p.c+'"/>';x+=w;}s+='<text x="62" y="147" font-size="13" fill="#18334c">本段所需 '+m.need.toFixed(2)+'ns</text>';const legend=[['Q延迟','#8395aa'],['组合逻辑','#3675d7'],['布线','#41a395'],['setup与不确定性','#d39b4c']];legend.forEach((a,i)=>{s+='<rect x="'+(62+i*143)+'" y="199" width="10" height="10" fill="'+a[1]+'"/><text x="'+(77+i*143)+'" y="209" font-size="12" fill="#5c7185">'+a[0]+'</text>';});byId('timingSvg').innerHTML=s;}
+for(const id of ['freq','logic','route','cuts'])byId(id).addEventListener('input',updateTiming);
+const presets={slow:[50,12,9,1],split:[50,12,9,2],wire:[50,12,20,1],slower:[40,12,9,1]};document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{['freq','logic','route','cuts'].forEach((id,i)=>byId(id).value=presets[b.dataset.preset][i]);updateTiming();}));
+let edge=-1,pipe=[null,null,null,null],pipeHistory=[];const token=v=>v===null?'—':'P'+v;
+function updatePipe(){byId('edgeLabel').textContent=edge<0?'还未采样':'刚完成第 '+edge+' 沿';pipe.forEach((v,i)=>{byId('pixel'+i).textContent=token(v);byId('pixel'+i).className='token'+(v===null?' empty':'');});const align=byId('align').checked;const valid=pipe[3]!==null;byId('pipeStatus').className='status'+(valid&&!align?' fail':'');byId('pipeStatus').textContent=!valid?'流水尚未填满，继续前进。':align?'输出 '+token(pipe[3])+'，绑定坐标 '+token(pipe[3])+'：数据与元信息对齐。':'RGB是 '+token(pipe[3])+'，未延迟坐标却是 '+token(edge)+'：像素位置错位。';byId('pipeLog').innerHTML=pipeHistory.slice(-8).map(row=>'<tr><td>'+row.e+'</td>'+row.p.map(v=>'<td>'+token(v)+'</td>').join('')+'<td>'+token(align?row.p[3]:row.e)+'</td></tr>').join('');}
+byId('step').addEventListener('click',()=>{edge++;pipe=[edge,pipe[0],pipe[1],pipe[2]];pipeHistory.push({e:edge,p:[...pipe]});if(pipeHistory.length>8)pipeHistory.shift();updatePipe();});byId('resetPipe').addEventListener('click',()=>{edge=-1;pipe=[null,null,null,null];pipeHistory=[];updatePipe();});byId('align').addEventListener('change',updatePipe);
+const resources=[['Logic',30587,59904],['寄存器',22415,60780],['BSRAM',35,118],['DSP',8,118],['CLS',24068,29952]];byId('resourceBars').innerHTML=resources.map(([n,u,c])=>'<div class="bar-row"><div class="bar-title"><span>'+n+' · '+u+'/'+c+'</span><span>'+(u/c*100).toFixed(1)+'%</span></div><div class="bar'+(u/c>.75?' high':'')+'"><div style="width:'+(u/c*100)+'%"></div></div></div>').join('');
+function updateResources(){const depth=Math.min(65536,Math.max(1,Math.floor(+byId('depth').value||1))),width=Math.min(128,Math.max(1,Math.floor(+byId('width').value||1))),bytes=depth*width/8,blocks=Math.ceil(depth/1024)*Math.ceil(width/16);byId('ramBytes').textContent=bytes>=1024?(bytes/1024).toFixed(2)+' KiB':bytes.toFixed(2)+' B';byId('ramBlocks').textContent=blocks+' 块';byId('ramTotal').textContent=(35+blocks)+'/118';const ms=Math.min(60000,Math.max(.001,+byId('timerMs').value||.001)),cycles=Math.max(1,Math.ceil(50000000*ms/1000)),bits=Math.max(1,Math.ceil(Math.log2(cycles)));byId('counterBits').textContent='50,000,000 × '+ms+'ms / 1000 = '+cycles.toLocaleString('en-US')+' 拍；计数0…'+(cycles-1).toLocaleString('en-US')+'，至少 '+bits+' 位。';}
+for(const id of ['depth','width','timerMs'])byId(id).addEventListener('input',updateResources);
+const lidarData={c1:{baud:460800,rate:5000*5,formula:'5000点/s × 5字节/点 = 25,000B/s；460800 ÷ 10 = 46,080B/s。'},ld19:{baud:230400,rate:4500/12*47,formula:'4500点/s ÷ 12点/帧 × 47字节/帧 = 17,625B/s；230400 ÷ 10 = 23,040B/s。'},a1:{baud:115200,rate:8000*5,formula:'反例：8000 × 5 = 40,000B/s，大于115200 ÷ 10 = 11,520B/s。标准流最多2304个5字节节点/s，宣传量测率不能直接套用。'}};
+function updateUart(){const d=lidarData[byId('lidar').value],capacity=d.baud/10,good=d.rate<=capacity;byId('dataRate').textContent=(d.rate/1000).toFixed(3)+' kB/s';byId('uartCapacity').textContent=(capacity/1000).toFixed(2)+' kB/s';byId('cyclesPerByte').textContent=Math.round(50000000/capacity)+' 拍';byId('uartStatus').className='status'+(good?'':' fail');byId('uartStatus').textContent=good?'估计载荷占线路容量 '+(d.rate/capacity*100).toFixed(1)+'%。接收字节在吞吐量上可行，仍需实现协议和超时恢复。':'这个假设超过线路上限。必须核对有效点频、协议模式和实际数据，而非照抄宣传数字。';byId('uartFormula').textContent=d.formula;}
+byId('lidar').addEventListener('change',updateUart);updateTiming();updatePipe();updateResources();updateUart();
+</script>
+</body></html>

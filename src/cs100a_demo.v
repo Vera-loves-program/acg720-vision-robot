@@ -16,7 +16,7 @@ module cs100a_demo #(
     output reg [15:0] distance_mm
 );
     localparam integer US_DIV = CLK_HZ / 1000000;
-    localparam [2:0] IDLE=0, TRIGGER=1, WAIT_RISE=2, MEASURE=3;
+    localparam [2:0] IDLE=0, TRIGGER=1, WAIT_RISE=2, MEASURE=3, CONVERT=4;
     reg [2:0] state;
     reg [15:0] us_divider;
     reg [16:0] interval_us;
@@ -29,8 +29,22 @@ module cs100a_demo #(
     wire echo_fall = !echo_sync && echo_previous;
     // Unsigned subtraction also works when the 32-bit timestamp wraps.
     wire [31:0] active_echo_us = timestamp_us - rise_timestamp_us;
-    // 340 m/s, round to nearest mm: distance = echo_us * 17 / 100.
-    wire [31:0] scaled_echo = echo_width_us * 32'd17 + 32'd50;
+    // Only the accepted 118..26470 us interval enters conversion. Its scaled
+    // numerator is <=450040 and fits 19 bits. Keep the original 340 m/s and
+    // nearest-mm rounding, but do not put a combinational /100 on the 50 MHz
+    // path. Timestamp/edge capture continues independently during conversion.
+    wire [18:0] scaled_echo = {echo_width_us[14:0],4'b0000} +
+                             {4'b0000,echo_width_us[14:0]} + 19'd50;
+    reg [18:0] distance_numerator;
+    reg distance_start;
+    wire distance_busy, distance_done;
+    wire [31:0] distance_quotient;
+    unsigned_divmod u_distance_math (
+        .clk(clk), .reset_n(reset_n), .start(distance_start),
+        .numerator({13'd0,distance_numerator}), .denominator(32'd100),
+        .busy(distance_busy), .done(distance_done),
+        .quotient(distance_quotient), .remainder()
+    );
 
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
@@ -62,7 +76,19 @@ module cs100a_demo #(
             error_code <= 8'd5; // Not measured yet.
             sample_count <= 0;
             distance_mm <= 0;
+            distance_numerator <= 0;
+            distance_start <= 0;
         end else begin
+            distance_start <= 0;
+            // Publish distance, validity and count together, only after the
+            // registered divider has completed (well before the next trigger).
+            if (state == CONVERT && distance_done) begin
+                distance_mm <= distance_quotient[15:0];
+                sample_count <= sample_count + 1'b1;
+                valid <= 1;
+                error_code <= 0;
+                state <= IDLE;
+            end
             // Sticky edge captures cannot be lost between 1 us enables or
             // while the trigger FSM moves from TRIGGER to WAIT_RISE.
             if (echo_armed && echo_rise && !echo_started) begin
@@ -124,10 +150,9 @@ module cs100a_demo #(
                                 valid <= 0;
                                 error_code <= 8'd3; // Seller's ~66 ms no-target pulse.
                             end else if (echo_width_us >= 32'd118 && echo_width_us <= 32'd26470) begin
-                                distance_mm <= scaled_echo / 32'd100;
-                                sample_count <= sample_count + 1'b1;
-                                valid <= 1;
-                                error_code <= 0;
+                                distance_numerator <= scaled_echo;
+                                distance_start <= 1;
+                                state <= CONVERT;
                             end else begin
                                 valid <= 0;
                                 error_code <= 8'd4; // Out of the configured valid range.
@@ -138,6 +163,10 @@ module cs100a_demo #(
                             echo_armed <= 0;
                             state <= IDLE;
                         end
+                    end
+                    CONVERT: begin
+                        // Completion is checked on every clk above, rather
+                        // than waiting for the 1 us trigger-state enable.
                     end
                     default: begin
                         trig <= 0;
