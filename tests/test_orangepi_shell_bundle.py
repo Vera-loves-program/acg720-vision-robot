@@ -34,7 +34,7 @@ class ShellBundleTests(unittest.TestCase):
                            check=True,capture_output=True,text=True)
             with zipfile.ZipFile(archive_path) as archive:
                 manifest = json.loads(archive.read('acg720_vision/manifest.json'))
-                self.assertEqual(manifest['bundle_revision'],5)
+                self.assertEqual(manifest['bundle_revision'],6)
                 self.assertEqual(manifest['shell_line_endings'],'LF')
                 self.assertIsNone(archive.testzip())
                 for name, expected in manifest['sha256'].items():

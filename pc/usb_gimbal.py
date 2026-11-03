@@ -30,8 +30,8 @@ from usb_camera import UsbCamera, hardware_inventory
 from tracking_servo import TrackingServo
 
 ROOT = Path(__file__).resolve().parents[1]
-SOFTWARE_REVISION = 5
-SOFTWARE_LABEL = 'v22修订5'
+SOFTWARE_REVISION = 6
+SOFTWARE_LABEL = 'v22修订6'
 _UNSPECIFIED_MODE = object()
 BROWSER_HEARTBEAT_ERROR = '浏览器心跳已过期，PWM已关闭；连接恢复后请重新点击开启本轴PWM'
 SPEED_PROFILES = {
@@ -1112,7 +1112,10 @@ class VisionWorker:
                 image = frame.image
                 with self.app.lock:
                     calibration = deepcopy(self.app.config.get('camera', {}))
-                    center_band = self.app.tracker.config.deadband
+                    # Tracker is deliberately absent until publish() binds
+                    # the first frame (and after a camera/config reset).
+                    # Read the validated setting without dereferencing it.
+                    center_band = self.app.config.get('tracking', {}).get('deadband', TrackerConfig.deadband)
                     generation = self.app.config_generation
                     inference_kind = self.app._detection_kind()
                 if inference_kind!=last_kind:

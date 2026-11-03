@@ -1,4 +1,4 @@
-"""Offline Pi r5 regression runner: mocks/synthetic mechanics, no devices.
+"""Offline Pi tracking and startup regressions: mocks, no devices.
 
 Run from the source repository with Python3.10+, Node and a local POSIX shell.
 Individual logs, exit codes and exact input hashes are retained under tmp/.
@@ -16,13 +16,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
-    out = ROOT/'tmp/pi-r5/final'
+    out = ROOT/'tmp/pi-tracking-regression/current'
     out.mkdir(parents=True, exist_ok=True)
     scripts = [
         'tools/check_target_tracking.py', 'tools/check_gimbal_tracking_loop.py',
         'tools/check_gimbal_tracking_memory.py', 'tools/check_usb_gimbal.py',
         'tools/check_tilt_operating_window.py', 'tools/check_robot_follow.py',
         'tools/check_visual_task.py', 'tools/check_independent_face_tracking.py',
+        'tools/check_vision_worker_startup.py',
         'tools/check_gimbal_image_calibration.py', 'tools/check_gimbal_calibration_flow.py',
         'tools/check_gimbal_limit_diagnostics.py', 'tools/check_follow_send_cadence.py',
         'tools/check_gimbal_save_transactions.py',
