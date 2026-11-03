@@ -475,19 +475,36 @@ class GimbalController:
                 state.pending_max_us = state.output_us
             return self.snapshot()
 
-    def apply_axis_config(self, axis: str, raw: Mapping[str, Any], *, clear_pending=True) -> dict:
-        """Apply an already persisted axis configuration without auto-enabling."""
+    def validate_axis_config_change(self, axis: str, raw: Mapping[str, Any], *, clear_pending=True) -> AxisConfig:
+        """Pure preflight for persistence: no state, output, or backend writes.
+
+        Call this before saving a candidate to disk, then apply_axis_config.
+        Runtime TILT>=90 depends on its measured table even while PWM is OFF;
+        removing that table would prevent every subsequent manual enable.
+        """
         with self._lock:
-            _, state = self._axis(axis)
+            previous, state = self._axis(axis)
             config = AxisConfig.parse(raw)
+            if axis in self.operating_angle_min and previous.calibrated and not config.calibrated:
+                raise GimbalError('TILT的90度运行下限依赖已确认角度表，请保留该表；核对可达限位或保存新的实测角度点，不要清空标定')
             low = config.safe_min_us if config.configured else config.explore_min_us
             high = config.safe_max_us if config.configured else config.explore_max_us
             if state.armed and not (low <= state.output_us <= high and low <= state.target_us <= high):
                 raise GimbalError("当前输出或请求脉宽不在新范围内，请先移入新范围或关闭本轴PWM")
-            if state.armed and axis in self.operating_angle_min:
+            if not clear_pending and any(value is not None and not config.explore_min_us <= value <= config.explore_max_us
+                                         for value in (state.pending_min_us, state.pending_max_us)):
+                raise GimbalError('新探索范围不能排除已暂存的端点；请保留该端点，或重新记录本轴端点')
+            if axis in self.operating_angle_min:
                 op_low,op_high=self.pulse_limits(axis,config)
-                if op_low is None or not (op_low<=state.output_us<=op_high and op_low<=state.target_us<=op_high):
+                if state.armed and (op_low is None or not (op_low<=state.output_us<=op_high and op_low<=state.target_us<=op_high)):
                     raise GimbalError('当前TILT超出新标定的90度运行下限，请先关闭PWM')
+            return config
+
+    def apply_axis_config(self, axis: str, raw: Mapping[str, Any], *, clear_pending=True) -> dict:
+        """Apply an already persisted axis configuration without auto-enabling."""
+        with self._lock:
+            config = self.validate_axis_config_change(axis, raw, clear_pending=clear_pending)
+            _, state = self._axis(axis)
             self.axes[axis] = config
             self.config["axes"][axis] = deepcopy(dict(raw))
             state.draft_us = config.manual_clamp(state.draft_us)
@@ -596,12 +613,27 @@ class GimbalController:
             for name, state in self._state.items():
                 config = self.axes[name]
                 low,high=self.pulse_limits(name)
+                table=config.calibration_points
+                operating_angles=self.angle_limits(name) if config.calibrated else (None,None)
+                policy_floor=self.operating_angle_min.get(name)
+                floor_pulse=(low if table[-1][1]>table[0][1] else high) if (
+                    policy_floor is not None and config.calibrated and table[0][0]<policy_floor<=table[-1][0]) else None
                 result["axes"][name] = dict(armed=state.armed,
                     manual_calibration=state.manual_calibration, output_us=state.output_us,
                     target_us=state.target_us, angle_deg=config.pulse_to_angle(state.output_us),
                     configured=config.configured, calibrated=config.calibrated,
                     safe_min_us=low, safe_max_us=high,
                     operating_min_angle_deg=self.operating_angle_min.get(name))
+                result["axes"][name]["limits"] = dict(
+                    explore_min_us=config.explore_min_us, explore_max_us=config.explore_max_us,
+                    mechanical_min_us=config.safe_min_us, mechanical_max_us=config.safe_max_us,
+                    table_min_us=min((p[1] for p in table),default=None),
+                    table_max_us=max((p[1] for p in table),default=None),
+                    table_min_angle_deg=table[0][0] if table else None,
+                    table_max_angle_deg=table[-1][0] if table else None,
+                    operating_min_us=low, operating_max_us=high,
+                    operating_min_angle_deg=operating_angles[0], operating_max_angle_deg=operating_angles[1],
+                    operating_floor_deg=policy_floor, operating_floor_us=floor_pulse)
                 result["axes"][name]["manual"] = dict(
                     draft_us=state.draft_us, enabled=state.armed,
                     recorded_min_us=config.safe_min_us, recorded_max_us=config.safe_max_us,

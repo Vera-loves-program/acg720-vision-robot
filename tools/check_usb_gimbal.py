@@ -141,6 +141,25 @@ class AppFixture(unittest.TestCase):
         for axis in self.app.gimbal.snapshot()["axes"].values():
             self.assertEqual(axis["target_us"], axis["output_us"])
 
+    def mock_tracking_frames(self, result, *, first_sequence, count):
+        """50Hz command ticks and genuinely NEW10Hz capture-pose frames.
+
+        The mock isolates image association. Its image error must agree with
+        the requested rate direction; no old-frame delta is integrated here.
+        """
+        observations = []
+        with mock.patch.object(self.app.tracker, 'update', return_value=result):
+            for tick in range(count * 5):
+                self.now += .02
+                self.app.last_heartbeat = self.now
+                if tick % 5 == 0:
+                    nx, ny = result['yaw_error_normalized'], result['pitch_error_normalized']
+                    self.publish(first_sequence + tick // 5,
+                                 boxes=[detection(cx=320 - nx * 320, cy=240 - ny * 240)])
+                self.app._control_once(self.now)
+                observations.append(deepcopy(self.app.gimbal.snapshot()['axes']))
+        return observations
+
 
 class GimbalIntegrationTests(AppFixture):
     def test_save_user_angle_tables_one_axis_at_a_time_preserves_enabled_pwm_and_targets(self):
@@ -875,17 +894,16 @@ class GimbalIntegrationTests(AppFixture):
     def test_fractional_tracking_requests_accumulate_past_pwm_rounding(self):
         self.begin_tracking()
         result = dict(status='tracking', delta_yaw_deg=.03, delta_pitch_deg=0,
-                      yaw_rate_dps=.3, pitch_rate_dps=0, control_dt_s=.1)
-        with mock.patch.object(self.app.tracker, 'update', return_value=result):
-            for sequence in range(11, 21):
-                self.now += .1
-                self.publish(sequence)
-                self.app._control_once(self.now)
-        self.assertGreater(self.app.gimbal.snapshot()['axes']['pan']['output_us'], 1500)
-        # The pose conversion slightly damps the requested angle. It must
-        # still preserve fractional requests across integer-PWM rounding.
-        self.assertGreater(self.app.tracking_angles['pan'], .25)
-        self.assertLessEqual(self.app.tracking_angles['pan'], .3)
+                      yaw_rate_dps=.3, pitch_rate_dps=0, control_dt_s=.1,
+                      yaw_error_normalized=.08, pitch_error_normalized=0, control_basis='normalized')
+        observations = self.mock_tracking_frames(result, first_sequence=11, count=20)
+        outputs = [a['pan']['output_us'] for a in observations]
+        # A small rate must eventually cross integerPWM quantization while
+        # preserving its direction, regardless of the internal goal formula.
+        self.assertGreater(max(outputs), 1500)
+        self.assertTrue(all(b >= a for a, b in zip(outputs, outputs[1:])))
+        self.assertGreater(self.app.tracking_memory['goal']['pan'],
+                           self.app.gimbal.snapshot()['axes']['pan']['angle_deg'])
         self.app.command(dict(action='track', enabled=False))
         self.assertIsNone(self.app.tracking_angles)
         self.assertHeld()
@@ -893,31 +911,25 @@ class GimbalIntegrationTests(AppFixture):
     def test_measured_tracking_limit_does_not_wind_up_and_reversal_returns(self):
         self.begin_tracking()
         self.app.gimbal.set_angle('pan', 90, tracking=True)
-        self.now += 4
-        for _ in range(40):
-            self.now += .1
+        for _ in range(250):
+            self.now += .02
             self.app.gimbal.tick(self.now)
         # Move to the high endpoint within the measured fixture, then feed
         # independent tracking requests without relying on image association.
         self.app.tracking_angles = dict(pan=90., tilt=0.)
         result = dict(status='tracking', delta_yaw_deg=2., delta_pitch_deg=0.,
-                      yaw_rate_dps=20., pitch_rate_dps=0., control_dt_s=.1)
-        with mock.patch.object(self.app.tracker, 'update', return_value=result):
-            for sequence in range(11, 31):
-                self.now += .1
-                self.app.last_heartbeat = self.now
-                self.publish(sequence)
-                self.app._control_once(self.now)
-            self.assertTrue(self.app.tracking_limits['pan'])
-            self.assertEqual(self.app.tracking_angles['pan'], 90.)
-            self.assertEqual(self.app.gimbal.snapshot()['axes']['pan']['target_us'], 2000)
-            result['delta_yaw_deg'] = -2.
-            result['yaw_rate_dps'] = -20.
-            self.now += .1
-            self.publish(31)
-            self.app._control_once(self.now)
-            self.assertFalse(self.app.tracking_limits['pan'])
-            self.assertLess(self.app.gimbal.snapshot()['axes']['pan']['target_us'], 2000)
+                      yaw_rate_dps=20., pitch_rate_dps=0., control_dt_s=.1,
+                      yaw_error_normalized=.5, pitch_error_normalized=0., control_basis='normalized')
+        observations = self.mock_tracking_frames(result, first_sequence=11, count=20)
+        self.assertTrue(self.app.tracking_limits['pan'])
+        self.assertEqual(self.app.gimbal.snapshot()['axes']['pan']['target_us'], 2000)
+        self.assertTrue(all(a['pan']['target_us'] <= 2000 for a in observations))
+        self.assertEqual(self.app.tracking_memory['goal']['pan'], 90.)
+        result.update(delta_yaw_deg=-2., yaw_rate_dps=-20., yaw_error_normalized=-.5)
+        reverse = self.mock_tracking_frames(result, first_sequence=31, count=8)
+        self.assertFalse(self.app.tracking_limits['pan'])
+        self.assertLess(reverse[-1]['pan']['output_us'], 2000)
+        self.assertLess(reverse[-1]['pan']['target_us'], 2000)
         self.now += .8
         self.app._control_once(self.now)
         self.assertIsNone(self.app.tracking_angles)
@@ -926,19 +938,22 @@ class GimbalIntegrationTests(AppFixture):
     def test_tracking_requested_lead_is_bounded_and_zero_rate_holds(self):
         self.begin_tracking()
         result = dict(status='tracking', delta_yaw_deg=100., delta_pitch_deg=0.,
-                      yaw_rate_dps=1000., pitch_rate_dps=0., control_dt_s=.1)
-        with mock.patch.object(self.app.tracker, 'update', return_value=result):
-            self.now += .1
-            self.publish(11)
-            before = self.app.gimbal.snapshot()['axes']['pan']['angle_deg']
-            self.app._control_once(self.now)
-            self.assertLessEqual(self.app.tracking_angles['pan'] - before, 5.)
-            result['delta_yaw_deg'] = 0.
-            result['yaw_rate_dps'] = 0.
-            self.now += .1
-            self.publish(12)
-            self.app._control_once(self.now)
-            self.assertHeld()
+                      yaw_rate_dps=1000., pitch_rate_dps=0., control_dt_s=.1,
+                      yaw_error_normalized=.9, pitch_error_normalized=0., control_basis='normalized')
+        observations = self.mock_tracking_frames(result, first_sequence=11, count=10)
+        self.assertGreater(observations[-1]['pan']['output_us'], 1500)
+        # At most one20ms rate-limited tick plus onePWM quantum of lead; this
+        # tests queue boundedness, not the old previous+delta implementation.
+        one_quantum_deg = 180 / 1000
+        for axes in observations:
+            axis = axes['pan']
+            requested = self.app.gimbal.axes['pan'].pulse_to_angle(axis['target_us'])
+            self.assertLessEqual(abs(requested - axis['angle_deg']),
+                                 max(.15, self.app.tracker.config.max_rate_dps * .02) + one_quantum_deg)
+        result.update(delta_yaw_deg=0., yaw_rate_dps=0., yaw_error_normalized=0.)
+        centered = self.mock_tracking_frames(result, first_sequence=21, count=4)
+        self.assertTrue(all(a['pan']['target_us'] == a['pan']['output_us'] for a in centered))
+        self.assertHeld()
 
     def test_tracking_form_applies_without_intrinsics_and_pauses_without_disabling(self):
         self.begin_tracking()

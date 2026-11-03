@@ -1,0 +1,613 @@
+{
+  "generated_local": "2026-11-04T00:53:08.847431+08:00",
+  "branch": "fix/pi-tracking-smooth-20261104",
+  "base_commit": "84a3ced9cfb6210baf23f1741640a615ee6f665f",
+  "software": {
+    "version": 22,
+    "revision": 5,
+    "label": "v22修订5"
+  },
+  "fixed_reproduced_bug": "A 6.4px near-center detection stops live correction, but R4 executes its raw saved offset after a missing frame: PAN1500->1509us. R5 holds1500.",
+  "checks": {
+    "all_passed": true,
+    "input_sha256": {
+      "pc/calibrate_usb_camera.py": "cc7eb1fcc3a89caa451e09dfaad58e6b23efecdd76a9a10a07af5a37ce7326e1",
+      "pc/capture_dataset.py": "2771ecf07edbf592999a1e2fb0f4608da63877cdafe635bde872725cc82d95e6",
+      "pc/detection_feedback.py": "60ab8194a3c79675c85fce7c2d8d67e69243524c51fd32202ce9cee2933355fc",
+      "pc/detect_dog.py": "be82e3429aeb2f2d5a99782103538cd62dab94681b52aa089b0e6b2e2203cbb2",
+      "pc/dog_inference.py": "4c1bbd398e9d69590e614829be7667da4068eac909558e1733fc679aeb49bf58",
+      "pc/face_inference.py": "a05884838d5c8d647b6d5221beb1c76265477bdc598b27e8700e62872033b3b4",
+      "pc/gimbal_control.py": "17893299e99cfb7ba0e7300abd224b04242cd92a98b0a983133cfc37887ce709",
+      "pc/gimbal_image_calibration.py": "32b31f702a2d0889fa6157ead776077d9e0afa97807120647abb0d37d30256cf",
+      "pc/highgui_window.py": "6a6dd3540081c86c3b2bda5c66493b460821cd5cb97aa5686807be9e5b5cf68a",
+      "pc/record_video.py": "1586748de0911683a83701aa82ec33a2f8bd1e7a057c9d8ea0c0d78459f578f2",
+      "pc/robot_follow.py": "cf9495ab259e4f7720352174211a6d55dcafb2bd4fa16d2b2ea988870a5038d7",
+      "pc/target_tracking.py": "f29b15c9f303fec0be3a67797ef7cbcb823468afa50a0f439d47f66da3f58a9b",
+      "pc/tracking_servo.py": "9f37094aabecbe606eb6bd9bd438b17e010d9834fbe88c139aa5e37dbcff49f7",
+      "pc/udp_probe.py": "72a85f5abb6549d700efdccc5bfe4a27da61f5558d386ef962711aed715edade",
+      "pc/udp_video_viewer.py": "7a275f45c7286d3c26259638c21673b275d52f0962d9aa68e37a649dd36ccf49",
+      "pc/ui_telemetry.py": "6a6bea47cfdb6de7aa9639d96b21c786cb9b6a7b8800dfeb168daa439d43a66e",
+      "pc/usb_camera.py": "bb11c7ded41d743958ffdbbf4cbb180ca3fb541b756a800d4bb6d2d3a6d66f20",
+      "pc/usb_gimbal.py": "269f460abbe4fe9b7b1b55adba879807c1d4b84bfd49dad136f2c13977ca4203",
+      "pc/usb_gimbal_ui.html": "ed71b51a5f502819186ea39467180240143b0b54d70806fa2c92858e31a05b4c",
+      "pc/video_stream.py": "a0f372070c51097e46a5aee7912df13f164b73f7209bef1245d7fd4cbb02fdfd",
+      "pc/visual_task.py": "229bd10a36ce3b14108b19c4ebeee2884e04e4f58dcd627ca9ed3204395f21aa",
+      "tests/test_dataset_capture.py": "15c281fc235dbaa4b7a5a66dbcfbdf75d42726ae6fac63f15969ebcb1d9f82a6",
+      "tests/test_dog_detection.py": "87783df6b6a5a588e5129f5cf9b39230dc257390de6bf895cb3a637879285250",
+      "tests/test_face_detection.py": "c5011918130c7a9a4e5fbe5e7800bc4d72edd40d393e471827969f026e389f4a",
+      "tests/test_gimbal_control.py": "4359e4af332f0dabf3db4f84a68f974b97125224fe7443a9316908c82e7f68ff",
+      "tests/test_highgui_window.py": "e4c145e0c83dbcc303bf8e326e61362dd1910bf664fcb30ef40f9e771857ae2c",
+      "tests/test_host_tools.py": "e2132883daf6e80b15d66da986888e7def655f919f6bb028d828d506ea7128e4",
+      "tests/test_orangepi_apt.py": "c2c7c94248ff03455af15b31645a8bb339d19803bbc7e51fa136d390e6946327",
+      "tests/test_orangepi_bundle.py": "ceb11e4955ffb5d7c78a15e47e22ec23a14c8075072315a27210e7e49d018ed0",
+      "tests/test_orangepi_shell_bundle.py": "9131cb1d5b189d1ccab00a51447a9503218235bd92bafe1a89c56a49be268622",
+      "tests/test_video_recording.py": "4fdb7bc70d5c22d612de2a4da7b6353292cadb80a13c4d886dde65ce21f74d41",
+      "tests/test_vision_interaction.py": "8a7542d58003bfe5890737e12929381f81ee8d80b1f765158d50d5457e6b2ab5",
+      "tools/check_actuator_test.py": "c21970ba8b9c6a598f97b3fc173530f1c99f22e3dfdb731b0cdae00cdee5500b",
+      "tools/check_bq34_audit_math.py": "32793393c7cc0c77749d63c1ff66c00f9869a0809f4e0c58db32270d884ed72d",
+      "tools/check_bq34_display_math.py": "d6930eda5057fe1535e3cdd51de2fe01ae61a757ae984badbab38f1a217eebf4",
+      "tools/check_bq34_integration.py": "3f59fd85447fc70902fd498bdb1bd59882da00351d13cb2993d1899d3ceb441f",
+      "tools/check_compact_imu_stream.py": "9db97105be8acc758aed9b354a2dacb7e60adf477ab6df1dcb63a7648d245bb5",
+      "tools/check_compact_robot_ui.py": "47ecaf7cce60fca2ad630b53c49da9a238080007b1c002f069e674d7fa63a988",
+      "tools/check_core_command_timing.py": "740cca2f0584b7f448e02fc2e99f000c968fc73dfe9e4e1962cb9aa0078835e7",
+      "tools/check_core_runtime_profile.py": "31fbc9a48d1250348170541ee817277c1a94f1896a890a34853f65a7d48f21e9",
+      "tools/check_ddr_clock_constraints.py": "636e54cb49f5879783a0b5bfe3da7cf785915696b27125d34541aa597280d88b",
+      "tools/check_face_model.py": "b8dde3f045aa0aa183848da95478438829d30a6ece651aff4552f3820e1df018",
+      "tools/check_follow_send_cadence.py": "23d7f981a751da4c8e54c042676bba7990bb252ca2b8f0ec0d083c4595dd79c3",
+      "tools/check_formatter_stream.py": "81ae299587203221c02f84dbcca821ba683846da93506f2f7e691bfb1ab65fc6",
+      "tools/check_gimbal_calibration_flow.py": "5c5c1fec91f5c3c40f4f5fcb0001543f68c78893c6f0fbe655cf76d6569f7024",
+      "tools/check_gimbal_image_calibration.py": "2fe9af82a4581b235d461a0f1e9b5ba45e6c57ab61c83affcb20803c838787b1",
+      "tools/check_gimbal_limit_diagnostics.py": "e253e2a4a363b130c17361016c863ed37ba3b512395db6f2bd6537c80ed6be27",
+      "tools/check_gimbal_mechanical_response.py": "fd7f30a2c7def5e9d1c972d719e795583ea0895cc6921b0423903abdd192a193",
+      "tools/check_gimbal_save_transactions.py": "f0696def96edd8de2fa0fa8bd85651d62885138c459758be7ff9b032389c33ce",
+      "tools/check_gimbal_tracking_loop.py": "21125643a15a544786d72434fa3a7fd028c8d36cd315fb51cd93bb1d1e0e63b8",
+      "tools/check_gimbal_tracking_memory.py": "ea5d3ca73801fc90d8f4bfd09e98b4dd5f14d0d36bd46998833a8dd8d606e2ae",
+      "tools/check_idle_timer.py": "2a261ee61cbdeee982644a2b7ece91633a3a696542c8755e2ab5cda9b50d15d2",
+      "tools/check_independent_face_tracking.py": "eed422033ab4220744522c093847aa425543ea686d697df9500a0bebcf8d690f",
+      "tools/check_lcd_text_snapshot.py": "1dbde7aa68448dc8647ffd3104b9e8e84fbc6291e2c54d0411b996dce0643e11",
+      "tools/check_lidar_body_guard.py": "7daeb4d775e59ea7561a37b25fdc1b42e10e2b0412b00af3a4d6b1ebc330aae8",
+      "tools/check_lidar_grid_math.py": "a5342dd1bb33d71a8e3ab927f9b3901e7ba789b4e379bc9b4bc95ff4aad22ae5",
+      "tools/check_lidar_path_math.py": "80cd0635f4a26ec66e0e076e718f8c36d0d893c3e2232356e3b4d7018abb1bce",
+      "tools/check_mapping_recovery.py": "4ab5d17041ec3bff352c0d8d3227cf10b4a3650ecf6e413e4126109522777eb7",
+      "tools/check_map_capture_ownership.py": "cfb174859c8f0addce091049e628d510045d080d486b6895630e53bb1187baed",
+      "tools/check_mission_lifecycle.py": "d9b9764590eb8e5358d2ce3c2f22b21030fa680982ad595fb122f7f107057f35",
+      "tools/check_motor_arithmetic_resources.py": "5c0c7f8a9ff1abdc5fa13961a93076bbb5302adb2510037d203d2333c0398321",
+      "tools/check_motor_commissioning.py": "1d38fe88b7b5de3208c199c22e3c78e9eb1386fd6661c7a3de6931324c577ee1",
+      "tools/check_motor_compact_text.py": "a5d19e01e70942b78aede474941d22c6eb7ef5f0a411e5a3870fe15314433c1d",
+      "tools/check_motor_integration.py": "8da74f602bf513a56e40584439e50b978bcbf23bdd81815c18e5d0ab76874022",
+      "tools/check_motor_math.py": "e7b40e8a4c252848134aea481ebb4f4abf608f591bb5551143b81e6f47e64940",
+      "tools/check_motor_pair_start.py": "ac39eaec18dcd339c7a28434d33babe00dc503a79142cd36b0899d50b75cab5d",
+      "tools/check_motor_remote_turn.py": "7af7e2682e149e539879b0680a6407e2958950b6645be8f843a934d2e53d8348",
+      "tools/check_motor_text_widths.py": "322147a4a56f251b5187000ce93339734959e5482a0193938fc75cac1ffea87b",
+      "tools/check_motor_vofa_adapter.py": "1bb459ebb29c8a38d70d4b3dd65373789337b6212e2710a6a3e1fd42bf44a6d5",
+      "tools/check_navigation_tracking.py": "6e7dc8c725af7489276b6bffa057a462f8e40ddb1035009bd97df71ca56737c8",
+      "tools/check_obstacle_hdl.py": "a439dd508dbd7ae66e5cec44909e32607e3a951cf51679f778f5145eb5105e03",
+      "tools/check_pi_revision5.py": "e34ac756a85b9d23ed3ff0202c6ab4643ee2da5c6e12e6bf90cf616bf784cbab",
+      "tools/check_precise_navigation_goal.py": "b36f41ba1fe9709340e6eaa6140711304b71ce83a901bdce65a090d9c74a6f94",
+      "tools/check_realtime_route.py": "e7f855882d916ccccfbf0574b13d1404127270d03fc29549e6334d9ae3f1377c",
+      "tools/check_resume_observations_hdl.py": "b36552e351c0e86412ca37072be51926ae83646e44a471d81bac500115c782fa",
+      "tools/check_robot_follow.py": "ddb09cbe961bcab6e10a5f721de43c3080224213b6ceacf1a31692f290caf65d",
+      "tools/check_robot_formatter_resources.py": "7a8ee01c15c1d9098be4af83b8120fa2bf7216d429bd4bda1ad34872e67ba922",
+      "tools/check_robot_integration.py": "a3f237ef0b3a845b36c7b7c32637ec1fc11baec4556ab4199b2b9661476b2f94",
+      "tools/check_robot_layout_math.py": "1c996918e9e809246a9b8c496c0df2d8bd5aadf68815ec8ddddc709351d85969",
+      "tools/check_robot_map_overlay.py": "10d83db334d69ce67f1c292b3c54827f17ec544c63f6f4c227e470dae0c49947",
+      "tools/check_robot_navigation_math.py": "5846a14a16afadde00f3a00264d6cec8401c43c0f06a38f7aeaa47fe3188cddc",
+      "tools/check_robot_ram_contracts.py": "828f7d38853f57fa513d8430d6e1be2a28062bd25399ecac18a26ac4d03c567c",
+      "tools/check_robot_text_rom_stream.py": "f113beb8663b6e3e7a30a8771381331ca67777d1d89a8781617ad53841c6572f",
+      "tools/check_robot_ui_actions.py": "8097bb9663f30a6c711b5258a7fc7bd871d3bf0c0c09c7cf3e670dcbfe4b2b41",
+      "tools/check_robot_vofa_protocol.py": "b59924b82d889a6d1e468271dec0043cb1991bc12b6c7c2f16889856f8b413d6",
+      "tools/check_rplidar_protocol.py": "d19d0d77a3dcb4a8bd69ca8dade23df65081b0eca4659d387f58864fecbad161",
+      "tools/check_sensor_text_math.py": "67064f2d49e9474918ce89f7c44f24a81b3c95f436c99a9408295f7682298b52",
+      "tools/check_target_tracking.py": "7df96ed7269fea6db6baa4509512580766c9618280006b2671dba5b933652d63",
+      "tools/check_task_ui_redesign.py": "4c62bb20557189d3e0cd8ff085f7001a752fe838bf52e4b0cc5b272ee094094a",
+      "tools/check_text_stream_wiring.py": "5d5a0473968a87e83b52fc5885f5e0510c460c94a2866eecde55171fa25cfc84",
+      "tools/check_tilt_operating_window.py": "c00df86e05ff28b98d8ec414b75cb235eaed49529ea0086de5ee2a49473fa3a8",
+      "tools/check_uart_serialization.py": "df3ddd533d26712eab05b8f554e542159a20cb5c4678203b1e650fe7c99f66ee",
+      "tools/check_udp_crc_matrix.py": "7e4ea6beb05ff2d52031f1c422bb09f5a7ff902d29d2e15b6c642f6926769d51",
+      "tools/check_udp_display_pruning.py": "ae026f98841cc6a86170f3b18850a25f8a7cdb255f3ac8e76ac607ad3e45195b",
+      "tools/check_ui_arithmetic.py": "0dcc0c105eac06c4537b46f696f7983dbcd78fbaba9ca47f7a89fc45e728ecac",
+      "tools/check_usb_gimbal.py": "2a16ef162ad118bbf7fab4a92cb172dc6fa7b4148939d6d9d07e45d0fed5f55e",
+      "tools/check_visual_laser_resources.py": "eb2aee41a151b3afca22ab9a26176f40d4fe7bd539d5324fb65ea2d53e5b633c",
+      "tools/check_visual_task.py": "a71a207f5046762d4e49f57ebb3c32d0b852126dde4554cd7bd3e069edc1f959",
+      "tools/check_vofa_task_commands.py": "470b3553e56ec191806815f65883fcf0aa3b0d11ec60b0e36c1f7b5863cbf200",
+      "tools/check_usb_gimbal_ui.cjs": "8aaa98d44523a996573be3c8d0c7fadeb1e6f1d1e6ea06f6cdce014d5712de02",
+      "tools/capture_gimbal_tracking.py": "b33ed3b93c17412416bd236e88da50e79991f54558abfd4cab6feae995de3e17",
+      "tools/package_orangepi_client.py": "9fa9200ac321d119b0f3d2bbd79403a074c4211c69fecd7a10df162a3c7956f4",
+      "config/gimbal.example.json": "7834127e5dc473259b4da996633ab0c538fb6a93ce19f2c8f1b201b74e3f9ff6"
+    },
+    "source_changes_during_run": [],
+    "runs": [
+      {
+        "name": "check_target_tracking",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 37,
+        "log_sha256": "7d4fa19aeb8f7829010e1e07b5f7c03e9a7f37bd3c65ef90012a1c0370c58665"
+      },
+      {
+        "name": "check_gimbal_tracking_loop",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 16,
+        "log_sha256": "110e4e1482c2f63a8a1d3993d0a3cb585d2a9299249cff0876c8e203b6e6fc65"
+      },
+      {
+        "name": "check_gimbal_tracking_memory",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 5,
+        "log_sha256": "748a2b869eace482258a0f75d1e9ee5a4a077af05f343a62b8e8f75ab1c8f11d"
+      },
+      {
+        "name": "check_usb_gimbal",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 57,
+        "log_sha256": "06a2e2a14cbed5cc4316939daec9a6fb52c0c9b0fbbbd4e927f6aca029b7cb34"
+      },
+      {
+        "name": "check_tilt_operating_window",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 3,
+        "log_sha256": "fba04beb14f21e6922314abd73bab7816d92405bbd2899866c4a76233ef8d8dd"
+      },
+      {
+        "name": "check_robot_follow",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 9,
+        "log_sha256": "7218232cb2daaf5f370549cc4d87a44ef9809cf26e011be75c5ab982beeedfcc"
+      },
+      {
+        "name": "check_visual_task",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 11,
+        "log_sha256": "4edfca02e999ef76ea55f4e4c72e4542227513ebe57eb669bbd30666521e4ab7"
+      },
+      {
+        "name": "check_independent_face_tracking",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 10,
+        "log_sha256": "2a22a3bff899ccae4a0c88f86e86eef83fed468cfa16685327eee0a885ae63e4"
+      },
+      {
+        "name": "check_gimbal_image_calibration",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 25,
+        "log_sha256": "1df26d584212ff56841eeb72865d9332fe85ec0851550d6e5296096d208012e8"
+      },
+      {
+        "name": "check_gimbal_calibration_flow",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 21,
+        "log_sha256": "e1c4aa294f96b2cfa22c1f7b818d162973e9a373f34c59df94b93df05726d20d"
+      },
+      {
+        "name": "check_gimbal_limit_diagnostics",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 5,
+        "log_sha256": "5ea138c99c58a6387a595ec6bc1e6acaf68f8927a5c51ff34abda1721cf834d4"
+      },
+      {
+        "name": "check_follow_send_cadence",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 3,
+        "log_sha256": "f6f053f6afd82a932e8da66b7a04f9e3ba317e862086a50c4895075026e18781"
+      },
+      {
+        "name": "check_gimbal_save_transactions",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 6,
+        "log_sha256": "e9dbc1a31936475165af55356b566005547a03914ab93e4739e4aa9949799201"
+      },
+      {
+        "name": "check_gimbal_mechanical_response",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 9,
+        "log_sha256": "18a5a4c5fec36955918d003ab4d2aceb5281e857c6a9870016a9626ccfe8afc7"
+      },
+      {
+        "name": "test_orangepi_shell_bundle",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 2,
+        "log_sha256": "0de00add7fb05307b00c4586d927026af283085e6f81c4a80d70d6ef7c87af67"
+      },
+      {
+        "name": "test_gimbal_control",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": 33,
+        "log_sha256": "9d275116dc0a538b47413038493d3e71344d595684990a278872e438624048ab"
+      },
+      {
+        "name": "capture_self_test",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": null,
+        "log_sha256": "35dfdd660b18f6aec9768ab337466f92229069319c053def5932ff14c2af5c67"
+      },
+      {
+        "name": "check_usb_gimbal_ui",
+        "exit_code": 0,
+        "passed": true,
+        "unittest_count": null,
+        "log_sha256": "6c909c8b4712dcfff7f13d76fe014bbd967e8be5d956c6da9093c64a4b012e70"
+      }
+    ],
+    "unittest_count": 252,
+    "hardware_tested": false,
+    "real_model_inference_tested": false
+  },
+  "page_response_callback_count": 62,
+  "negative_control": {
+    "command": "python tools/check_gimbal_mechanical_response.py --legacy-probe",
+    "baseline_actual_modules": [
+      "pc/usb_gimbal.py",
+      "pc/target_tracking.py",
+      "pc/gimbal_control.py"
+    ],
+    "log": "CENTERED_MISSING {'before': {'pan': 1500, 'tilt': 1075}, 'after': {'pan': 1509, 'tilt': 1075}, 'live_delta': 0.0, 'status': 'searching'}\nMOVING_PROBE {'rms': {'pan': 0.10563347553012083, 'tilt': 0.04730499187881081}, 'error_peak': {'pan': 0.1528873464220272, 'tilt': 0.0807327648595584}, 'physical_span': {'pan': 17.43552928480932, 'tilt': 3.812587271797213}, 'max_command_lead': 2.0499569185361395} delivered/captured 121 220\n"
+  },
+  "mechanical_comparison": {
+    "timestamp_utc": "2026-11-03T16:49:36.760352+00:00",
+    "baseline_commit": "84a3ced",
+    "baseline_modules": [
+      "pc/usb_gimbal.py",
+      "pc/target_tracking.py",
+      "pc/gimbal_control.py"
+    ],
+    "current_source_sha256": {
+      "pc/usb_gimbal.py": "269f460abbe4fe9b7b1b55adba879807c1d4b84bfd49dad136f2c13977ca4203",
+      "pc/target_tracking.py": "f29b15c9f303fec0be3a67797ef7cbcb823468afa50a0f439d47f66da3f58a9b",
+      "pc/gimbal_control.py": "17893299e99cfb7ba0e7300abd224b04242cd92a98b0a983133cfc37887ce709",
+      "pc/tracking_servo.py": "9f37094aabecbe606eb6bd9bd438b17e010d9834fbe88c139aa5e37dbcff49f7"
+    },
+    "shared_renderer": "check_gimbal_tracking_loop.CameraPlant camera basis; actual PWM drives separate mechanical lag",
+    "hardware_tested": false,
+    "old": [
+      {
+        "controller": "R4 actual3modules84a3ced",
+        "profile": "normal",
+        "inference_delay_s": 0.04,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.09309585818481432,
+          "tilt": 0.0427159150317756
+        },
+        "error_peak": {
+          "pan": 0.13139435111071318,
+          "tilt": 0.06934953838672833
+        },
+        "physical_span": {
+          "pan": 17.954330378170198,
+          "tilt": 3.16165950681048
+        },
+        "max_command_lead": 1.8297459712981095
+      },
+      {
+        "controller": "R4 actual3modules84a3ced",
+        "profile": "normal",
+        "inference_delay_s": 0.12,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.10563347553012083,
+          "tilt": 0.04730499187881081
+        },
+        "error_peak": {
+          "pan": 0.1528873464220272,
+          "tilt": 0.0807327648595584
+        },
+        "physical_span": {
+          "pan": 17.43552928480932,
+          "tilt": 3.812587271797213
+        },
+        "max_command_lead": 2.0499569185361395
+      },
+      {
+        "controller": "R4 actual3modules84a3ced",
+        "profile": "normal",
+        "inference_delay_s": 0.25,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.12922301670326994,
+          "tilt": 0.05269104514599894
+        },
+        "error_peak": {
+          "pan": 0.1964413358342906,
+          "tilt": 0.09646880445725473
+        },
+        "physical_span": {
+          "pan": 12.941348267377833,
+          "tilt": 2.510729613359672
+        },
+        "max_command_lead": 1.750835833900851
+      },
+      {
+        "controller": "R4 actual3modules84a3ced",
+        "profile": "fast",
+        "inference_delay_s": 0.04,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.07820917990290784,
+          "tilt": 0.042568374554431215
+        },
+        "error_peak": {
+          "pan": 0.11018676354071388,
+          "tilt": 0.06658978801477271
+        },
+        "physical_span": {
+          "pan": 18.77227563161898,
+          "tilt": 3.161658676243519
+        },
+        "max_command_lead": 2.134135435765643
+      },
+      {
+        "controller": "R4 actual3modules84a3ced",
+        "profile": "fast",
+        "inference_delay_s": 0.12,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.08992134661528386,
+          "tilt": 0.0439970170710233
+        },
+        "error_peak": {
+          "pan": 0.13139781509283796,
+          "tilt": 0.07670089730682837
+        },
+        "physical_span": {
+          "pan": 18.784676962227962,
+          "tilt": 2.789699570815003
+        },
+        "max_command_lead": 2.313666632953556
+      },
+      {
+        "controller": "R4 actual3modules84a3ced",
+        "profile": "fast",
+        "inference_delay_s": 0.25,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.11992714003209576,
+          "tilt": 0.050572601692215384
+        },
+        "error_peak": {
+          "pan": 0.17954184006989565,
+          "tilt": 0.0930197215568087
+        },
+        "physical_span": {
+          "pan": 16.17693641005198,
+          "tilt": 2.789699570811621
+        },
+        "max_command_lead": 2.301640745710472
+      }
+    ],
+    "new": [
+      {
+        "controller": "current",
+        "profile": "normal",
+        "inference_delay_s": 0.04,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.09716821482847367,
+          "tilt": 0.04601248596852485
+        },
+        "error_peak": {
+          "pan": 0.1398806530513518,
+          "tilt": 0.07506693497657153
+        },
+        "physical_span": {
+          "pan": 16.717471506708506,
+          "tilt": 2.789699562989682
+        },
+        "max_command_lead": 1.5519982716822653
+      },
+      {
+        "controller": "current",
+        "profile": "normal",
+        "inference_delay_s": 0.12,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.10670716614999949,
+          "tilt": 0.047663443294737644
+        },
+        "error_peak": {
+          "pan": 0.15394035262607222,
+          "tilt": 0.08200669143927199
+        },
+        "physical_span": {
+          "pan": 16.986686246616614,
+          "tilt": 2.88268938920271
+        },
+        "max_command_lead": 1.5580952620938433
+      },
+      {
+        "controller": "current",
+        "profile": "normal",
+        "inference_delay_s": 0.25,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.12790432387841974,
+          "tilt": 0.050059468566411164
+        },
+        "error_peak": {
+          "pan": 0.18557412999241835,
+          "tilt": 0.09292628354553092
+        },
+        "physical_span": {
+          "pan": 15.906533149380834,
+          "tilt": 2.8826895565082964
+        },
+        "max_command_lead": 1.359182555254364
+      },
+      {
+        "controller": "current",
+        "profile": "fast",
+        "inference_delay_s": 0.04,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.08339182957558723,
+          "tilt": 0.04365086183295752
+        },
+        "error_peak": {
+          "pan": 0.11839667636988391,
+          "tilt": 0.07222053435578377
+        },
+        "physical_span": {
+          "pan": 17.965381296272483,
+          "tilt": 3.068669520593261
+        },
+        "max_command_lead": 1.8584583747696684
+      },
+      {
+        "controller": "current",
+        "profile": "fast",
+        "inference_delay_s": 0.12,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.09614104647419948,
+          "tilt": 0.04533409481816681
+        },
+        "error_peak": {
+          "pan": 0.13716576480383083,
+          "tilt": 0.07880180778804255
+        },
+        "physical_span": {
+          "pan": 18.515066942810904,
+          "tilt": 2.417739628039584
+        },
+        "max_command_lead": 1.810090454911574
+      },
+      {
+        "controller": "current",
+        "profile": "fast",
+        "inference_delay_s": 0.25,
+        "mechanical_tau_s": 0.16,
+        "command_delay_s": 0.04,
+        "rms": {
+          "pan": 0.12747598967714424,
+          "tilt": 0.04823901990685352
+        },
+        "error_peak": {
+          "pan": 0.18417032287860433,
+          "tilt": 0.08978216697817902
+        },
+        "physical_span": {
+          "pan": 16.714959893253422,
+          "tilt": 2.9756795422026983
+        },
+        "max_command_lead": 1.3739733084779857
+      }
+    ]
+  },
+  "changes": [
+    "Short-lived capture-aligned finite goals and 50Hz command trajectory with bounded speed/acceleration/lead",
+    "Center/missing/ambiguous observations hold PWM requests, reacquisition remains automatic",
+    "FOL20ms, VEC/GOL50ms, TGT200ms; packet bytes unchanged",
+    "Distinct exploration/mechanical/calibration/90deg runtime limits; pure persistence preflight and failure state preservation",
+    "Actual active gain, pixel error, latency, trajectory and Pi/FPGA command diagnostics; read-only capture tool"
+  ],
+  "unchanged_fpga_inputs": true,
+  "fpga_rebuilt": false,
+  "automatically_deployed": false,
+  "hardware_tested": false,
+  "real_model_inference_tested": false,
+  "preserved_on_pi": [
+    "config/gimbal.json",
+    "config/visual_task.json",
+    "all model files",
+    "existing Python environment"
+  ],
+  "limitations": [
+    "Mechanical parameters and camera model are synthetic fixtures, not measurements of this robot.",
+    "Camera timestamp is host arrival after read; unknown exposure/buffer latency remains.",
+    "Servo angles remain calibrated command estimates; no shaft feedback is available.",
+    "Moving-target error is not uniformly improved; some compared scenarios cost1–2.4px while reducing command lead. Do not claim faster physical tracking.",
+    "No Pi field limits were available locally; actual limits require the user readout and physical recheck."
+  ],
+  "bundle_manifest": {
+    "client_bundle_version": 22,
+    "bundle_revision": 5,
+    "shell_line_endings": "LF",
+    "minimum_python": "3.10",
+    "dog_model_included": false,
+    "face_model_included": false,
+    "fpga_profile": "core-r7-and-lidar-moving-20261103-compatible",
+    "entry_point": "client.py",
+    "usb_camera_and_gimbal": true,
+    "default_pwm_backend": "mock",
+    "root_folder": "acg720_vision",
+    "sha256": {
+      "client.py": "fdef196f9380f03c87d10013adc7d4abb5726c437ea4c13012d3cede17d1538f",
+      "pc/udp_probe.py": "72a85f5abb6549d700efdccc5bfe4a27da61f5558d386ef962711aed715edade",
+      "pc/udp_video_viewer.py": "7a275f45c7286d3c26259638c21673b275d52f0962d9aa68e37a649dd36ccf49",
+      "pc/capture_dataset.py": "2771ecf07edbf592999a1e2fb0f4608da63877cdafe635bde872725cc82d95e6",
+      "pc/video_stream.py": "a0f372070c51097e46a5aee7912df13f164b73f7209bef1245d7fd4cbb02fdfd",
+      "pc/ui_telemetry.py": "6a6bea47cfdb6de7aa9639d96b21c786cb9b6a7b8800dfeb168daa439d43a66e",
+      "pc/highgui_window.py": "6a6dd3540081c86c3b2bda5c66493b460821cd5cb97aa5686807be9e5b5cf68a",
+      "pc/requirements.txt": "37d91a082228a56578876bef9ba32cf5515cefa42833a71e237a095c8cee0937",
+      "pc/detect_dog.py": "be82e3429aeb2f2d5a99782103538cd62dab94681b52aa089b0e6b2e2203cbb2",
+      "pc/dog_inference.py": "4c1bbd398e9d69590e614829be7667da4068eac909558e1733fc679aeb49bf58",
+      "pc/detection_feedback.py": "60ab8194a3c79675c85fce7c2d8d67e69243524c51fd32202ce9cee2933355fc",
+      "pc/requirements-detection.txt": "2f62c62fcebb74c4dc5183522f2a3580f874849bb14cf09f486fd884bde3aad2",
+      "pc/face_inference.py": "a05884838d5c8d647b6d5221beb1c76265477bdc598b27e8700e62872033b3b4",
+      "pc/usb_camera.py": "bb11c7ded41d743958ffdbbf4cbb180ca3fb541b756a800d4bb6d2d3a6d66f20",
+      "pc/usb_gimbal.py": "269f460abbe4fe9b7b1b55adba879807c1d4b84bfd49dad136f2c13977ca4203",
+      "pc/usb_gimbal_ui.html": "ed71b51a5f502819186ea39467180240143b0b54d70806fa2c92858e31a05b4c",
+      "pc/gimbal_control.py": "17893299e99cfb7ba0e7300abd224b04242cd92a98b0a983133cfc37887ce709",
+      "pc/target_tracking.py": "f29b15c9f303fec0be3a67797ef7cbcb823468afa50a0f439d47f66da3f58a9b",
+      "pc/tracking_servo.py": "9f37094aabecbe606eb6bd9bd438b17e010d9834fbe88c139aa5e37dbcff49f7",
+      "pc/gimbal_image_calibration.py": "32b31f702a2d0889fa6157ead776077d9e0afa97807120647abb0d37d30256cf",
+      "pc/calibrate_usb_camera.py": "cc7eb1fcc3a89caa451e09dfaad58e6b23efecdd76a9a10a07af5a37ce7326e1",
+      "pc/robot_follow.py": "cf9495ab259e4f7720352174211a6d55dcafb2bd4fa16d2b2ea988870a5038d7",
+      "pc/visual_task.py": "229bd10a36ce3b14108b19c4ebeee2884e04e4f58dcd627ca9ed3204395f21aa",
+      "tools/install_orangepi_poweroff.sh": "d7720bd0774318ba025e6ee05e2f5857ba7c9daad2c00037341601d36bd3898c",
+      "tools/fix_orangepi_follow_network.py": "2201095e831efa17b6e5c51fefcfd4245a579173d95f69c98555766d133c744d",
+      "tools/start_fpga_follow.sh": "bb3b523f9c7ce3be83022e9a1ab04548911b5b8fa49c9729a757ea39b4027946",
+      "tools/install_fpga_follow_service.sh": "f03ec4ff5321027ef6e27d0fa53951a2636b1eedee634d530d72a089b4e98a54",
+      "docs/六题演示与修复验收_20261025.md": "7c32e37a15f5faef8d042e19316551bc8856635f8db0bb894492d1db9ecde3ea",
+      "docs/视觉雷达协议_v20.md": "c6f459f7e2f33503af5cc4eac6a74b1cbe34e9b80bdae0fc5991a073b98c7140",
+      "docs/上层135度与90度下限_v21.md": "306e2016fcfe3b5d88ad4bceedd855791e60f43656405578a96b148d5c0b5352",
+      "docs/香橙派v22人脸与小狗测试.md": "78d7c87b1efbb6c419d06be758de3a02d2210e31c338d4590b654c9f14ed474f",
+      "docs/香橙派v22修订4云台整合_20261103.md": "93a6a0c478983cd1389c8a380547b970d2787f5e4264b0e612e98d367c3c599f",
+      "docs/香橙派v22修订5跟踪调参_20261104.md": "5f74b15323585daadbdf27a8677f5aeb956b84da3d6ccb8aa727c02102006dc5",
+      "docs/香橙派与FPGA跟随联调_20261025.md": "cebc114f57499cac21f5d919cd955da154cbb2f7b82379c0af9fab7d7ce35bcb",
+      "docs/FPGA视觉跟随通信协议_20261025.md": "c132fce78f5a194b8fcd5d23b6fda72cbfae5b86c8525171d53fac371723aa05",
+      "config/gimbal.example.json": "7834127e5dc473259b4da996633ab0c538fb6a93ce19f2c8f1b201b74e3f9ff6",
+      "tools/capture_gimbal_tracking.py": "b33ed3b93c17412416bd236e88da50e79991f54558abfd4cab6feae995de3e17",
+      "tools/fix_orangepi_apt.py": "cfe22c42d6913b86aec05958276d7cc251cfaac0e35e3c8331b6a9bc7bb64201",
+      "README.md": "48d03fd48fe6ca9a83723a2bc2aae3babbcd2682a8359dd3282817303707f44f"
+    }
+  },
+  "artifacts": {
+    "acg720-orangepi-v22-r5-code.zip": {
+      "path": "output/releases/pi-tracking-r5-20261104/acg720-orangepi-v22-r5-code.zip",
+      "bytes": 159502,
+      "sha256": "e098e0814553de0746c1555c1529c1a4d03b7edef39ccffae1508e3b1aa0d213"
+    },
+    "validation-evidence-r5.zip": {
+      "path": "output/releases/pi-tracking-r5-20261104/validation-evidence-r5.zip",
+      "bytes": 53909,
+      "sha256": "821c68803aa50190e40d7fb724e895b34b85515bf6e0f45b2325167771a79e8d"
+    }
+  }
+}

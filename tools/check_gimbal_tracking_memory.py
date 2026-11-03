@@ -1,8 +1,9 @@
-"""Actual-app last-observation/reacquisition tests with an independent camera.
+"""Actual-app missing-frame hold/reacquisition tests with an independent camera.
 
 Uses the measured PWM tables and fixed-world renderer from the closed-loop
 regression. Hiding a detection does not move the physical target; only emitted
-PWM can improve its image error. No camera, PWM hardware, HDL or network I/O.
+PWM can alter its image error. Missing detections now hold PWM immediately;
+they are not permission to execute a last-observation goal. No hardware I/O.
 """
 
 from copy import deepcopy
@@ -40,7 +41,7 @@ class TrackingMemoryTests(unittest.TestCase):
                 self.assertLessEqual(abs(after[axis] - before[axis]),
                                      limit * (now - then) + .2)
 
-    def test_learned_last_seen_goal_overrides_wrong_mount_and_finishes_only_once(self):
+    def test_learned_model_is_retained_but_missing_observation_holds_pwm(self):
         plant = self.make_plant(learned=True)
         plant.advance(.4)
         self.assertEqual(plant.app.tracking_result["control_source"], "sampled_image_jacobian")
@@ -49,20 +50,19 @@ class TrackingMemoryTests(unittest.TestCase):
         error = math.hypot(*plant.normalized_error().values())
         plant.advance(.2)
         memory = plant.app.snapshot()["tracking_memory"]
-        self.assertIn(memory["phase"], ("centering_last_seen", "waiting"))
+        self.assertEqual(memory["phase"], "waiting")
         self.assertEqual(memory["source"], "sampled_image_jacobian")
-        goal = deepcopy(memory["goal"])
+        held = dict(plant.backend.enabled)
+        held_error = math.hypot(*plant.normalized_error().values())
         plant.advance(12)
         self.assertTrue(plant.app.tracking)
         self.assertEqual(plant.app.snapshot()["tracking_memory"]["phase"], "waiting")
-        self.assertEqual(plant.app.snapshot()["tracking_memory"]["goal"], goal)
-        self.assertLess(math.hypot(*plant.normalized_error().values()), error * .5)
-        self.assertLess(max(abs(value) for value in plant.normalized_error().values()), .056)
+        self.assertEqual(plant.backend.enabled, held)
+        self.assertAlmostEqual(math.hypot(*plant.normalized_error().values()), held_error)
         self.assert_motion_rate_bounded(plant.actuator_samples[start:])
-        held = dict(plant.backend.enabled)
         plant.advance(30)
         self.assertEqual(plant.backend.enabled, held)
-        self.assertEqual(plant.app.snapshot()["tracking_memory"]["goal"], goal)
+        self.assertTrue(plant.app.snapshot()["image_calibration"]["enabled"])
 
     def test_reappearance_at_another_image_position_automatically_resumes(self):
         plant = self.make_plant()
@@ -104,7 +104,7 @@ class TrackingMemoryTests(unittest.TestCase):
                 self.assertEqual(plant.backend.enabled, held)
                 self.assertFalse(plant.app.tracking)
 
-    def test_stale_camera_stops_an_in_progress_last_seen_goal(self):
+    def test_stale_camera_does_not_restart_a_held_missing_goal(self):
         plant = self.make_plant()
         plant.advance(.4)
         plant.visible = False
@@ -117,21 +117,19 @@ class TrackingMemoryTests(unittest.TestCase):
         self.assertEqual(plant.backend.enabled, held)
         self.assertTrue(plant.app.tracking)
 
-    def test_normalized_last_seen_goal_stays_bounded_at_zenith_and_limit(self):
+    def test_normalized_missing_target_holds_at_zenith_and_limit(self):
         for theta, target in ((90, (8, -6)), (174, (0, -8)), (135, (8, -6))):
             with self.subTest(theta=theta):
                 plant = self.make_plant(theta=theta, target=target, normalized=True)
                 plant.advance(.4)
-                visible_pose = {axis: physical_coordinate(axis, plant.backend.enabled[axis])
-                                for axis in ("pan", "tilt")}
                 plant.visible = False
                 start = len(plant.actuator_samples)
+                plant.advance(.2)
+                held = dict(plant.backend.enabled)
                 plant.advance(15)
                 self.assertTrue(plant.app.tracking)
                 self.assertEqual(plant.app.snapshot()["tracking_memory"]["phase"], "waiting")
-                for axis in ("pan", "tilt"):
-                    position = physical_coordinate(axis, plant.backend.enabled[axis])
-                    self.assertLessEqual(abs(position - visible_pose[axis]), 30.2)
+                self.assertEqual(plant.backend.enabled, held)
                 self.assert_motion_rate_bounded(plant.actuator_samples[start:])
                 held = dict(plant.backend.enabled)
                 plant.advance(15)

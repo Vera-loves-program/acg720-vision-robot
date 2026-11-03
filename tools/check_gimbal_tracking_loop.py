@@ -488,7 +488,7 @@ class ClosedLoopTests(unittest.TestCase):
                 plant.advance(360 if theta == 100 else 25)
                 self.assertLess(max(abs(v) for v in plant.normalized_error().values()), .056)
 
-    def test_target_loss_finishes_one_last_seen_goal_then_holds_without_reintegrating(self):
+    def test_target_loss_holds_after_first_missing_frame_then_reacquires(self):
         plant = CameraPlant(self, target=(8, -8), mount="upright_at_180",
             initial_pulses=dict(pan=1500, tilt=pulse_for("tilt", 135)),
             camera_options=dict(fx=400, fy=400, cx=320, cy=240),
@@ -498,20 +498,22 @@ class ClosedLoopTests(unittest.TestCase):
         plant.advance(.2)
         self.assertIn(plant.app.tracking_result["status"], ("missing", "lost", "searching"))
         memory = plant.app.snapshot()["tracking_memory"]
-        self.assertIn(memory["phase"], ("centering_last_seen", "waiting"))
-        goal = deepcopy(memory["goal"])
+        self.assertEqual(memory["phase"], "waiting")
+        outputs = dict(plant.backend.enabled)
         error = math.hypot(*plant.normalized_error().values())
         plant.advance(10)
         self.assertTrue(plant.app.tracking)
-        self.assertLess(math.hypot(*plant.normalized_error().values()), error * .5)
-        self.assertLess(max(abs(value) for value in plant.normalized_error().values()), .056)
-        self.assertEqual(plant.app.snapshot()["tracking_memory"]["goal"], goal)
+        self.assertEqual(plant.backend.enabled, outputs)
+        self.assertAlmostEqual(math.hypot(*plant.normalized_error().values()), error)
         self.assertEqual(plant.app.snapshot()["tracking_memory"]["phase"], "waiting")
-        outputs = dict(plant.backend.enabled)
         plant.advance(30)
         self.assertEqual(plant.backend.enabled, outputs)
         for state in plant.app.gimbal.snapshot()["axes"].values():
             self.assertEqual(state["target_us"], state["output_us"])
+        plant.visible = True
+        plant.advance(20)
+        self.assertEqual(plant.app.tracking_result["status"], "tracking")
+        self.assertLess(math.hypot(*plant.normalized_error().values()), error * .5)
 
     def test_delayed_inference_keeps_negative_feedback_before_and_after_over_top(self):
         for mount in MOUNTS:

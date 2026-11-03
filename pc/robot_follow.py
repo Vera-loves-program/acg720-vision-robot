@@ -212,6 +212,7 @@ class FollowLink:
         self.event_ack = 0
         self.sequence = self.catalog_sequence = 0
         self.last_sent = -1e9
+        self.last_visual_sent = self.last_goal_sent = -1e9
         self.last_catalog = -1e9
         self.error = None
         self.auto_select = False
@@ -622,7 +623,9 @@ class FollowLink:
         return True
 
     def send(self, app, now):
-        if now-self.last_sent < .05:
+        # Match the50Hz FPGA servo frame; tolerate sub-nanosecond float error
+        # at an exact20ms boundary without accumulating catch-up bursts.
+        if now-self.last_sent < .020-1e-9:
             return
         self.last_sent = now
         axes = app.gimbal.snapshot()['axes']
@@ -668,25 +671,31 @@ class FollowLink:
         if report.get('flags',0)&128:
             # Direction and goal proposals are data, never motion authority.
             try:
-                if self.geometry_active:
-                    centered=False
-                    if good:
-                        x,y,_=box_geometry(boxes[0])
-                        centered=abs(x/frame.width-.5)<=.08 and abs(y/frame.height-.5)<=.08
-                    flags,body=self.visual.query(app,now,self.registry.selected,good and centered)
-                else:
-                    # Independent DOG/FACE centering needs neither a laser
-                    # plane nor a car-front reference. Withdraw any old query
-                    # without loading geometric configuration or deriving a
-                    # horizontal ray from a near-vertical camera.
-                    flags=0
-                    body=struct.pack('>HHhhhhHhhI',0,65535,16384,0,0,0,2048,0,261,0)
-                self._transmit(packet(b'VEC1',flags,self.visual_sequence,body))
-                self.visual_sequence=(self.visual_sequence+1)&65535
-                body=self.visual.goal_body(now,self.registry.selected) if self.geometry_active else None
-                if body is not None:
-                    self._transmit(packet(b'GOL1',0,self.goal_sequence,body))
-                    self.goal_sequence=(self.goal_sequence+1)&65535
+                # Only servo FOL updates gain the20ms cadence. Keep the
+                # existing geometry proposal streams at no more than20Hz.
+                if now-self.last_visual_sent >= .050-1e-9:
+                    self.last_visual_sent=now
+                    if self.geometry_active:
+                        centered=False
+                        if good:
+                            x,y,_=box_geometry(boxes[0])
+                            centered=abs(x/frame.width-.5)<=.08 and abs(y/frame.height-.5)<=.08
+                        flags,body=self.visual.query(app,now,self.registry.selected,good and centered)
+                    else:
+                        # Independent DOG/FACE centering needs neither a laser
+                        # plane nor a car-front reference. Withdraw any old query
+                        # without loading geometric configuration or deriving a
+                        # horizontal ray from a near-vertical camera.
+                        flags=0
+                        body=struct.pack('>HHhhhhHhhI',0,65535,16384,0,0,0,2048,0,261,0)
+                    self._transmit(packet(b'VEC1',flags,self.visual_sequence,body))
+                    self.visual_sequence=(self.visual_sequence+1)&65535
+                if now-self.last_goal_sent >= .050-1e-9:
+                    self.last_goal_sent=now
+                    body=self.visual.goal_body(now,self.registry.selected) if self.geometry_active else None
+                    if body is not None:
+                        self._transmit(packet(b'GOL1',0,self.goal_sequence,body))
+                        self.goal_sequence=(self.goal_sequence+1)&65535
             except (ValueError,RuntimeError) as exc:
                 self.error=str(exc);self.error_code=7
                 self.record('visual_geometry_error',error=self.error)
