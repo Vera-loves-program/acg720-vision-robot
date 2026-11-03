@@ -142,7 +142,51 @@ module robot_subsystem (
     wire body_guard_ready,body_front_stop,body_rear_stop,body_front_slow,body_turn_stop,virtual_contact;
     wire map_reset=clear_map || pose_set || encoder_zeroed || map_mode_change;
     wire mission_explicit_cancel=safety_stop || clear_map || pose_set || encoder_zeroed;
-    assign armed=ui_armed || follow_armed;
+    // Demo ownership is separate from real visual tasks. The start button is
+    // explicit and labelled; a STOP pulse is retained on the release edge.
+    wire demo_start=ui_tap_valid && page==5 && (subpage==0 || subpage==3) && ui_tap==4;
+    wire demo_engaged,demo_moving,demo_command_valid,demo_servo_enable;
+    wire [3:0] demo_phase;
+    wire [2:0] demo_seconds,demo_command;
+    wire signed [15:0] demo_speed;
+    wire signed [31:0] demo_heading;
+    wire [11:0] demo_pan_us,demo_tilt_us;
+    wire demo_owns=demo_engaged || demo_command_valid || demo_start;
+    wire demo_cancel=safety_stop || emergency_stop_pulse || explicit_local_stop ||
+        remote_takeover || remote_active || remote_turn_active || ui_motor_fault || !touch_ready ||
+        (snapshot_valid && snapshot_cancel) || shutdown_requested || battery_a_low ||
+        page!=5 || (subpage!=0 && subpage!=3) ||
+        (demo_engaged && ui_tap_valid && !demo_start);
+    wire demo_permit=demo_engaged && demo_moving && !demo_cancel && gains_ready_q;
+    wire demo_ready=gains_ready_q && geometry_valid && gyro_ready && !calibrating &&
+        avoid_lidar_ready && body_guard_ready;
+    wire normal_pan_pwm,normal_tilt_pwm,demo_pan_pwm,demo_tilt_pwm;
+    robot_preset_demo u_demo(
+        .clk(clk),.reset_n(reset_n),.tick_10ms(tick_10ms),.start(demo_start),
+        .search_mode(subpage==3),.cancel(demo_cancel),.ready(demo_ready),
+        .heading_mdeg(robot_heading),.nav_run(nav_run),.turn_done(nav_turn_complete),
+        .nav_status(nav_status),.nav_fault(nav_fault),.engaged(demo_engaged),
+        .moving_phase(demo_moving),.phase(demo_phase),.seconds_left(demo_seconds),
+        .command_valid(demo_command_valid),.command(demo_command),.speed(demo_speed),
+        .turn_heading(demo_heading),.servo_enable(demo_servo_enable),
+        .pan_us(demo_pan_us),.tilt_us(demo_tilt_us)
+    );
+    robot_follow_pwm u_demo_pan(.clk(clk),.reset_n(reset_n),.enable(demo_servo_enable),
+        .pulse_us(demo_pan_us),.low_us(12'd380),.high_us(12'd2550),.pwm(demo_pan_pwm),.applied_us());
+    robot_follow_pwm u_demo_tilt(.clk(clk),.reset_n(reset_n),.enable(demo_servo_enable),
+        .pulse_us(demo_tilt_us),.low_us(12'd645),.high_us(12'd1555),.pwm(demo_tilt_pwm),.applied_us());
+    // Do not re-enable an old Pi PWM request when STOP releases ownership.
+    // An explicit subsequent real-task action releases this servo hold.
+    reg demo_head_hold;
+    always @(posedge clk or negedge reset_n)begin
+        if(!reset_n)demo_head_hold<=0;
+        else if(demo_start)demo_head_hold<=1;
+        else if(!demo_owns && ui_tap_valid && page==5 &&
+            (ui_tap==1 || ui_tap==2 || ui_tap==5 || ui_tap==7))demo_head_hold<=0;
+    end
+    assign follow_pan_pwm=demo_owns ? demo_pan_pwm : !demo_head_hold && normal_pan_pwm;
+    assign follow_tilt_pwm=demo_owns ? demo_tilt_pwm : !demo_head_hold && normal_tilt_pwm;
+    assign armed=ui_armed || follow_armed || demo_engaged;
     robot_ui_control u_controls(
         .clk(clk),.reset_n(reset_n),.safety_stop(safety_stop),.motor_fault(ui_motor_fault),.tick_10ms(tick_10ms),
         .remote_takeover(remote_takeover),.remote_active(remote_active),
@@ -173,10 +217,10 @@ module robot_subsystem (
     robot_follow_control #(.ENABLE_CHOOSER(0)) u_follow(
         .clk(clk),.reset_n(reset_n),.tick_10ms(tick_10ms),
         .request(follow_request),.data(follow_data),.ack(follow_ack),
-        .page(page),.subpage(subpage),.tap_valid(ui_tap_valid),.tap_button(ui_tap),
+        .page(page),.subpage(subpage),.tap_valid(ui_tap_valid && !demo_owns),.tap_button(ui_tap),
         .stop_all(safety_stop || emergency_stop_pulse),
         .battery_a_low(battery_a_low),.shutdown_requested(shutdown_requested),.software_stopped(software_stopped),
-        .cancel(remote_takeover || explicit_local_stop || ui_motor_fault || !touch_ready || (snapshot_valid && snapshot_cancel)),
+        .cancel(demo_owns || remote_takeover || explicit_local_stop || ui_motor_fault || !touch_ready || (snapshot_valid && snapshot_cancel)),
         .motion_ready(gains_ready_q && geometry_valid && gyro_ready && !calibrating && avoid_lidar_ready),
         .gain(follow_gain),.speed_cap(follow_cap),.heading(robot_heading),
         .actual_left(speed_left[15:0]),.actual_right(speed_right[15:0]),.nav_status(mission_status),
@@ -188,7 +232,7 @@ module robot_subsystem (
         .laser_valid(visual_laser_valid),.laser_target(visual_target),.laser_bearing(visual_bearing),
         .turn_clear(body_guard_ready && avoid_lidar_ready && !body_turn_stop),
         .task_ready_flags(task_visual_ready),
-        .pan_pwm(follow_pan_pwm),.tilt_pwm(follow_tilt_pwm),
+        .pan_pwm(normal_pan_pwm),.tilt_pwm(normal_tilt_pwm),
         .selected_id(follow_selected),.candidate_id(follow_candidate),
         .candidate_kind(follow_kind),.candidate_confidence(follow_confidence),.state_code(follow_state),
         .diagnostic_code(follow_diagnostic),.dog_score(follow_dog_score)
@@ -382,7 +426,7 @@ module robot_subsystem (
         nav_fault==0 && !safety_stop && !ui_motor_fault && !explicit_local_stop && !map_reset && !remote_takeover;
     assign remote_turn_ready=gyro_ready && !calibrating && nav_fault==0 &&
         !safety_stop && !ui_motor_fault && !explicit_local_stop && !map_reset && !remote_takeover &&
-        !nav_turn_complete && !turn_complete_valid && !turn_report_busy;
+        !nav_turn_complete && !turn_complete_valid && !turn_report_busy && !demo_owns;
     // Relative integer degrees become one bounded heading add. Multiplication
     // by1000 is fixed shifts/adds; reuse the existing gyro TURN datapath.
     wire signed [31:0] remote_degrees_extended={{16{remote_turn_degrees[15]}},remote_turn_degrees};
@@ -429,7 +473,7 @@ module robot_subsystem (
     end
     robot_mission_control u_mission(
         .clk(clk),.reset_n(reset_n),.tick_10ms(tick_10ms),
-        .permit((local_permit || (follow_permit && follow_mission)) && !map_mode_change),.safety_stop(mission_explicit_cancel),
+        .permit((local_permit || (follow_permit && follow_mission)) && !map_mode_change && !demo_owns),.safety_stop(mission_explicit_cancel || demo_owns),
         .user_command_valid(page==5 ? follow_command_valid : ui_command_valid),.user_command(page==5 ? follow_command : ui_command),
         .user_goal_x(page==5 ? follow_goal_x : goal_x),.user_goal_y(page==5 ? follow_goal_y : goal_y),
         .pose_x(robot_x),.pose_y(robot_y),.pose_valid(pose_valid),.nav_status(nav_status),
@@ -462,16 +506,16 @@ module robot_subsystem (
     );
     robot_navigation #(.BODY_GUARD(1),.GUARD_EXPLICIT_TURN(1)) u_navigation(
         .clk(clk),.reset_n(reset_n),.tick_10ms(tick_10ms),.safety_stop(safety_stop),
-        .motion_enable(remote_turn_permit || (page==5 ? (follow_mission ? nav_permit : follow_permit) : manual_view ? manual_permit : nav_permit)),
+        .motion_enable(demo_owns ? demo_permit : remote_turn_permit || (page==5 ? (follow_mission ? nav_permit : follow_permit) : manual_view ? manual_permit : nav_permit)),
         .encoder_position_left(position_left),.encoder_position_right(position_right),.encoder_zeroed(encoder_zeroed),
         .gyro_z(gyro_z),.gyro_sample(gyro_sample),.gyro_valid(gyro_valid),.gyro_invert(gyro_invert),
         .geometry_valid(geometry_valid),.wheel_mm_per_rev(circumference),.encoder_counts_per_rev(counts_per_rev),.track_mm(track),
         .pose_set(pose_set),.pose_x_mm(set_x),.pose_y_mm(set_y),.pose_heading_mdeg(set_heading),
-        .command_valid(remote_turn_abort || remote_turn_start || (!remote_turn_active && (page==5 && !follow_mission ? follow_command_valid : manual_view ? ui_command_valid : mission_command_valid))),
-        .command(remote_turn_abort ? 3'd0 : remote_turn_start ? 3'd2 : page==5 && !follow_mission ? follow_command : manual_view ? (ui_command==2 ? 3'd2 : ui_command==4 ? 3'd4 : 3'd0) : mission_command),
-        .manual_left(page==5 ? follow_speed : recovery_state==2 ? recovery_speed : manual_left),
-        .manual_right(page==5 ? follow_speed : recovery_state==2 ? recovery_speed : manual_right),
-        .manual_heading_hold(page==5 ? 1'b1 : recovery_state==2 ? 1'b0 : manual_heading_hold),.turn_heading_mdeg(remote_turn_active ? remote_turn_heading : page==5 ? follow_heading : turn_heading),.goal_x_mm(mission_goal_x),.goal_y_mm(mission_goal_y),
+        .command_valid(demo_owns ? demo_command_valid : remote_turn_abort || remote_turn_start || (!remote_turn_active && (page==5 && !follow_mission ? follow_command_valid : manual_view ? ui_command_valid : mission_command_valid))),
+        .command(demo_owns ? demo_command : remote_turn_abort ? 3'd0 : remote_turn_start ? 3'd2 : page==5 && !follow_mission ? follow_command : manual_view ? (ui_command==2 ? 3'd2 : ui_command==4 ? 3'd4 : 3'd0) : mission_command),
+        .manual_left(demo_owns ? demo_speed : page==5 ? follow_speed : recovery_state==2 ? recovery_speed : manual_left),
+        .manual_right(demo_owns ? demo_speed : page==5 ? follow_speed : recovery_state==2 ? recovery_speed : manual_right),
+        .manual_heading_hold(page==5 ? 1'b1 : recovery_state==2 ? 1'b0 : manual_heading_hold),.turn_heading_mdeg(demo_owns ? demo_heading : remote_turn_active ? remote_turn_heading : page==5 ? follow_heading : turn_heading),.goal_x_mm(mission_goal_x),.goal_y_mm(mission_goal_y),
         .turn_half_direction(remote_turn_active ? remote_half_direction : 2'd0),
         .cruise_counts(avoid_view ? 16'd5 : cruise),.turn_counts(turn_speed),.arrival_tolerance_mm(mission_arrival_tolerance),
         .avoid_enable(!manual_view && !remote_turn_active),.lidar_valid(avoid_lidar_ready),.clear_front_mm(front),.clear_left_mm(left),.clear_right_mm(right),.clear_rear_mm(rear),
@@ -492,7 +536,8 @@ module robot_subsystem (
     );
     assign target_left=!remote_turn_active && manual_view && manual_active ? manual_target_left : nav_target_left;
     assign target_right=!remote_turn_active && manual_view && manual_active ? manual_target_right : nav_target_right;
-    assign drive_enable=(remote_turn_permit && nav_run) || (manual_permit && (manual_active || (manual_turn_active && nav_run))) ||
+    assign drive_enable=demo_owns ? (demo_permit && nav_run) :
+        (remote_turn_permit && nav_run) || (manual_permit && (manual_active || (manual_turn_active && nav_run))) ||
         (local_permit && nav_permit && nav_run) || (follow_permit && nav_run);
     // Local scans replace the previous revolution even while the vehicle is
     // moving. World scans accumulate only after geometry/gyro calibration;
@@ -525,6 +570,7 @@ module robot_subsystem (
     // LCD and UART consume the indexed byte stream in this subsystem.
     // Explicitly omit the unused parallel compatibility frame registers.
     robot_status_text #(.PARALLEL_COMPAT(0)) u_status(
+        .demo_engaged(demo_engaged),.demo_phase(demo_phase),.demo_seconds(demo_seconds),
         .follow_selected(follow_selected),.follow_candidate(follow_candidate),.follow_kind(follow_kind),
         .follow_confidence(follow_confidence),.follow_state(follow_state),.follow_speed(follow_speed),
         .follow_gain(follow_gain),.follow_cap(follow_cap),

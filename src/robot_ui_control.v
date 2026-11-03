@@ -114,7 +114,7 @@ module robot_ui_control #(parameter integer CLK_HZ=50000000)(
         else if(action==101)begin
             if(page==3 && subpage==3)begin next_page=4;next_subpage=1;end
             else if(page==2 && subpage==1)next_subpage=3;
-            else if(page==5 && subpage==4)next_subpage=3;
+            else if(page==5 && subpage==4)next_subpage=0;
             else begin next_page=0;next_subpage=0;end
         end else if(page==0 && subpage==0)case(action)
             1:begin next_page=0;next_subpage=1;end
@@ -129,7 +129,7 @@ module robot_ui_control #(parameter integer CLK_HZ=50000000)(
         else if(page==3 && subpage==3 && action==6)begin next_page=4;next_subpage=1;end
         else if(page==2 && subpage==3 && action==3)next_subpage=1;
         else if(page==2 && subpage==1 && action==1)next_subpage=3;
-        else if(page==5 && subpage==3 && action==4)next_subpage=4;
+        else if(page==5 && subpage==0 && action==5)next_subpage=4;
     end
     wire view_change=next_page!=page || next_subpage!=subpage;
     // A bounded forward destination gives task3 the SAME known-free planner

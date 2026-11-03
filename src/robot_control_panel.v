@@ -136,25 +136,27 @@ module robot_control_panel (
                     4'd1:view_caption=7'd44;
                     4'd2:view_caption=7'd45;
                     4'd3:view_caption=7'd46;
-                    4'd7:view_caption=7'd47;
+                    4'd4:view_caption=7'd47;
+                    4'd5:view_caption=7'd48;
+                    4'd7:view_caption=7'd49;
                     default:view_caption=0;
                 endcase
                 6'd43:case(slot)
-                    4'd1:view_caption=7'd50;
-                    4'd2:view_caption=7'd51;
-                    4'd3:view_caption=7'd52;
-                    4'd4:view_caption=7'd53;
-                    4'd5:view_caption=7'd54;
+                    4'd1:view_caption=7'd52;
+                    4'd2:view_caption=7'd53;
+                    4'd3:view_caption=7'd54;
+                    4'd4:view_caption=7'd47;
+                    4'd5:view_caption=7'd55;
                     4'd6:view_caption=7'd19;
-                    4'd7:view_caption=7'd47;
+                    4'd7:view_caption=7'd49;
                     default:view_caption=0;
                 endcase
                 6'd44:case(slot)
                     4'd1:view_caption=7'd44;
-                    4'd2:view_caption=7'd57;
-                    4'd3:view_caption=7'd58;
+                    4'd2:view_caption=7'd56;
+                    4'd3:view_caption=7'd57;
                     4'd4:view_caption=7'd19;
-                    4'd7:view_caption=7'd47;
+                    4'd7:view_caption=7'd49;
                     default:view_caption=0;
                 endcase
                 default:view_caption=0;
@@ -171,9 +173,9 @@ module robot_control_panel (
             6'd27:view_hint=7'd30;
             6'd32:view_hint=7'd37;
             6'd33:view_hint=7'd30;
-            6'd40:view_hint=7'd48;
-            6'd43:view_hint=7'd55;
-            6'd44:view_hint=7'd59;
+            6'd40:view_hint=7'd50;
+            6'd43:view_hint=7'd50;
+            6'd44:view_hint=7'd58;
             default:view_hint=7'd0;
         endcase end
     endfunction
@@ -187,9 +189,9 @@ module robot_control_panel (
             6'd27:view_detail=7'd31;
             6'd32:view_detail=7'd38;
             6'd33:view_detail=7'd31;
-            6'd40:view_detail=7'd49;
-            6'd43:view_detail=7'd56;
-            6'd44:view_detail=7'd60;
+            6'd40:view_detail=7'd51;
+            6'd43:view_detail=7'd51;
+            6'd44:view_detail=7'd59;
             default:view_detail=7'd0;
         endcase end
     endfunction
@@ -368,7 +370,7 @@ module robot_ui_hit_test (
         if(view==6'd27 && button>0 && button<100 && !(button==1 || button==2 || button==3 || button==4 || button==5 || button==6))button=0;
         if(view==6'd32 && button>0 && button<100 && !(button==1 || button==2 || button==3 || button==4 || button==5 || button==6))button=0;
         if(view==6'd33 && button>0 && button<100 && !(button==1 || button==2 || button==3 || button==4 || button==5 || button==6))button=0;
-        if(view==6'd40 && button>0 && button<100 && !(button==1 || button==2 || button==3 || button==7))button=0;
+        if(view==6'd40 && button>0 && button<100 && !(button==1 || button==2 || button==3 || button==4 || button==5 || button==7))button=0;
         if(view==6'd43 && button>0 && button<100 && !(button==1 || button==2 || button==3 || button==4 || button==5 || button==6 || button==7))button=0;
         if(view==6'd44 && button>0 && button<100 && !(button==1 || button==2 || button==3 || button==4 || button==7))button=0;
 
@@ -865,213 +867,194 @@ module robot_label_rom (
         bytes[727]=8'h41;
         bytes[728]=8'h43;
         bytes[729]=8'h45;
-        // ID 46: "STOP TRACK      "
+        // ID 46: "STOP / CANCEL   "
         bytes[736]=8'h53;
         bytes[737]=8'h54;
         bytes[738]=8'h4f;
         bytes[739]=8'h50;
         bytes[740]=8'h20;
-        bytes[741]=8'h54;
-        bytes[742]=8'h52;
-        bytes[743]=8'h41;
-        bytes[744]=8'h43;
-        bytes[745]=8'h4b;
-        // ID 47: "POWER OFF PI    "
+        bytes[741]=8'h2f;
+        bytes[742]=8'h20;
+        bytes[743]=8'h43;
+        bytes[744]=8'h41;
+        bytes[745]=8'h4e;
+        bytes[746]=8'h43;
+        bytes[747]=8'h45;
+        bytes[748]=8'h4c;
+        // ID 47: "PRESET DEMO     "
         bytes[752]=8'h50;
-        bytes[753]=8'h4f;
-        bytes[754]=8'h57;
-        bytes[755]=8'h45;
-        bytes[756]=8'h52;
-        bytes[757]=8'h20;
-        bytes[758]=8'h4f;
-        bytes[759]=8'h46;
-        bytes[760]=8'h46;
-        bytes[761]=8'h20;
-        bytes[762]=8'h50;
-        bytes[763]=8'h49;
-        // ID 48: "HEAD 135 MIN 90 "
-        bytes[768]=8'h48;
-        bytes[769]=8'h45;
-        bytes[770]=8'h41;
-        bytes[771]=8'h44;
+        bytes[753]=8'h52;
+        bytes[754]=8'h45;
+        bytes[755]=8'h53;
+        bytes[756]=8'h45;
+        bytes[757]=8'h54;
+        bytes[758]=8'h20;
+        bytes[759]=8'h44;
+        bytes[760]=8'h45;
+        bytes[761]=8'h4d;
+        bytes[762]=8'h4f;
+        // ID 48: "SIDE FOLLOW     "
+        bytes[768]=8'h53;
+        bytes[769]=8'h49;
+        bytes[770]=8'h44;
+        bytes[771]=8'h45;
         bytes[772]=8'h20;
-        bytes[773]=8'h31;
-        bytes[774]=8'h33;
-        bytes[775]=8'h35;
-        bytes[776]=8'h20;
-        bytes[777]=8'h4d;
-        bytes[778]=8'h49;
-        bytes[779]=8'h4e;
-        bytes[780]=8'h20;
-        bytes[781]=8'h39;
-        bytes[782]=8'h30;
-        // ID 49: "CHOOSE A TARGET "
-        bytes[784]=8'h43;
-        bytes[785]=8'h48;
-        bytes[786]=8'h4f;
-        bytes[787]=8'h4f;
-        bytes[788]=8'h53;
-        bytes[789]=8'h45;
-        bytes[790]=8'h20;
-        bytes[791]=8'h41;
-        bytes[792]=8'h20;
-        bytes[793]=8'h54;
-        bytes[794]=8'h41;
-        bytes[795]=8'h52;
-        bytes[796]=8'h47;
-        bytes[797]=8'h45;
-        bytes[798]=8'h54;
-        // ID 50: "FIND FACE       "
-        bytes[800]=8'h46;
-        bytes[801]=8'h49;
-        bytes[802]=8'h4e;
-        bytes[803]=8'h44;
-        bytes[804]=8'h20;
-        bytes[805]=8'h46;
-        bytes[806]=8'h41;
-        bytes[807]=8'h43;
-        bytes[808]=8'h45;
-        // ID 51: "TURN TO FACE    "
-        bytes[816]=8'h54;
-        bytes[817]=8'h55;
-        bytes[818]=8'h52;
-        bytes[819]=8'h4e;
-        bytes[820]=8'h20;
-        bytes[821]=8'h54;
-        bytes[822]=8'h4f;
-        bytes[823]=8'h20;
-        bytes[824]=8'h46;
-        bytes[825]=8'h41;
-        bytes[826]=8'h43;
-        bytes[827]=8'h45;
-        // ID 52: "GO NEAR FACE    "
-        bytes[832]=8'h47;
-        bytes[833]=8'h4f;
-        bytes[834]=8'h20;
-        bytes[835]=8'h4e;
-        bytes[836]=8'h45;
-        bytes[837]=8'h41;
-        bytes[838]=8'h52;
-        bytes[839]=8'h20;
-        bytes[840]=8'h46;
-        bytes[841]=8'h41;
-        bytes[842]=8'h43;
-        bytes[843]=8'h45;
-        // ID 53: "SIDE FOLLOW     "
-        bytes[848]=8'h53;
-        bytes[849]=8'h49;
-        bytes[850]=8'h44;
-        bytes[851]=8'h45;
+        bytes[773]=8'h46;
+        bytes[774]=8'h4f;
+        bytes[775]=8'h4c;
+        bytes[776]=8'h4c;
+        bytes[777]=8'h4f;
+        bytes[778]=8'h57;
+        // ID 49: "POWER OFF PI    "
+        bytes[784]=8'h50;
+        bytes[785]=8'h4f;
+        bytes[786]=8'h57;
+        bytes[787]=8'h45;
+        bytes[788]=8'h52;
+        bytes[789]=8'h20;
+        bytes[790]=8'h4f;
+        bytes[791]=8'h46;
+        bytes[792]=8'h46;
+        bytes[793]=8'h20;
+        bytes[794]=8'h50;
+        bytes[795]=8'h49;
+        // ID 50: "PRESET = SCRIPT "
+        bytes[800]=8'h50;
+        bytes[801]=8'h52;
+        bytes[802]=8'h45;
+        bytes[803]=8'h53;
+        bytes[804]=8'h45;
+        bytes[805]=8'h54;
+        bytes[806]=8'h20;
+        bytes[807]=8'h3d;
+        bytes[808]=8'h20;
+        bytes[809]=8'h53;
+        bytes[810]=8'h43;
+        bytes[811]=8'h52;
+        bytes[812]=8'h49;
+        bytes[813]=8'h50;
+        bytes[814]=8'h54;
+        // ID 51: "START WAITS 5S  "
+        bytes[816]=8'h53;
+        bytes[817]=8'h54;
+        bytes[818]=8'h41;
+        bytes[819]=8'h52;
+        bytes[820]=8'h54;
+        bytes[821]=8'h20;
+        bytes[822]=8'h57;
+        bytes[823]=8'h41;
+        bytes[824]=8'h49;
+        bytes[825]=8'h54;
+        bytes[826]=8'h53;
+        bytes[827]=8'h20;
+        bytes[828]=8'h35;
+        bytes[829]=8'h53;
+        // ID 52: "FIND FACE       "
+        bytes[832]=8'h46;
+        bytes[833]=8'h49;
+        bytes[834]=8'h4e;
+        bytes[835]=8'h44;
+        bytes[836]=8'h20;
+        bytes[837]=8'h46;
+        bytes[838]=8'h41;
+        bytes[839]=8'h43;
+        bytes[840]=8'h45;
+        // ID 53: "TURN TO FACE    "
+        bytes[848]=8'h54;
+        bytes[849]=8'h55;
+        bytes[850]=8'h52;
+        bytes[851]=8'h4e;
         bytes[852]=8'h20;
-        bytes[853]=8'h46;
+        bytes[853]=8'h54;
         bytes[854]=8'h4f;
-        bytes[855]=8'h4c;
-        bytes[856]=8'h4c;
-        bytes[857]=8'h4f;
-        bytes[858]=8'h57;
-        // ID 54: "CAMERA FRONT    "
-        bytes[864]=8'h43;
-        bytes[865]=8'h41;
-        bytes[866]=8'h4d;
-        bytes[867]=8'h45;
-        bytes[868]=8'h52;
+        bytes[855]=8'h20;
+        bytes[856]=8'h46;
+        bytes[857]=8'h41;
+        bytes[858]=8'h43;
+        bytes[859]=8'h45;
+        // ID 54: "GO NEAR FACE    "
+        bytes[864]=8'h47;
+        bytes[865]=8'h4f;
+        bytes[866]=8'h20;
+        bytes[867]=8'h4e;
+        bytes[868]=8'h45;
         bytes[869]=8'h41;
-        bytes[870]=8'h20;
-        bytes[871]=8'h46;
-        bytes[872]=8'h52;
-        bytes[873]=8'h4f;
-        bytes[874]=8'h4e;
-        bytes[875]=8'h54;
-        // ID 55: "LASER RANGE ONLY"
-        bytes[880]=8'h4c;
+        bytes[870]=8'h52;
+        bytes[871]=8'h20;
+        bytes[872]=8'h46;
+        bytes[873]=8'h41;
+        bytes[874]=8'h43;
+        bytes[875]=8'h45;
+        // ID 55: "CAMERA FRONT    "
+        bytes[880]=8'h43;
         bytes[881]=8'h41;
-        bytes[882]=8'h53;
+        bytes[882]=8'h4d;
         bytes[883]=8'h45;
         bytes[884]=8'h52;
-        bytes[885]=8'h20;
-        bytes[886]=8'h52;
-        bytes[887]=8'h41;
-        bytes[888]=8'h4e;
-        bytes[889]=8'h47;
-        bytes[890]=8'h45;
-        bytes[891]=8'h20;
-        bytes[892]=8'h4f;
-        bytes[893]=8'h4e;
-        bytes[894]=8'h4c;
-        bytes[895]=8'h59;
-        // ID 56: "FRONT REF FIRST "
+        bytes[885]=8'h41;
+        bytes[886]=8'h20;
+        bytes[887]=8'h46;
+        bytes[888]=8'h52;
+        bytes[889]=8'h4f;
+        bytes[890]=8'h4e;
+        bytes[891]=8'h54;
+        // ID 56: "FRONT SAMPLE    "
         bytes[896]=8'h46;
         bytes[897]=8'h52;
         bytes[898]=8'h4f;
         bytes[899]=8'h4e;
         bytes[900]=8'h54;
         bytes[901]=8'h20;
-        bytes[902]=8'h52;
-        bytes[903]=8'h45;
-        bytes[904]=8'h46;
-        bytes[905]=8'h20;
-        bytes[906]=8'h46;
-        bytes[907]=8'h49;
-        bytes[908]=8'h52;
-        bytes[909]=8'h53;
-        bytes[910]=8'h54;
-        // ID 57: "FRONT SAMPLE    "
-        bytes[912]=8'h46;
-        bytes[913]=8'h52;
-        bytes[914]=8'h4f;
-        bytes[915]=8'h4e;
+        bytes[902]=8'h53;
+        bytes[903]=8'h41;
+        bytes[904]=8'h4d;
+        bytes[905]=8'h50;
+        bytes[906]=8'h4c;
+        bytes[907]=8'h45;
+        // ID 57: "START FOLLOW    "
+        bytes[912]=8'h53;
+        bytes[913]=8'h54;
+        bytes[914]=8'h41;
+        bytes[915]=8'h52;
         bytes[916]=8'h54;
         bytes[917]=8'h20;
-        bytes[918]=8'h53;
-        bytes[919]=8'h41;
-        bytes[920]=8'h4d;
-        bytes[921]=8'h50;
-        bytes[922]=8'h4c;
-        bytes[923]=8'h45;
-        // ID 58: "START FOLLOW    "
-        bytes[928]=8'h53;
-        bytes[929]=8'h54;
-        bytes[930]=8'h41;
-        bytes[931]=8'h52;
-        bytes[932]=8'h54;
-        bytes[933]=8'h20;
-        bytes[934]=8'h46;
-        bytes[935]=8'h4f;
-        bytes[936]=8'h4c;
-        bytes[937]=8'h4c;
-        bytes[938]=8'h4f;
-        bytes[939]=8'h57;
-        // ID 59: "DOG AT CAR LEFT "
-        bytes[944]=8'h44;
-        bytes[945]=8'h4f;
-        bytes[946]=8'h47;
-        bytes[947]=8'h20;
-        bytes[948]=8'h41;
-        bytes[949]=8'h54;
+        bytes[918]=8'h46;
+        bytes[919]=8'h4f;
+        bytes[920]=8'h4c;
+        bytes[921]=8'h4c;
+        bytes[922]=8'h4f;
+        bytes[923]=8'h57;
+        // ID 58: "DOG AT CAR LEFT "
+        bytes[928]=8'h44;
+        bytes[929]=8'h4f;
+        bytes[930]=8'h47;
+        bytes[931]=8'h20;
+        bytes[932]=8'h41;
+        bytes[933]=8'h54;
+        bytes[934]=8'h20;
+        bytes[935]=8'h43;
+        bytes[936]=8'h41;
+        bytes[937]=8'h52;
+        bytes[938]=8'h20;
+        bytes[939]=8'h4c;
+        bytes[940]=8'h45;
+        bytes[941]=8'h46;
+        bytes[942]=8'h54;
+        // ID 59: "SAMPLE THEN GO  "
+        bytes[944]=8'h53;
+        bytes[945]=8'h41;
+        bytes[946]=8'h4d;
+        bytes[947]=8'h50;
+        bytes[948]=8'h4c;
+        bytes[949]=8'h45;
         bytes[950]=8'h20;
-        bytes[951]=8'h43;
-        bytes[952]=8'h41;
-        bytes[953]=8'h52;
-        bytes[954]=8'h20;
-        bytes[955]=8'h4c;
-        bytes[956]=8'h45;
-        bytes[957]=8'h46;
-        bytes[958]=8'h54;
-        // ID 60: "SAMPLE THEN GO  "
-        bytes[960]=8'h53;
-        bytes[961]=8'h41;
-        bytes[962]=8'h4d;
-        bytes[963]=8'h50;
-        bytes[964]=8'h4c;
-        bytes[965]=8'h45;
-        bytes[966]=8'h20;
-        bytes[967]=8'h54;
-        bytes[968]=8'h48;
-        bytes[969]=8'h45;
-        bytes[970]=8'h4e;
-        bytes[971]=8'h20;
-        bytes[972]=8'h47;
-        bytes[973]=8'h4f;
+        bytes[951]=8'h54;
+        bytes[952]=8'h48;
+        bytes[953]=8'h45;
+        bytes[954]=8'h4e;
+        bytes[955]=8'h20;
+        bytes[956]=8'h47;
+        bytes[957]=8'h4f;
     end
     always @(posedge clk)character<=bytes[{label_id,character_index}];
 endmodule

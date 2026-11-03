@@ -2,6 +2,9 @@
 module robot_status_text #(parameter integer CLK_HZ=50000000,parameter integer PARALLEL_COMPAT=1)(
     input wire clk,reset_n,
     input wire [2:0] page,subpage,
+    input wire demo_engaged,
+    input wire [3:0] demo_phase,
+    input wire [2:0] demo_seconds,
     input wire [15:0] follow_selected,follow_candidate,
     input wire [7:0] follow_kind,follow_confidence,follow_state,
     input wire signed [15:0] follow_speed,
@@ -1220,6 +1223,98 @@ module robot_status_text #(parameter integer CLK_HZ=50000000,parameter integer P
         labels[1756]=8'h41;
         labels[1757]=8'h54;
         labels[1758]=8'h48;
+        // 110: PRESET DEMO
+        labels[1760]=8'h50;
+        labels[1761]=8'h52;
+        labels[1762]=8'h45;
+        labels[1763]=8'h53;
+        labels[1764]=8'h45;
+        labels[1765]=8'h54;
+        labels[1767]=8'h44;
+        labels[1768]=8'h45;
+        labels[1769]=8'h4d;
+        labels[1770]=8'h4f;
+        // 111: DEMO COUNTDOWN
+        labels[1776]=8'h44;
+        labels[1777]=8'h45;
+        labels[1778]=8'h4d;
+        labels[1779]=8'h4f;
+        labels[1781]=8'h43;
+        labels[1782]=8'h4f;
+        labels[1783]=8'h55;
+        labels[1784]=8'h4e;
+        labels[1785]=8'h54;
+        labels[1786]=8'h44;
+        labels[1787]=8'h4f;
+        labels[1788]=8'h57;
+        labels[1789]=8'h4e;
+        // 112: DEMO WAIT SENSOR
+        labels[1792]=8'h44;
+        labels[1793]=8'h45;
+        labels[1794]=8'h4d;
+        labels[1795]=8'h4f;
+        labels[1797]=8'h57;
+        labels[1798]=8'h41;
+        labels[1799]=8'h49;
+        labels[1800]=8'h54;
+        labels[1802]=8'h53;
+        labels[1803]=8'h45;
+        labels[1804]=8'h4e;
+        labels[1805]=8'h53;
+        labels[1806]=8'h4f;
+        labels[1807]=8'h52;
+        // 113: DEMO RUNNING
+        labels[1808]=8'h44;
+        labels[1809]=8'h45;
+        labels[1810]=8'h4d;
+        labels[1811]=8'h4f;
+        labels[1813]=8'h52;
+        labels[1814]=8'h55;
+        labels[1815]=8'h4e;
+        labels[1816]=8'h4e;
+        labels[1817]=8'h49;
+        labels[1818]=8'h4e;
+        labels[1819]=8'h47;
+        // 114: DEMO PAUSED
+        labels[1824]=8'h44;
+        labels[1825]=8'h45;
+        labels[1826]=8'h4d;
+        labels[1827]=8'h4f;
+        labels[1829]=8'h50;
+        labels[1830]=8'h41;
+        labels[1831]=8'h55;
+        labels[1832]=8'h53;
+        labels[1833]=8'h45;
+        labels[1834]=8'h44;
+        // 115: DEMO DONE
+        labels[1840]=8'h44;
+        labels[1841]=8'h45;
+        labels[1842]=8'h4d;
+        labels[1843]=8'h4f;
+        labels[1845]=8'h44;
+        labels[1846]=8'h4f;
+        labels[1847]=8'h4e;
+        labels[1848]=8'h45;
+        // 116: DEMO FAULT
+        labels[1856]=8'h44;
+        labels[1857]=8'h45;
+        labels[1858]=8'h4d;
+        labels[1859]=8'h4f;
+        labels[1861]=8'h46;
+        labels[1862]=8'h41;
+        labels[1863]=8'h55;
+        labels[1864]=8'h4c;
+        labels[1865]=8'h54;
+        // 117: STEP
+        labels[1872]=8'h53;
+        labels[1873]=8'h54;
+        labels[1874]=8'h45;
+        labels[1875]=8'h50;
+        // 118: WAIT
+        labels[1888]=8'h57;
+        labels[1889]=8'h41;
+        labels[1890]=8'h49;
+        labels[1891]=8'h54;
     end
 
     // Six frozen20-bit values, one serial BCD converter and one2KB byte ROM.
@@ -1300,6 +1395,12 @@ module robot_status_text #(parameter integer CLK_HZ=50000000,parameter integer P
             if(follow_state==12)live_status=27;
             if(follow_state==13)live_status=14;
             if(follow_state==21)live_status=(follow_diagnostic==12 || follow_diagnostic==13) ? {1'b0,follow_diagnostic[5:0]} : 7'd19;
+        end
+        if(page==5 && demo_engaged)begin
+            live_title=110;
+            live_status=demo_phase==1 ? 111 : demo_phase==2 ? 112 :
+                demo_phase==12 ? 115 : demo_phase==13 ? 116 :
+                nav_status==7 || nav_status==8 ? 114 : 113;
         end
         if(motor_fault!=0)live_status=50;
         if(safety_stop)live_status=51;
@@ -1386,6 +1487,14 @@ module robot_status_text #(parameter integer CLK_HZ=50000000,parameter integer P
                         end
                         default:begin end
                     endcase
+                    if(page==5 && demo_engaged)begin
+                        numeric_mask<=6'b011111;unknown_mask<=0;degrees_mask<=6'b010000;
+                        values[0]<=$signed({17'd0,demo_seconds});prefixes[0]<=118;
+                        values[1]<=$signed({16'd0,demo_phase});prefixes[1]<=117;
+                        values[2]<=x_mm[19:0];prefixes[2]<=65;
+                        values[3]<=y_mm[19:0];prefixes[3]<=66;
+                        values[4]<=heading_mdeg[19:0];prefixes[4]<=67;
+                    end
                     row<=0;column<=0;state<=S_ROW;
                 end
                 S_ROW:begin

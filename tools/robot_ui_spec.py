@@ -51,8 +51,8 @@ VIEWS = {
     (3, 3): View('GOAL X Y MM', 'leaf', ('X -', 'X +', 'Y -', 'Y +', 'STEP', 'DONE'), 'X FRONT Y LEFT', 'MM / DEGREES'),
     (4, 0): View('2 MOTOR CONTROL', 'leaf', ('FORWARD', 'REVERSE', 'TURN LEFT', 'TURN RIGHT', 'TURN 180', 'STOP'), 'CLICK TO MOVE', 'STOP TO FINISH'),
     (4, 1): View('4 XY NAVIGATION', 'leaf', ('LEFT 90', 'RIGHT 90', 'HERE IS ZERO', 'GO TO GOAL', 'SET GOAL', 'STOP'), 'X FRONT Y LEFT', 'MM / DEGREES'),
-    (5, 0): View('5 GIMBAL TRACK', 'leaf', ('TRACK DOG', 'TRACK FACE', 'STOP TRACK', '', '', '', 'POWER OFF PI'), 'HEAD 135 MIN 90', 'CHOOSE A TARGET'),
-    (5, 3): View('6 FIND FACE', 'leaf', ('FIND FACE', 'TURN TO FACE', 'GO NEAR FACE', 'SIDE FOLLOW', 'CAMERA FRONT', 'STOP', 'POWER OFF PI'), 'LASER RANGE ONLY', 'FRONT REF FIRST'),
+    (5, 0): View('5 GIMBAL TRACK', 'leaf', ('TRACK DOG', 'TRACK FACE', 'STOP / CANCEL', 'PRESET DEMO', 'SIDE FOLLOW', '', 'POWER OFF PI'), 'PRESET = SCRIPT', 'START WAITS 5S'),
+    (5, 3): View('6 FIND FACE', 'leaf', ('FIND FACE', 'TURN TO FACE', 'GO NEAR FACE', 'PRESET DEMO', 'CAMERA FRONT', 'STOP', 'POWER OFF PI'), 'PRESET = SCRIPT', 'START WAITS 5S'),
     (5, 4): View('DOG SIDE FOLLOW', 'leaf', ('TRACK DOG', 'FRONT SAMPLE', 'START FOLLOW', 'STOP', '', '', 'POWER OFF PI'), 'DOG AT CAR LEFT', 'SAMPLE THEN GO'),
 }
 
@@ -434,9 +434,9 @@ endmodule
 def route_for(view, slot):
     if slot==100:return (0,0)
     if slot==101:
-        return (4,1) if view==(3,3) else (2,3) if view==(2,1) else (5,3) if view==(5,4) else (0,0)
+        return (4,1) if view==(3,3) else (2,3) if view==(2,1) else (5,0) if view==(5,4) else (0,0)
     if view==(0,0):return {1:(0,1),2:(4,0),3:(2,3),4:(4,1),5:(5,0),6:(5,3)}.get(slot)
-    return {((4,1),5):(3,3),((3,3),6):(4,1),((2,3),3):(2,1),((2,1),1):(2,3),((5,3),4):(5,4)}.get((view,slot))
+    return {((4,1),5):(3,3),((3,3),6):(4,1),((2,3),3):(2,1),((2,1),1):(2,3),((5,0),5):(5,4)}.get((view,slot))
 
 
 def main():

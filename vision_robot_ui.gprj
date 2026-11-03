@@ -40,6 +40,7 @@
     <File path="src/robot_control_panel.v" type="file.verilog" enable="1"/>
     <File path="src/robot_mission_control.v" type="file.verilog" enable="1"/>
     <File path="src/robot_subsystem.v" type="file.verilog" enable="1"/>
+    <File path="src/robot_preset_demo.v" type="file.verilog" enable="1"/>
     <File path="src/actuator_test_panel.v" type="file.verilog" enable="1"/>
     <File path="src/servo_pulse_output.v" type="file.verilog" enable="1"/>
     <File path="src/bq34z100_i2c_master.v" type="file.verilog" enable="1"/>
