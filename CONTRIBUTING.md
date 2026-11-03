@@ -1,6 +1,6 @@
 # 团队协作与开发
 
-协作基线是2026-10-25的FPGA R7和Pi v22修订2。先读[README](README.md)与[文档索引](docs/README.md)，再选择自己负责的模块。
+本轮协作基线为 `fix/teammate-obstacle-resume-20261103`（队友现场FPGA源码 + Pi v22修订4）；R7/v22修订2为历史记录。先读[README](README.md)与[文档索引](docs/README.md)，再选择自己负责的模块。
 
 ## 分支与提交
 

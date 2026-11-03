@@ -132,6 +132,22 @@ module robot_ui_control #(parameter integer CLK_HZ=50000000)(
         else if(page==5 && subpage==3 && action==4)next_subpage=4;
     end
     wire view_change=next_page!=page || next_subpage!=subpage;
+    // A bounded forward destination gives task3 the SAME known-free planner
+    // and stop/replan lifecycle as task4, rather than an endless MANUAL run.
+    wire avoid_goal_cancel=view_change || safety_stop || motor_fault || !touch_ready ||
+        stop_contact || (snapshot_valid && snapshot_cancel) || remote_takeover || remote_active ||
+        !gains_ready || !gyro_ready || !lidar_ready ||
+        (action_valid && (action==105 || action==106 ||
+            (page==2 && subpage==3 && (action==2 || action==4))));
+    wire avoid_goal_start=action_valid && page==2 && subpage==3 && action==1 &&
+        local_ready && gains_ready && gyro_ready && lidar_ready;
+    wire avoid_goal_done,avoid_goal_error;
+    wire signed [31:0] avoid_goal_x,avoid_goal_y;
+    robot_avoid_forward_goal u_avoid_goal(
+        .clk(clk),.reset_n(reset_n),.start(avoid_goal_start),.cancel(avoid_goal_cancel),
+        .pose_x(live_x_mm),.pose_y(live_y_mm),.heading_mdeg(live_heading_mdeg),
+        .done(avoid_goal_done),.error(avoid_goal_error),.goal_x(avoid_goal_x),.goal_y(avoid_goal_y)
+    );
     function signed [31:0] relative_heading;
         input signed [31:0] h,d;
         reg signed [31:0] sum;
@@ -163,6 +179,15 @@ module robot_ui_control #(parameter integer CLK_HZ=50000000)(
             pid_action_valid<=0;pid_argument<=0;emergency_stop_pulse<=0;clear_stop_pulse<=0;
             command_valid<=0;pose_set<=0;map_clear<=0;lidar_restart<=0;action_valid<=0;
             task_rsp_valid<=0;
+            if(avoid_goal_done && !avoid_goal_cancel && page==2 && subpage==3)begin
+                if(!avoid_goal_error && local_ready && gains_ready && gyro_ready && lidar_ready)begin
+                    goal_x_mm<=avoid_goal_x;goal_y_mm<=avoid_goal_y;
+                    armed<=1;command<=3;command_valid<=1;ui_notice<=0;
+                end else begin
+                    armed<=0;command<=0;command_valid<=1;
+                    ui_notice<=avoid_goal_error ? 4'd10 : !gains_ready ? 4'd2 : !gyro_ready ? 4'd3 : 4'd5;
+                end
+            end
             if(ms_count==CLK_HZ/1000-1)begin
                 ms_count<=0;if(touch_age!=1023)touch_age<=touch_age+1'b1;
                 if(view_cooldown_ms!=0)view_cooldown_ms<=view_cooldown_ms-1'b1;
@@ -211,7 +236,7 @@ module robot_ui_control #(parameter integer CLK_HZ=50000000)(
                         armed<=0;command<=0;command_valid<=1;rebase_pending<=3;ui_notice<=9;
                     end else if(action==1 || action==2 || action==4)begin
                         scan_enable<=1;
-                        if(local_ready && gains_ready && gyro_ready && (action!=4 || lidar_ready))begin
+                        if(local_ready && gains_ready && gyro_ready && lidar_ready)begin
                             armed<=1;command<=action==4 ? 3'd3 : 3'd2;command_valid<=1;
                             if(action!=4)turn_heading_mdeg<=relative_heading(live_heading_mdeg,action==1 ? 90000 : -90000);
                         end else ui_notice<=!gains_ready ? 2 : !gyro_ready ? 3 : 5;
@@ -230,9 +255,11 @@ module robot_ui_control #(parameter integer CLK_HZ=50000000)(
                     end
                     if(action==1)begin
                         scan_enable<=1;
-                        if(local_ready && gyro_ready && lidar_ready)begin
-                            armed<=1;manual_left<=5;manual_right<=5;manual_heading_hold<=1;command<=1;command_valid<=1;
-                        end else ui_notice<=!gyro_ready ? 3 : 5;
+                        // Cancel the preceding run while the forward goal is
+                        // captured. No delayed result may escape a local STOP.
+                        armed<=0;command<=0;command_valid<=1;
+                        if(!local_ready || !gains_ready || !gyro_ready || !lidar_ready)
+                            ui_notice<=!gains_ready ? 2 : !gyro_ready ? 3 : 5;
                     end
                 end
                 if(view_change)begin
@@ -309,6 +336,81 @@ module robot_ui_control #(parameter integer CLK_HZ=50000000)(
                 armed<=0;command<=0;command_valid<=1;
                 if(task_phase!=0 && task_held_action!=7)begin task_error<=5;action_valid<=0;end
             end
+        end
+    end
+endmodule
+
+// Project a one-metre demonstration goal from a frozen axle pose/heading.
+// Twelve sequential CORDIC iterations, fixed one-bit shifts, no DSP or ROM.
+// This module only proposes coordinates; it never grants motor permission.
+module robot_avoid_forward_goal(
+    input wire clk,reset_n,start,cancel,
+    input wire signed [31:0] pose_x,pose_y,heading_mdeg,
+    output reg done,error,
+    output reg signed [31:0] goal_x,goal_y
+);
+    localparam IDLE=0,SHIFT_LOAD=1,SHIFT_STEP=2,APPLY=3,SUM=4,COMMIT=5;
+    reg [2:0] state;
+    reg [3:0] iteration,remaining;
+    reg signed [16:0] cx,cy,shift_x,shift_y;
+    reg signed [18:0] cz;
+    reg signed [31:0] origin_x,origin_y;
+    reg signed [32:0] sum_x,sum_y;
+    wire signed [17:0] rounded_x=$signed({cx[16],cx})+18'sd8;
+    wire signed [17:0] rounded_y=$signed({cy[16],cy})+18'sd8;
+    wire signed [32:0] delta_x=$signed({{15{rounded_x[17]}},rounded_x})>>>4;
+    wire signed [32:0] delta_y=$signed({{15{rounded_y[17]}},rounded_y})>>>4;
+    function signed [18:0] atan_mdeg;
+        input [3:0] index;
+        begin case(index)
+            0:atan_mdeg=45000;1:atan_mdeg=26565;2:atan_mdeg=14036;3:atan_mdeg=7125;
+            4:atan_mdeg=3576;5:atan_mdeg=1790;6:atan_mdeg=895;7:atan_mdeg=448;
+            8:atan_mdeg=224;9:atan_mdeg=112;10:atan_mdeg=56;default:atan_mdeg=28;
+        endcase end
+    endfunction
+    always @(posedge clk or negedge reset_n)begin
+        if(!reset_n)begin
+            state<=IDLE;iteration<=0;remaining<=0;cx<=0;cy<=0;shift_x<=0;shift_y<=0;cz<=0;
+            origin_x<=0;origin_y<=0;sum_x<=0;sum_y<=0;goal_x<=0;goal_y<=0;done<=0;error<=0;
+        end else begin
+            done<=0;
+            if(cancel)begin state<=IDLE;error<=0;end
+            else if(start)begin
+                error<=0;origin_x<=pose_x;origin_y<=pose_y;cy<=0;iteration<=0;
+                if(heading_mdeg< -180000 || heading_mdeg>180000 ||
+                   pose_x< -3900 || pose_x>3900 || pose_y< -3900 || pose_y>3900)begin
+                    error<=1;done<=1;state<=IDLE;
+                end else begin
+                    // 607.25mm in Q4 compensates the CORDIC rotation gain.
+                    if(heading_mdeg>90000)begin cx<=-17'sd9716;cz<=heading_mdeg-180000;end
+                    else if(heading_mdeg< -90000)begin cx<=-17'sd9716;cz<=heading_mdeg+180000;end
+                    else begin cx<=17'sd9716;cz<=heading_mdeg;end
+                    state<=SHIFT_LOAD;
+                end
+            end else case(state)
+                SHIFT_LOAD:begin shift_x<=cx;shift_y<=cy;remaining<=iteration;state<=SHIFT_STEP;end
+                SHIFT_STEP:begin
+                    if(remaining==0)state<=APPLY;
+                    else begin shift_x<=shift_x>>>1;shift_y<=shift_y>>>1;remaining<=remaining-1'b1;end
+                end
+                APPLY:begin
+                    if(cz>=0)begin cx<=cx-shift_y;cy<=cy+shift_x;cz<=cz-atan_mdeg(iteration);end
+                    else begin cx<=cx+shift_y;cy<=cy-shift_x;cz<=cz+atan_mdeg(iteration);end
+                    if(iteration==11)state<=SUM;
+                    else begin iteration<=iteration+1'b1;state<=SHIFT_LOAD;end
+                end
+                SUM:begin
+                    sum_x<=$signed({origin_x[31],origin_x})+delta_x;
+                    sum_y<=$signed({origin_y[31],origin_y})+delta_y;state<=COMMIT;
+                end
+                COMMIT:begin
+                    // Reject a destination outside the supported field;
+                    // clipping would silently change the promised distance.
+                    error<=sum_x< -3900 || sum_x>3900 || sum_y< -3900 || sum_y>3900;
+                    goal_x<=sum_x[31:0];goal_y<=sum_y[31:0];done<=1;state<=IDLE;
+                end
+                default:state<=IDLE;
+            endcase
         end
     end
 endmodule

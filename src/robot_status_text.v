@@ -1284,6 +1284,7 @@ module robot_status_text #(parameter integer CLK_HZ=50000000,parameter integer P
         endcase
         live_status=armed ? navigation_label(nav_status) : 7'd20;
         if(ui_notice==9)live_status=49;
+        else if(ui_notice==10)live_status=90;
         else if(ui_notice==2)live_status=30;
         else if(ui_notice==3 || calibrating)live_status=29;
         else if(ui_notice==5)live_status=28;

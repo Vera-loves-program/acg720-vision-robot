@@ -1,0 +1,594 @@
+{
+  "generated_local": "2026-11-04T00:05:38.414045+08:00",
+  "branch": "fix/teammate-obstacle-resume-20261103",
+  "imported_baseline_commit": "969f061",
+  "source_baseline": "User-provided teammate package; FPGA build inputs verified byte-identical before edits",
+  "source_package": "C:\\Users\\Vera\\Documents\\xwechat_files\\wxid_pgr44tc6nerl22_9105\\msg\\file\\2026-11\\acg720-obstacle-source-20261103\\acg720-vision-robot",
+  "reported_snapshot": "03029f345cde832e48c858857a827a1a56b61be7",
+  "field_observation": "User: task4 GO TO GOAL starts and stops for obstacles; does not resume after removal",
+  "functional_rtl_changed": [
+    "src/lidar_path_planner.v",
+    "src/robot_mission_control.v"
+  ],
+  "unchanged_fpga_build_inputs": [
+    "build.tcl",
+    "impl/vision_robot_netfix_process_config.json",
+    "impl/vision_robot_process_config.json",
+    "impl/vision_robot_ui_process_config.json",
+    "src/actuator_test_control.v",
+    "src/actuator_test_panel.v",
+    "src/bm8563_clock.v",
+    "src/bq34z100_board_setup.v",
+    "src/bq34z100_gauge.v",
+    "src/bq34z100_i2c_master.v",
+    "src/bq34z100_status_text.v",
+    "src/cs100a_demo.v",
+    "src/encoder_quadrature.v",
+    "src/gaussian3x3_rgb565.v",
+    "src/gowin_pll_45/gowin_pll.v",
+    "src/gowin_pll_45/gowin_pll_mod.v",
+    "src/gowin_pll_45/pll_init.v",
+    "src/gt911_touch.v",
+    "src/lcd1024_interaction_ui.v",
+    "src/lcd_camera_zoom.v",
+    "src/lcd_interaction.cst",
+    "src/lcd_interaction.sdc",
+    "src/lidar_grid_map.v",
+    "src/lsm6dsv16x_demo.v",
+    "src/motor_axis_control.v",
+    "src/motor_drive_control.v",
+    "src/motor_status_text.v",
+    "src/motor_tuning_control.v",
+    "src/motor_uart_commands.v",
+    "src/pid_touch_controls.v",
+    "src/robot_control_panel.v",
+    "src/robot_navigation.v",
+    "src/robot_status_text.v",
+    "src/robot_subsystem.v",
+    "src/robot_ui_control.v",
+    "src/rplidar_c1.v",
+    "src/rtc_calendar_valid.v",
+    "src/seg7_clock_display.v",
+    "src/sensor_demo_commands.v",
+    "src/sensor_demo_text.v",
+    "src/sensor_demo_uart.v",
+    "src/sensor_i2c_master.v",
+    "src/servo_pulse_output.v",
+    "src/tb6612_axis_pwm.v",
+    "src/touch_gestures.v",
+    "src/uart_rtc_set_parser.v",
+    "src/udp_detection_feedback.v",
+    "src/udp_ui_command_parser.v",
+    "src/ui_video_tx_mux.v",
+    "src/unsigned_divmod.v",
+    "src/vendor/DVP_Capture/DVP_Capture.v",
+    "src/vendor/camera_init/camera_init.v",
+    "src/vendor/camera_init/i2c_control/i2c_bit_shift.v",
+    "src/vendor/camera_init/i2c_control/i2c_control.v",
+    "src/vendor/camera_init/ov5640_init_table_rgb.v",
+    "src/vendor/ddr3_ctrl_2port/ddr3_ctrl_2port.v",
+    "src/vendor/ddr3_ctrl_2port/fifo_ddr3_adapter.v",
+    "src/vendor/ddr3_memory_interface/ddr3_memory_interface.ipc",
+    "src/vendor/ddr3_memory_interface/ddr3_memory_interface.v",
+    "src/vendor/ddr_pll/ddr_pll.ipc",
+    "src/vendor/ddr_pll/ddr_pll.v",
+    "src/vendor/ddr_pll/ddr_pll_mod.v",
+    "src/vendor/ethernet/crc32_d8.v",
+    "src/vendor/ethernet/eth_tx_ctrl.v",
+    "src/vendor/ethernet/eth_tx_fifo.ipc",
+    "src/vendor/ethernet/eth_tx_fifo.v",
+    "src/vendor/ethernet/eth_udp_rx_gmii.v",
+    "src/vendor/ethernet/eth_udp_tx_gmii.v",
+    "src/vendor/ethernet/gmii_to_rgmii.v",
+    "src/vendor/ethernet/ip_checksum.v",
+    "src/vendor/ethernet/mdio_bit_shift.v",
+    "src/vendor/ethernet/phy_reg_config.v",
+    "src/vendor/ethernet/rgmii_to_gmii.v",
+    "src/vendor/net_pll/gowin_pll.ipc",
+    "src/vendor/net_pll/gowin_pll.v",
+    "src/vendor/net_pll/gowin_pll_mod.v",
+    "src/vendor/pll_mDRP_intf.v",
+    "src/vendor/rd_data_fifo/rd_data_fifo.ipc",
+    "src/vendor/rd_data_fifo/rd_data_fifo.v",
+    "src/vendor/wr_data_fifo/wr_data_fifo.ipc",
+    "src/vendor/wr_data_fifo/wr_data_fifo.v",
+    "src/video_400x240_packetizer.v",
+    "src/vision_robot_ui_top.v",
+    "vision_robot_ui.gprj"
+  ],
+  "field_package_matches_recompiled_baseline": true,
+  "positive_hdl": {
+    "all_passed": true,
+    "selected_only": null,
+    "runs": [
+      {
+        "name": "mission",
+        "passed": true,
+        "exit_code": 0,
+        "sources": {
+          "tests/tb_mission_observation_latch.v": "6730b6ec5f9a4c8c1c7511892310d29d1221d566f9b0aca3f52c647531c0b423",
+          "src/robot_mission_control.v": "6a67444b3aa6c0f8c933f9cf89ad2507ceccae5e0d600045f6b76367ae9a15d3"
+        },
+        "log": "PASS mission observation latch 16 assertions: commit readiness gap, held completion, duplicate ID, pose recovery, exact goal, STOP\nw\u0000s\u0000l\u0000:\u0000 \u0000�hKm0R \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006tM�n\f�FO*g\\��P0R \u0000W\u0000S\u0000L\u0000\u00020N\u0000A\u0000T\u0000 \u0000!j\u000f_\u000bN�v \u0000W\u0000S\u0000L\u0000 \u0000\nN/e\u0001c \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006t\u00020\n\u0000\n\u0000"
+      },
+      {
+        "name": "left",
+        "passed": true,
+        "exit_code": 0,
+        "sources": {
+          "tests/tb_lidar_detour_preference.v": "e9f0fdb7cce23c3b343fe4516f477afc03ae0fbe9078878136103b0ae5a12af0",
+          "src/lidar_path_planner.v": "e6157bcb63d31772542d0084bb75dd0cebb9d89e0696fd64cba6a495508305f4"
+        },
+        "log": "PASS tb_lidar_detour_preference: 18 assertions, actual planner backtrace; 4 headings left tie-break, occupied/UNKNOWN alternatives\nw\u0000s\u0000l\u0000:\u0000 \u0000�hKm0R \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006tM�n\f�FO*g\\��P0R \u0000W\u0000S\u0000L\u0000\u00020N\u0000A\u0000T\u0000 \u0000!j\u000f_\u000bN�v \u0000W\u0000S\u0000L\u0000 \u0000\nN/e\u0001c \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006t\u00020\n\u0000\n\u0000"
+      },
+      {
+        "name": "map",
+        "passed": true,
+        "exit_code": 0,
+        "sources": {
+          "tests/tb_real_map_resume.v": "47ccddc2b588e3837adcc5bc272d9bd83c96ec93a6d76a91108a97d19a44b5e0",
+          "src/robot_mission_control.v": "6a67444b3aa6c0f8c933f9cf89ad2507ceccae5e0d600045f6b76367ae9a15d3",
+          "src/lidar_path_planner.v": "e6157bcb63d31772542d0084bb75dd0cebb9d89e0696fd64cba6a495508305f4",
+          "src/lidar_grid_map.v": "24800a1dcd1235332ca7f39272615b05f82f5fdbd3fc12d5b491b520ff255e7d"
+        },
+        "log": "PASS real mapper+planner+mission 21 checks: post-stop scan barrier, commit/readiness phase gap, actual left detour, liveRAM near-hit and FREE clearing, same-goal resume, STOP\nw\u0000s\u0000l\u0000:\u0000 \u0000�hKm0R \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006tM�n\f�FO*g\\��P0R \u0000W\u0000S\u0000L\u0000\u00020N\u0000A\u0000T\u0000 \u0000!j\u000f_\u000bN�v \u0000W\u0000S\u0000L\u0000 \u0000\nN/e\u0001c \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006t\u00020\n\u0000\n\u0000"
+      }
+    ],
+    "hardware_tested": false
+  },
+  "negative_control_same_final_bench": {
+    "all_passed": false,
+    "selected_only": "mission",
+    "runs": [
+      {
+        "name": "mission",
+        "passed": false,
+        "exit_code": 1,
+        "sources": {
+          "tests/tb_mission_observation_latch.v": "6730b6ec5f9a4c8c1c7511892310d29d1221d566f9b0aca3f52c647531c0b423",
+          "D:\\GOWIN_PROJECTS\\acg720_obstacle_resume\\tmp\\teammate-baseline-source\\src\\robot_mission_control.v": "a6e97fa6968e8e00ab9eb765e9ac4781215c84b13fa3fd054ef5045f5dd0660e"
+        },
+        "log": "FATAL: tests/tb_mission_observation_latch.v:31: fresh completed observation was lost: starts1 error0 phase0 waiting0\n       Time: 840000 Scope: tb_mission_observation_latch.check\nw\u0000s\u0000l\u0000:\u0000 \u0000�hKm0R \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006tM�n\f�FO*g\\��P0R \u0000W\u0000S\u0000L\u0000\u00020N\u0000A\u0000T\u0000 \u0000!j\u000f_\u000bN�v \u0000W\u0000S\u0000L\u0000 \u0000\nN/e\u0001c \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006t\u00020\n\u0000\n\u0000"
+      }
+    ],
+    "hardware_tested": false
+  },
+  "new_hdl_check_count": 55,
+  "original_hdl": [
+    {
+      "name": "guard",
+      "passed": true,
+      "log": "PASS: 8326 actual RTL projections; SELF/free scans, slow/stop/contact/turn, stale/overrun/recovery\nPASS: actual guard -> navigation GOTO: free drive, slow, BLOCKED stop, clear recovery, guarded alignment, explicit TURN, STOP\n",
+      "log_sha256": "50739d6e4593596ef86fd9c8838b1c0e3573bc3c3dfd893ef30e0281e2530561"
+    },
+    {
+      "name": "ui",
+      "passed": true,
+      "log": "PASS: task3 3601 captured heading goals, field bounds, 105 phase cancellations, public touch GOTO and 9 STOP/takeover/readiness cancellations\nPASS: public NAV turn buttons require live lidar\n",
+      "log_sha256": "5d56bdd924fa88eb70103d969ae737171dbc314a018b354d9a58daca6e34db13"
+    },
+    {
+      "name": "route",
+      "passed": true,
+      "log": "PASS: actual inflated BFS + mission: static/dynamic detour to exact goal, fresh-map barrier, unknown retry, STOP and manual cancellation\n",
+      "log_sha256": "437359d21422c370e09438ed6927f7b1a7b4ec097a77bb05c525c783f4289a34"
+    }
+  ],
+  "supplementary": [
+    {
+      "script": "tools/check_navigation_tracking.py",
+      "exit_code": 0,
+      "passed": true,
+      "source_sha256": "6e7dc8c725af7489276b6bffa057a462f8e40ddb1035009bd97df71ca56737c8",
+      "kind": "static source and independent model, not HDL"
+    },
+    {
+      "script": "tools/check_mission_lifecycle.py",
+      "exit_code": 0,
+      "passed": true,
+      "source_sha256": "d9b9764590eb8e5358d2ce3c2f22b21030fa680982ad595fb122f7f107057f35",
+      "kind": "static source and independent model, not HDL"
+    },
+    {
+      "script": "tools/check_realtime_route.py",
+      "exit_code": 0,
+      "passed": true,
+      "source_sha256": "e7f855882d916ccccfbf0574b13d1404127270d03fc29549e6334d9ae3f1377c",
+      "kind": "static source and independent model, not HDL"
+    }
+  ],
+  "simulation_model": {
+    "path": "D:/GOWIN/Gowin_V1.9.11.03_Education_x64/IDE/simlib/gw5a/prim_sim.v",
+    "sha256": "202f65ccf77126d04e47db36c95e237e48522f3a105a3e64d9fcbf4e3b782f27"
+  },
+  "baseline_build": {
+    "manifest": {
+      "started_local": "2026-11-03T23:37:32.200133+08:00",
+      "project": "D:\\GOWIN_PROJECTS\\acg720_obstacle_resume\\tmp\\baseline-builds\\acg720-20261103-233732-200133\\vision_robot_ui.gprj",
+      "tool": "D:\\GOWIN\\Gowin_V1.9.11.03_Education_x64\\IDE\\bin\\gw_sh.exe",
+      "inputs": {
+        "build.tcl": "ed72ece793802e31e2b024eb7d6e5a2dd21e8cab4d67f79a7af4c3b053b0faea",
+        "vision_robot_ui.gprj": "b7be86e5e3a0c0fbf00b50bba09fcf656ebd3f6d1be0ab2b9b24bdf7bc5a2ff6",
+        "impl/vision_robot_netfix_process_config.json": "ea47890fc464966ce5de490982a5a4b45bcf3782bba3ad429e0d05fa5b7e6305",
+        "impl/vision_robot_process_config.json": "3f426fded3c6e494fa9cd8024d1f2a4aa959be0d79689d1771368ea0af399ba4",
+        "impl/vision_robot_ui_process_config.json": "f8f7f2398d0dc9a0ece30dc48c15c258b633d25446fc7b979389e4037bdaa04a",
+        "src/actuator_test_control.v": "07dbec901d3b27c966b9b20eb128345497387d8417ecc37e371d08602afe273c",
+        "src/actuator_test_panel.v": "4fa1c6eea21e2f762ab3b862d1e29892a3d0a33e9bc99fb043ab3261e18a48fc",
+        "src/bm8563_clock.v": "8968ed61324c48176eecd03606a646ec354eab85db520ac8fe105511e43eb516",
+        "src/bq34z100_board_setup.v": "cd3360e70d03e5a7184955c8622996f49002551bf517932425edbaa2aab0ed16",
+        "src/bq34z100_gauge.v": "c40505eb8ce183830411ba95867dd49dbfe399b572a2cca16531aba3a46ec5b7",
+        "src/bq34z100_i2c_master.v": "8aa8765791d7cc003278fe7ce031eb9a84b3594400e8cf7842b1a48b7192f5c6",
+        "src/bq34z100_status_text.v": "61d76dfd13d9ce057494e69760158a39351ef1dba2109a15679dd31b2ad72189",
+        "src/cs100a_demo.v": "e8ed65d4b2c7313fe66e232c170c578b34aa5d106e23dc44ec8a80d1e4233a88",
+        "src/encoder_quadrature.v": "c262e16c4756fede35967150171cce441096926dd90bd0843a47626e20f0c4f1",
+        "src/gaussian3x3_rgb565.v": "12a311bf2da4c07e3ccc4dd2f54cdf48181d7ee4859b54c23c2b4f80181b8665",
+        "src/gt911_touch.v": "fd7c1b1ad56debfd697acf6e1aa0e2485907f40fd36d864c82e6036d9b4d1b34",
+        "src/lcd1024_interaction_ui.v": "0606a40d163d537680e69096024f1448ca065904706781cbf25d3a3dd12790a0",
+        "src/lcd_camera_zoom.v": "8c67f6828d4cb5524ede4a4ef2877c0b1e9c20607e770da6697e466c0d01ff67",
+        "src/lcd_interaction.cst": "578d2d93c164e8ad8aa624c86afb3f3bbb657dea748adc980f830214f4d9c9de",
+        "src/lcd_interaction.sdc": "27a3d1df702bf69dfa74c9f7f904a870ff126e23e563db095ef5abf54071f848",
+        "src/lidar_grid_map.v": "24800a1dcd1235332ca7f39272615b05f82f5fdbd3fc12d5b491b520ff255e7d",
+        "src/lidar_path_planner.v": "e2cebf401526274285a8fbf8b73db9f01d5d7fe5da579fa8b8f56cf7c49298f8",
+        "src/lsm6dsv16x_demo.v": "2abab66ea5b33b335e1dd71f29a7003be7b25dbdd437a43680d8aad31f15c7dc",
+        "src/motor_axis_control.v": "42fa71c72b499e5ca1df06608137e69c88f5e0f29bdf520dbb5f8577f2d2935c",
+        "src/motor_drive_control.v": "634ed2f4bcfa29583711cca6c4a3e9154e5efc5d3d2070d960df94882b606eab",
+        "src/motor_status_text.v": "8bf6d37b97af30f7a31536f568bfa642007eeea173795ba986ceffbbe2c5b975",
+        "src/motor_tuning_control.v": "b3a7a6b8d0c1da44625047159a9004c4ccf264df22eb80067a76cac7ef634f9b",
+        "src/motor_uart_commands.v": "854aa73a8c1b8cc5866bca708af3e3e125e127ec005331a81dfb2e9838df7f3f",
+        "src/pid_touch_controls.v": "b136b60bf02ea800c8f855c965d37d94d21f66bb01f25a80ea6238409ddc6f39",
+        "src/robot_control_panel.v": "a1de50eab7c118e2924cc1d7feff0aee622ef371bc10dd41d13d13a9d586d062",
+        "src/robot_mission_control.v": "a6e97fa6968e8e00ab9eb765e9ac4781215c84b13fa3fd054ef5045f5dd0660e",
+        "src/robot_navigation.v": "20b8c124c8b73f565b65906067413865f22cf0b11dd019aa0d649c934ea66308",
+        "src/robot_status_text.v": "af0d7b49b40c9e86478527c4100ef22281ea1f636f8e85faf849bd7c8713cd86",
+        "src/robot_subsystem.v": "18931bc3de854558f8f015adf9572cb3a5c850994b99ac9860040ed7b07445c5",
+        "src/robot_ui_control.v": "c1b2b3c41895d95b07c55757d69fef8a096c4bd7bbd3031a59a56513bad09efe",
+        "src/rplidar_c1.v": "c42c425e63196bd7ff9355dd814f42442aba23239271af5bfe05af98cec91bb8",
+        "src/rtc_calendar_valid.v": "0ccf7a612d963134549dfa4590eed60b19b6ef842a66a7b8b2f88f88b5022779",
+        "src/seg7_clock_display.v": "e4b6b428de98971f5e5c201490b62aea92dccef87dad695123f941bd86137952",
+        "src/sensor_demo_commands.v": "851c2a0a034baf0c9fd2fa6c16169ff1eba2f563822e004c32173bb339964312",
+        "src/sensor_demo_text.v": "f39ae974a9460f8fdaf7538b6d8befe2c45e3c2acc47f677b292c58efa83544e",
+        "src/sensor_demo_uart.v": "63f262b5eccfb1507b92a7d74c90eeb2d1603cacbbb9b01546e61e0cdea17e36",
+        "src/sensor_i2c_master.v": "815b21b98bc313359551f51ac6947fdfc5c9f0672d4c3aa5165b450afac6df04",
+        "src/servo_pulse_output.v": "54b40dfded5dd51be8c614318f92afbf99d3f284fbd3ac6e0458c0ac086e0621",
+        "src/tb6612_axis_pwm.v": "97e1dfe62965f83e834a6354f82f791bd7a3566b72c1d36416fb82083fbbc77d",
+        "src/touch_gestures.v": "f9a3cee91302ec26c18407ad917fff4c327917d6871e1275b0d0455509e6b9e5",
+        "src/uart_rtc_set_parser.v": "c7bc6d4ce3b0d4f4d866064d55f16983a8f6273850b168b8dec34823d697c884",
+        "src/udp_detection_feedback.v": "b5345b68647f825a2fead3339192a02787494ef16da56d6e7dd86ff0936924cf",
+        "src/udp_ui_command_parser.v": "583dfd7fe67da14197f98ff6f7a213af500dccf53dce342a11e2f0dac3e5ac72",
+        "src/ui_video_tx_mux.v": "8054f05f9e5440abb990d3bdabe069e49133634270a8c64e48eeb85447371c64",
+        "src/unsigned_divmod.v": "df4cf70d28fc520ee71fa75e962f01800dad19766774e64cdc2f48ed76966ead",
+        "src/video_400x240_packetizer.v": "389c7dab2d8b8450e403075295f18e4b3cfbb6fa464123a37d34759028a3f82d",
+        "src/vision_robot_ui_top.v": "2c466ef343e2ecbf849fa6a5a42065ab66ebe705a54d16394b80f8988f25c8ef",
+        "src/gowin_pll_45/gowin_pll.v": "d832b0c9c11467a642db53f157fa53b72bd163a023503d5bb55caa5701b3d521",
+        "src/gowin_pll_45/gowin_pll_mod.v": "ec2737870c8f854eccc0ebf40c3352c03a90ebebee17113361c1abaff6499d80",
+        "src/gowin_pll_45/pll_init.v": "d3ef56fcf0f6496e6d9ef3a29776375683e3c8934bc87899ad7d8029f7950517",
+        "src/vendor/pll_mDRP_intf.v": "6380774c682f607f11088cafa39ed1556e4c4db925ee2e72b78340026d4fd6ad",
+        "src/vendor/camera_init/camera_init.v": "54691e9956416cef8e539c57d376c2e39fc40a57a6f7689b5c12b50cd005bee3",
+        "src/vendor/camera_init/ov5640_init_table_rgb.v": "c354ef1e11d31a9b073b8e12ca6a15398b23f55109488fb1958fb9f0af36b522",
+        "src/vendor/ddr3_ctrl_2port/ddr3_ctrl_2port.v": "a7768bf3987f53f0852b4812e8fa68addd1783f5af0297b77995c09a3985e199",
+        "src/vendor/ddr3_ctrl_2port/fifo_ddr3_adapter.v": "4bccf600a3074a98dd4b6dd9a205892b63ec70bd1a45a89fae928887942db165",
+        "src/vendor/ddr3_memory_interface/ddr3_memory_interface.ipc": "6ae2bd59536bada0288349af68c6052cd8ab7a5af07ff544f99be152f681a70d",
+        "src/vendor/ddr3_memory_interface/ddr3_memory_interface.v": "9aa5bce36ff79ef315c622d782108faf14ad38b8b1dec648712db83693528a6d",
+        "src/vendor/ddr_pll/ddr_pll.ipc": "61a7be95bf7793994e9b65ff335b632b89e6cff76bd07dd4d61c334b33a4331f",
+        "src/vendor/ddr_pll/ddr_pll.v": "1029730ed0b0cbe5285fed46910c45a5036dba764216ed334b853b164013c251",
+        "src/vendor/ddr_pll/ddr_pll_mod.v": "52e0b36c890c80e39d09cff38a39908a6e9ec2ddf3476c887e5ed93b58438055",
+        "src/vendor/DVP_Capture/DVP_Capture.v": "ddb1b9099cb5933b7cd98d27ddb626eac0dbbda059e05e09bee4d81bd2f6a41e",
+        "src/vendor/ethernet/crc32_d8.v": "bc5f7b1ee9d60fa0ae75b1be7db055680c545e826ecafd86138c4f842d660f3d",
+        "src/vendor/ethernet/eth_tx_ctrl.v": "57fb69a3c00a6be7a76c3c6882e66bdc12b783c9ecb71961b7fbe510b2cc323b",
+        "src/vendor/ethernet/eth_tx_fifo.ipc": "24075be2b5ddf9b57b8eb2f873145e738b648af0aa30229843dfaaf6889052e5",
+        "src/vendor/ethernet/eth_tx_fifo.v": "19b03e561e3223aa73391dc63eaee3f1318cd8c37944f0ffa7cb794779912df7",
+        "src/vendor/ethernet/eth_udp_rx_gmii.v": "9c4216d95d95cd9130e02de2efbb024f16fb6209b05c26b07fe8c14a90fa9147",
+        "src/vendor/ethernet/eth_udp_tx_gmii.v": "578163babcf6fb284aa58a71b654aaa7b79a09c5a5cf6ff82bcbb9e4e9359e04",
+        "src/vendor/ethernet/gmii_to_rgmii.v": "603dcd696f1eaf5a33153bccb32c954618b836a4684e5ca9941a565b97e25c91",
+        "src/vendor/ethernet/ip_checksum.v": "20e74286feb737da7bcc9ff72b19ef9ee85d96f3bf6882bfb66572b76c84f856",
+        "src/vendor/ethernet/mdio_bit_shift.v": "470bf1ff074072ecd9977403651b18d8df125e5c0d670d35ce06cd5139796057",
+        "src/vendor/ethernet/phy_reg_config.v": "22450e44e3adb60420818e0a7931bc149a52d28ab77563bec7271478d55af260",
+        "src/vendor/ethernet/rgmii_to_gmii.v": "eba0c5c6d624cb618da37cd2a5a185ce113409154a0cc424cb22b4dda1f92842",
+        "src/vendor/net_pll/gowin_pll.ipc": "e59d4ef6d324a85f2c99473daa0489aea28ea4bcd98e0086b5fd000d60203750",
+        "src/vendor/net_pll/gowin_pll.v": "08759f94d64823d5a6d23935e3f10e80c174401ce30613d3f0dbe332fb7ad4e0",
+        "src/vendor/net_pll/gowin_pll_mod.v": "495395f7cf26ade4c10ba757b9f63753e1b000797007c2c9291e9b6c9bc23885",
+        "src/vendor/rd_data_fifo/rd_data_fifo.ipc": "a6b670a076fed98cdd29fab89aef4d7c842c0b47c4278b4451f3d341a01d3811",
+        "src/vendor/rd_data_fifo/rd_data_fifo.v": "1ed3d3ebecdcf869329f8edcac25a7d7a6b83394dee567c4d2c06884d7398033",
+        "src/vendor/wr_data_fifo/wr_data_fifo.ipc": "9a208f302be269774cb00967019c49108350a96a4006c8ef527050a5b45253b5",
+        "src/vendor/wr_data_fifo/wr_data_fifo.v": "d0f8c50b9c92d12fcd887fb46dd3b09a0bd5c8236f012bcaaf8e28ad0ed507b9",
+        "src/vendor/camera_init/i2c_control/i2c_bit_shift.v": "7674cabffeb54ab4c1a3750b53621da2585d6c4d2e5425b737b4e8f2b13ff08c",
+        "src/vendor/camera_init/i2c_control/i2c_control.v": "43fbc2498c5c0f8e470ddb8ae455cf33c9286c0951e9944b45cb0decd042e7e5"
+      },
+      "build_completed": true,
+      "upload_allowed": false,
+      "scope": "offline synthesis/P&R, no device actions",
+      "finished_local": "2026-11-03T23:45:25.091029+08:00",
+      "elapsed_seconds": 472.2,
+      "exit_code": 0,
+      "errors": [],
+      "source_changes_during_build": [],
+      "fresh_bitstream": true,
+      "timing": {
+        "clocks": [
+          {
+            "clock": "clk50M",
+            "required_mhz": 50.0,
+            "actual_mhz": 49.373
+          },
+          {
+            "clock": "camera_pclk",
+            "required_mhz": 50.0,
+            "actual_mhz": 145.825
+          },
+          {
+            "clock": "rgmii_rx_clk",
+            "required_mhz": 125.0,
+            "actual_mhz": 123.896
+          },
+          {
+            "clock": "lcd_pclk",
+            "required_mhz": 45.0,
+            "actual_mhz": 47.904
+          },
+          {
+            "clock": "ddr_memory_clk",
+            "required_mhz": 400.0,
+            "actual_mhz": 2016.128
+          },
+          {
+            "clock": "ddr_ui_clk",
+            "required_mhz": 100.0,
+            "actual_mhz": 201.005
+          },
+          {
+            "clock": "u_net_pll/u_pll/PLLA_inst/CLKOUT1.default_gen_clk",
+            "required_mhz": 125.0,
+            "actual_mhz": 130.612
+          }
+        ],
+        "setup_violated_endpoints": 949,
+        "hold_violated_endpoints": 387,
+        "timing_closed": false,
+        "recovery_violated_endpoints": null,
+        "removal_violated_endpoints": null
+      },
+      "bitstream": {
+        "path": "D:\\GOWIN_PROJECTS\\acg720_obstacle_resume\\tmp\\baseline-builds\\acg720-20261103-233732-200133\\impl\\pnr\\vision_robot_ui.fs",
+        "bytes": 19842040,
+        "sha256": "e066e7dc2804f4a8c3ac00cf6788a7a418026297430424a3ff6d267547a0ff1d"
+      }
+    },
+    "resources": {
+      "Logic": {
+        "used": 38550.0,
+        "available": 59904.0
+      },
+      "Register": {
+        "used": 20096.0,
+        "available": 60780.0
+      },
+      "CLS": {
+        "used": 25170.0,
+        "available": 29952.0
+      },
+      "BSRAM": {
+        "used": 60.0,
+        "available": 118.0
+      },
+      "DSP": {
+        "used": 7.5,
+        "available": 118.0
+      }
+    },
+    "evidence_sha256": {
+      "build-result.json": "3ccc9024fd7199572c12455d0a480c1c4fb33860d98732ff8b67d86a3a8e4715",
+      "build.log": "5ee6ecb2d482a646fc05e9e00b024a3b152889399593834e4ae19037d04ddf73",
+      "impl/pnr/vision_robot_ui.rpt.txt": "8764f6634a6205b434f81d446957edbf556eb071160806c710e51a5f10146582",
+      "impl/pnr/vision_robot_ui_tr_content.html": "c9c9edb996677556754ec61db21aa0f3164e2f4b1560dbbcf6ea88603350fb22"
+    }
+  },
+  "fixed_build": {
+    "manifest": {
+      "started_local": "2026-11-03T23:45:16.402423+08:00",
+      "project": "D:\\GOWIN_PROJECTS\\acg720_obstacle_resume\\tmp\\resume-builds\\acg720-20261103-234516-402423\\vision_robot_ui.gprj",
+      "tool": "D:\\GOWIN\\Gowin_V1.9.11.03_Education_x64\\IDE\\bin\\gw_sh.exe",
+      "inputs": {
+        "build.tcl": "ed72ece793802e31e2b024eb7d6e5a2dd21e8cab4d67f79a7af4c3b053b0faea",
+        "vision_robot_ui.gprj": "b7be86e5e3a0c0fbf00b50bba09fcf656ebd3f6d1be0ab2b9b24bdf7bc5a2ff6",
+        "impl/vision_robot_netfix_process_config.json": "ea47890fc464966ce5de490982a5a4b45bcf3782bba3ad429e0d05fa5b7e6305",
+        "impl/vision_robot_process_config.json": "3f426fded3c6e494fa9cd8024d1f2a4aa959be0d79689d1771368ea0af399ba4",
+        "impl/vision_robot_ui_process_config.json": "f8f7f2398d0dc9a0ece30dc48c15c258b633d25446fc7b979389e4037bdaa04a",
+        "src/actuator_test_control.v": "07dbec901d3b27c966b9b20eb128345497387d8417ecc37e371d08602afe273c",
+        "src/actuator_test_panel.v": "4fa1c6eea21e2f762ab3b862d1e29892a3d0a33e9bc99fb043ab3261e18a48fc",
+        "src/bm8563_clock.v": "8968ed61324c48176eecd03606a646ec354eab85db520ac8fe105511e43eb516",
+        "src/bq34z100_board_setup.v": "cd3360e70d03e5a7184955c8622996f49002551bf517932425edbaa2aab0ed16",
+        "src/bq34z100_gauge.v": "c40505eb8ce183830411ba95867dd49dbfe399b572a2cca16531aba3a46ec5b7",
+        "src/bq34z100_i2c_master.v": "8aa8765791d7cc003278fe7ce031eb9a84b3594400e8cf7842b1a48b7192f5c6",
+        "src/bq34z100_status_text.v": "61d76dfd13d9ce057494e69760158a39351ef1dba2109a15679dd31b2ad72189",
+        "src/cs100a_demo.v": "e8ed65d4b2c7313fe66e232c170c578b34aa5d106e23dc44ec8a80d1e4233a88",
+        "src/encoder_quadrature.v": "c262e16c4756fede35967150171cce441096926dd90bd0843a47626e20f0c4f1",
+        "src/gaussian3x3_rgb565.v": "12a311bf2da4c07e3ccc4dd2f54cdf48181d7ee4859b54c23c2b4f80181b8665",
+        "src/gt911_touch.v": "fd7c1b1ad56debfd697acf6e1aa0e2485907f40fd36d864c82e6036d9b4d1b34",
+        "src/lcd1024_interaction_ui.v": "0606a40d163d537680e69096024f1448ca065904706781cbf25d3a3dd12790a0",
+        "src/lcd_camera_zoom.v": "8c67f6828d4cb5524ede4a4ef2877c0b1e9c20607e770da6697e466c0d01ff67",
+        "src/lcd_interaction.cst": "578d2d93c164e8ad8aa624c86afb3f3bbb657dea748adc980f830214f4d9c9de",
+        "src/lcd_interaction.sdc": "27a3d1df702bf69dfa74c9f7f904a870ff126e23e563db095ef5abf54071f848",
+        "src/lidar_grid_map.v": "24800a1dcd1235332ca7f39272615b05f82f5fdbd3fc12d5b491b520ff255e7d",
+        "src/lidar_path_planner.v": "e6157bcb63d31772542d0084bb75dd0cebb9d89e0696fd64cba6a495508305f4",
+        "src/lsm6dsv16x_demo.v": "2abab66ea5b33b335e1dd71f29a7003be7b25dbdd437a43680d8aad31f15c7dc",
+        "src/motor_axis_control.v": "42fa71c72b499e5ca1df06608137e69c88f5e0f29bdf520dbb5f8577f2d2935c",
+        "src/motor_drive_control.v": "634ed2f4bcfa29583711cca6c4a3e9154e5efc5d3d2070d960df94882b606eab",
+        "src/motor_status_text.v": "8bf6d37b97af30f7a31536f568bfa642007eeea173795ba986ceffbbe2c5b975",
+        "src/motor_tuning_control.v": "b3a7a6b8d0c1da44625047159a9004c4ccf264df22eb80067a76cac7ef634f9b",
+        "src/motor_uart_commands.v": "854aa73a8c1b8cc5866bca708af3e3e125e127ec005331a81dfb2e9838df7f3f",
+        "src/pid_touch_controls.v": "b136b60bf02ea800c8f855c965d37d94d21f66bb01f25a80ea6238409ddc6f39",
+        "src/robot_control_panel.v": "a1de50eab7c118e2924cc1d7feff0aee622ef371bc10dd41d13d13a9d586d062",
+        "src/robot_mission_control.v": "6a67444b3aa6c0f8c933f9cf89ad2507ceccae5e0d600045f6b76367ae9a15d3",
+        "src/robot_navigation.v": "20b8c124c8b73f565b65906067413865f22cf0b11dd019aa0d649c934ea66308",
+        "src/robot_status_text.v": "af0d7b49b40c9e86478527c4100ef22281ea1f636f8e85faf849bd7c8713cd86",
+        "src/robot_subsystem.v": "18931bc3de854558f8f015adf9572cb3a5c850994b99ac9860040ed7b07445c5",
+        "src/robot_ui_control.v": "c1b2b3c41895d95b07c55757d69fef8a096c4bd7bbd3031a59a56513bad09efe",
+        "src/rplidar_c1.v": "c42c425e63196bd7ff9355dd814f42442aba23239271af5bfe05af98cec91bb8",
+        "src/rtc_calendar_valid.v": "0ccf7a612d963134549dfa4590eed60b19b6ef842a66a7b8b2f88f88b5022779",
+        "src/seg7_clock_display.v": "e4b6b428de98971f5e5c201490b62aea92dccef87dad695123f941bd86137952",
+        "src/sensor_demo_commands.v": "851c2a0a034baf0c9fd2fa6c16169ff1eba2f563822e004c32173bb339964312",
+        "src/sensor_demo_text.v": "f39ae974a9460f8fdaf7538b6d8befe2c45e3c2acc47f677b292c58efa83544e",
+        "src/sensor_demo_uart.v": "63f262b5eccfb1507b92a7d74c90eeb2d1603cacbbb9b01546e61e0cdea17e36",
+        "src/sensor_i2c_master.v": "815b21b98bc313359551f51ac6947fdfc5c9f0672d4c3aa5165b450afac6df04",
+        "src/servo_pulse_output.v": "54b40dfded5dd51be8c614318f92afbf99d3f284fbd3ac6e0458c0ac086e0621",
+        "src/tb6612_axis_pwm.v": "97e1dfe62965f83e834a6354f82f791bd7a3566b72c1d36416fb82083fbbc77d",
+        "src/touch_gestures.v": "f9a3cee91302ec26c18407ad917fff4c327917d6871e1275b0d0455509e6b9e5",
+        "src/uart_rtc_set_parser.v": "c7bc6d4ce3b0d4f4d866064d55f16983a8f6273850b168b8dec34823d697c884",
+        "src/udp_detection_feedback.v": "b5345b68647f825a2fead3339192a02787494ef16da56d6e7dd86ff0936924cf",
+        "src/udp_ui_command_parser.v": "583dfd7fe67da14197f98ff6f7a213af500dccf53dce342a11e2f0dac3e5ac72",
+        "src/ui_video_tx_mux.v": "8054f05f9e5440abb990d3bdabe069e49133634270a8c64e48eeb85447371c64",
+        "src/unsigned_divmod.v": "df4cf70d28fc520ee71fa75e962f01800dad19766774e64cdc2f48ed76966ead",
+        "src/video_400x240_packetizer.v": "389c7dab2d8b8450e403075295f18e4b3cfbb6fa464123a37d34759028a3f82d",
+        "src/vision_robot_ui_top.v": "2c466ef343e2ecbf849fa6a5a42065ab66ebe705a54d16394b80f8988f25c8ef",
+        "src/gowin_pll_45/gowin_pll.v": "d832b0c9c11467a642db53f157fa53b72bd163a023503d5bb55caa5701b3d521",
+        "src/gowin_pll_45/gowin_pll_mod.v": "ec2737870c8f854eccc0ebf40c3352c03a90ebebee17113361c1abaff6499d80",
+        "src/gowin_pll_45/pll_init.v": "d3ef56fcf0f6496e6d9ef3a29776375683e3c8934bc87899ad7d8029f7950517",
+        "src/vendor/pll_mDRP_intf.v": "6380774c682f607f11088cafa39ed1556e4c4db925ee2e72b78340026d4fd6ad",
+        "src/vendor/camera_init/camera_init.v": "54691e9956416cef8e539c57d376c2e39fc40a57a6f7689b5c12b50cd005bee3",
+        "src/vendor/camera_init/ov5640_init_table_rgb.v": "c354ef1e11d31a9b073b8e12ca6a15398b23f55109488fb1958fb9f0af36b522",
+        "src/vendor/ddr3_ctrl_2port/ddr3_ctrl_2port.v": "a7768bf3987f53f0852b4812e8fa68addd1783f5af0297b77995c09a3985e199",
+        "src/vendor/ddr3_ctrl_2port/fifo_ddr3_adapter.v": "4bccf600a3074a98dd4b6dd9a205892b63ec70bd1a45a89fae928887942db165",
+        "src/vendor/ddr3_memory_interface/ddr3_memory_interface.ipc": "6ae2bd59536bada0288349af68c6052cd8ab7a5af07ff544f99be152f681a70d",
+        "src/vendor/ddr3_memory_interface/ddr3_memory_interface.v": "9aa5bce36ff79ef315c622d782108faf14ad38b8b1dec648712db83693528a6d",
+        "src/vendor/ddr_pll/ddr_pll.ipc": "61a7be95bf7793994e9b65ff335b632b89e6cff76bd07dd4d61c334b33a4331f",
+        "src/vendor/ddr_pll/ddr_pll.v": "1029730ed0b0cbe5285fed46910c45a5036dba764216ed334b853b164013c251",
+        "src/vendor/ddr_pll/ddr_pll_mod.v": "52e0b36c890c80e39d09cff38a39908a6e9ec2ddf3476c887e5ed93b58438055",
+        "src/vendor/DVP_Capture/DVP_Capture.v": "ddb1b9099cb5933b7cd98d27ddb626eac0dbbda059e05e09bee4d81bd2f6a41e",
+        "src/vendor/ethernet/crc32_d8.v": "bc5f7b1ee9d60fa0ae75b1be7db055680c545e826ecafd86138c4f842d660f3d",
+        "src/vendor/ethernet/eth_tx_ctrl.v": "57fb69a3c00a6be7a76c3c6882e66bdc12b783c9ecb71961b7fbe510b2cc323b",
+        "src/vendor/ethernet/eth_tx_fifo.ipc": "24075be2b5ddf9b57b8eb2f873145e738b648af0aa30229843dfaaf6889052e5",
+        "src/vendor/ethernet/eth_tx_fifo.v": "19b03e561e3223aa73391dc63eaee3f1318cd8c37944f0ffa7cb794779912df7",
+        "src/vendor/ethernet/eth_udp_rx_gmii.v": "9c4216d95d95cd9130e02de2efbb024f16fb6209b05c26b07fe8c14a90fa9147",
+        "src/vendor/ethernet/eth_udp_tx_gmii.v": "578163babcf6fb284aa58a71b654aaa7b79a09c5a5cf6ff82bcbb9e4e9359e04",
+        "src/vendor/ethernet/gmii_to_rgmii.v": "603dcd696f1eaf5a33153bccb32c954618b836a4684e5ca9941a565b97e25c91",
+        "src/vendor/ethernet/ip_checksum.v": "20e74286feb737da7bcc9ff72b19ef9ee85d96f3bf6882bfb66572b76c84f856",
+        "src/vendor/ethernet/mdio_bit_shift.v": "470bf1ff074072ecd9977403651b18d8df125e5c0d670d35ce06cd5139796057",
+        "src/vendor/ethernet/phy_reg_config.v": "22450e44e3adb60420818e0a7931bc149a52d28ab77563bec7271478d55af260",
+        "src/vendor/ethernet/rgmii_to_gmii.v": "eba0c5c6d624cb618da37cd2a5a185ce113409154a0cc424cb22b4dda1f92842",
+        "src/vendor/net_pll/gowin_pll.ipc": "e59d4ef6d324a85f2c99473daa0489aea28ea4bcd98e0086b5fd000d60203750",
+        "src/vendor/net_pll/gowin_pll.v": "08759f94d64823d5a6d23935e3f10e80c174401ce30613d3f0dbe332fb7ad4e0",
+        "src/vendor/net_pll/gowin_pll_mod.v": "495395f7cf26ade4c10ba757b9f63753e1b000797007c2c9291e9b6c9bc23885",
+        "src/vendor/rd_data_fifo/rd_data_fifo.ipc": "a6b670a076fed98cdd29fab89aef4d7c842c0b47c4278b4451f3d341a01d3811",
+        "src/vendor/rd_data_fifo/rd_data_fifo.v": "1ed3d3ebecdcf869329f8edcac25a7d7a6b83394dee567c4d2c06884d7398033",
+        "src/vendor/wr_data_fifo/wr_data_fifo.ipc": "9a208f302be269774cb00967019c49108350a96a4006c8ef527050a5b45253b5",
+        "src/vendor/wr_data_fifo/wr_data_fifo.v": "d0f8c50b9c92d12fcd887fb46dd3b09a0bd5c8236f012bcaaf8e28ad0ed507b9",
+        "src/vendor/camera_init/i2c_control/i2c_bit_shift.v": "7674cabffeb54ab4c1a3750b53621da2585d6c4d2e5425b737b4e8f2b13ff08c",
+        "src/vendor/camera_init/i2c_control/i2c_control.v": "43fbc2498c5c0f8e470ddb8ae455cf33c9286c0951e9944b45cb0decd042e7e5"
+      },
+      "build_completed": true,
+      "upload_allowed": false,
+      "scope": "offline synthesis/P&R, no device actions",
+      "finished_local": "2026-11-03T23:57:09.753015+08:00",
+      "elapsed_seconds": 712.9,
+      "exit_code": 0,
+      "errors": [],
+      "source_changes_during_build": [],
+      "fresh_bitstream": true,
+      "timing": {
+        "clocks": [
+          {
+            "clock": "clk50M",
+            "required_mhz": 50.0,
+            "actual_mhz": 50.012
+          },
+          {
+            "clock": "camera_pclk",
+            "required_mhz": 50.0,
+            "actual_mhz": 142.767
+          },
+          {
+            "clock": "rgmii_rx_clk",
+            "required_mhz": 125.0,
+            "actual_mhz": 126.292
+          },
+          {
+            "clock": "lcd_pclk",
+            "required_mhz": 45.0,
+            "actual_mhz": 48.451
+          },
+          {
+            "clock": "ddr_memory_clk",
+            "required_mhz": 400.0,
+            "actual_mhz": 2016.128
+          },
+          {
+            "clock": "ddr_ui_clk",
+            "required_mhz": 100.0,
+            "actual_mhz": 201.207
+          },
+          {
+            "clock": "u_net_pll/u_pll/PLLA_inst/CLKOUT1.default_gen_clk",
+            "required_mhz": 125.0,
+            "actual_mhz": 125.107
+          }
+        ],
+        "setup_violated_endpoints": 732,
+        "hold_violated_endpoints": 386,
+        "timing_closed": false,
+        "recovery_violated_endpoints": null,
+        "removal_violated_endpoints": null
+      },
+      "bitstream": {
+        "path": "D:\\GOWIN_PROJECTS\\acg720_obstacle_resume\\tmp\\resume-builds\\acg720-20261103-234516-402423\\impl\\pnr\\vision_robot_ui.fs",
+        "bytes": 19986320,
+        "sha256": "2d3ada689372f22dbe0bdde4aec4507b68596de77143153db3accfbafd72b132"
+      }
+    },
+    "resources": {
+      "Logic": {
+        "used": 38541.0,
+        "available": 59904.0
+      },
+      "Register": {
+        "used": 20113.0,
+        "available": 60780.0
+      },
+      "CLS": {
+        "used": 25155.0,
+        "available": 29952.0
+      },
+      "BSRAM": {
+        "used": 60.0,
+        "available": 118.0
+      },
+      "DSP": {
+        "used": 7.5,
+        "available": 118.0
+      }
+    },
+    "evidence_sha256": {
+      "build-result.json": "c45442363088a51321e8d2a1ddd087cb7223dbcb191aeccb733016926dde2454",
+      "build.log": "70848d5a37bd39873008c7afa48de35f03939002da65b92b2d5503e75ba30e5c",
+      "impl/pnr/vision_robot_ui.rpt.txt": "276e8cd04bf38073db503c98d92dd43e9c1d4cbbff486441d1511ed8ca90f2f3",
+      "impl/pnr/vision_robot_ui_tr_content.html": "6b29c83c3cc39b6fac00ae7a35a3af7120397671173c16093b3451f8511cf08e"
+    }
+  },
+  "artifacts": {
+    "vision_robot_teammate_resume_2357_NOT_TIMING_CLOSED.fs": {
+      "relative_path": "output/releases/teammate-resume-20261103/vision_robot_teammate_resume_2357_NOT_TIMING_CLOSED.fs",
+      "bytes": 19986320,
+      "sha256": "2d3ada689372f22dbe0bdde4aec4507b68596de77143153db3accfbafd72b132"
+    },
+    "fpga-source-2357.zip": {
+      "relative_path": "output/releases/teammate-resume-20261103/fpga-source-2357.zip",
+      "bytes": 1611846,
+      "sha256": "b4c0d77616a43501755a671666fb4a34f133e1084c33cd41f390549a8fd2ae16"
+    },
+    "validation-evidence-2357.zip": {
+      "relative_path": "output/releases/teammate-resume-20261103/validation-evidence-2357.zip",
+      "bytes": 162447,
+      "sha256": "06899ab240de7fb022dbf6b83b09d9890374912412e7c92cec6088e8714ad86b"
+    }
+  },
+  "pi": "Preserved existing v22 revision4, no Pi changes in the functional fix",
+  "hardware_tested": false,
+  "automatically_programmed": false,
+  "observed_field_cause_confirmed": false,
+  "limitations": [
+    "Known-FREE room is initialized in the integrated bench; actual subsequent obstacle rays update live mapper RAM.",
+    "Fixed pose(0,0) and test-driven NAV/readiness; not a full SoC, motor/gyro or wire-timed C1 simulation.",
+    "Phase-aligned completion/readiness loss is a reproduced software bug, not a confirmed sole field cause.",
+    "Five-mm per-axis completion uses estimated pose, not a guarantee of absolute physical accuracy.",
+    "Full timing is not closed; setup/hold violations remain and recovery/removal counts are unknown."
+  ]
+}

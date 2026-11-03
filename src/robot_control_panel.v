@@ -607,12 +607,12 @@ module robot_label_rom (
         bytes[277]=8'h4d;
         bytes[278]=8'h41;
         bytes[279]=8'h50;
-        // ID 18: "START           "
-        bytes[288]=8'h53;
-        bytes[289]=8'h54;
-        bytes[290]=8'h41;
-        bytes[291]=8'h52;
-        bytes[292]=8'h54;
+        // ID 18: "GO 1M           "
+        bytes[288]=8'h47;
+        bytes[289]=8'h4f;
+        bytes[290]=8'h20;
+        bytes[291]=8'h31;
+        bytes[292]=8'h4d;
         // ID 19: "STOP            "
         bytes[304]=8'h53;
         bytes[305]=8'h54;
@@ -637,31 +637,34 @@ module robot_label_rom (
         bytes[342]=8'h2b;
         bytes[343]=8'h39;
         bytes[344]=8'h30;
-        // ID 22: "SLOW AND STOP   "
-        bytes[352]=8'h53;
-        bytes[353]=8'h4c;
-        bytes[354]=8'h4f;
-        bytes[355]=8'h57;
+        // ID 22: "AUTO DETOUR 1M  "
+        bytes[352]=8'h41;
+        bytes[353]=8'h55;
+        bytes[354]=8'h54;
+        bytes[355]=8'h4f;
         bytes[356]=8'h20;
-        bytes[357]=8'h41;
-        bytes[358]=8'h4e;
-        bytes[359]=8'h44;
-        bytes[360]=8'h20;
-        bytes[361]=8'h53;
-        bytes[362]=8'h54;
-        bytes[363]=8'h4f;
-        bytes[364]=8'h50;
-        // ID 23: "LIVE LIDAR      "
-        bytes[368]=8'h4c;
-        bytes[369]=8'h49;
-        bytes[370]=8'h56;
-        bytes[371]=8'h45;
-        bytes[372]=8'h20;
-        bytes[373]=8'h4c;
-        bytes[374]=8'h49;
-        bytes[375]=8'h44;
-        bytes[376]=8'h41;
+        bytes[357]=8'h44;
+        bytes[358]=8'h45;
+        bytes[359]=8'h54;
+        bytes[360]=8'h4f;
+        bytes[361]=8'h55;
+        bytes[362]=8'h52;
+        bytes[363]=8'h20;
+        bytes[364]=8'h31;
+        bytes[365]=8'h4d;
+        // ID 23: "MAP REQUIRED    "
+        bytes[368]=8'h4d;
+        bytes[369]=8'h41;
+        bytes[370]=8'h50;
+        bytes[371]=8'h20;
+        bytes[372]=8'h52;
+        bytes[373]=8'h45;
+        bytes[374]=8'h51;
+        bytes[375]=8'h55;
+        bytes[376]=8'h49;
         bytes[377]=8'h52;
+        bytes[378]=8'h45;
+        bytes[379]=8'h44;
         // ID 24: "X -             "
         bytes[384]=8'h58;
         bytes[385]=8'h20;

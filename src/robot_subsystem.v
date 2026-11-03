@@ -460,7 +460,7 @@ module robot_subsystem (
         .path_length(path_length),.expanded_nodes(expanded_nodes),.plan_rd_en(plan_read_en),
         .plan_rd_x(plan_read_x),.plan_rd_y(plan_read_y),.plan_rd_cell(plan_read_cell),.plan_rd_valid(plan_read_valid)
     );
-    robot_navigation #(.BODY_GUARD(1)) u_navigation(
+    robot_navigation #(.BODY_GUARD(1),.GUARD_EXPLICIT_TURN(1)) u_navigation(
         .clk(clk),.reset_n(reset_n),.tick_10ms(tick_10ms),.safety_stop(safety_stop),
         .motion_enable(remote_turn_permit || (page==5 ? (follow_mission ? nav_permit : follow_permit) : manual_view ? manual_permit : nav_permit)),
         .encoder_position_left(position_left),.encoder_position_right(position_right),.encoder_zeroed(encoder_zeroed),
@@ -473,7 +473,7 @@ module robot_subsystem (
         .manual_right(page==5 ? follow_speed : recovery_state==2 ? recovery_speed : manual_right),
         .manual_heading_hold(page==5 ? 1'b1 : recovery_state==2 ? 1'b0 : manual_heading_hold),.turn_heading_mdeg(remote_turn_active ? remote_turn_heading : page==5 ? follow_heading : turn_heading),.goal_x_mm(mission_goal_x),.goal_y_mm(mission_goal_y),
         .turn_half_direction(remote_turn_active ? remote_half_direction : 2'd0),
-        .cruise_counts(cruise),.turn_counts(turn_speed),.arrival_tolerance_mm(mission_arrival_tolerance),
+        .cruise_counts(avoid_view ? 16'd5 : cruise),.turn_counts(turn_speed),.arrival_tolerance_mm(mission_arrival_tolerance),
         .avoid_enable(!manual_view && !remote_turn_active),.lidar_valid(avoid_lidar_ready),.clear_front_mm(front),.clear_left_mm(left),.clear_right_mm(right),.clear_rear_mm(rear),
         // Legacy radial thresholds are unused with BODY_GUARD=1. Actual gaps
         // come from the runtime body-frame envelope, not a550mm sensor radius.

@@ -117,6 +117,7 @@ class TrackerConfig:
     filter_time_constant_s: float = .06
     deadband_hysteresis: float = .015
     min_rate_dps: float = 2.0
+    face_acquire_score: float = .50
 
     def __post_init__(self):
         if not all(_finite(value) for value in self.__dict__.values()):
@@ -125,6 +126,8 @@ class TrackerConfig:
             raise ValueError("Deadband must lie in [0,1) of image half-size")
         if not 0 <= self.min_score <= 1 or not 0 <= self.min_iou <= 1:
             raise ValueError("Detection score and IoU gates must lie in [0,1]")
+        if not 0 <= self.face_acquire_score <= 1:
+            raise ValueError("Face acquisition score must lie in [0,1]")
         if min(self.gain, self.normalized_gain_dps, self.max_rate_dps) < 0:
             raise ValueError("Control gains and rate limit must be nonnegative")
         if min(self.loss_gap_s, self.max_frame_age_s, self.max_control_dt_s,
@@ -335,6 +338,8 @@ class TargetTracker:
         target = _canonical_box(box, self.camera, self.config.min_score)
         if target is None:
             raise ValueError("Select a valid dog/human detection above the confidence gate")
+        if target['kind'] == 'human' and target['score'] < self.config.face_acquire_score:
+            raise ValueError("Face selection requires the acquisition confidence gate")
         if not _finite(frame_time) or frame_time < 0:
             raise ValueError("Selection capture time must be finite monotonic seconds")
         if frame_seq is not None and (not isinstance(frame_seq, int) or isinstance(frame_seq, bool)
@@ -345,6 +350,10 @@ class TargetTracker:
         self._last_match = self._last_frame = float(frame_time)
         self._last_seq = frame_seq
         return self._result("selected", 0.0)
+
+    @property
+    def selected_kind(self):
+        return self._target['kind'] if self._target else None
 
     def _result(self, status, age, target=None):
         return dict(status=status, target=dict(target) if target else None,
@@ -439,6 +448,8 @@ class TargetTracker:
             _, _, old_w, old_h = _geometry(self._target)
             search_candidates = []
             for box in boxes:
+                if box['kind'] == 'human' and box['score'] < self.config.face_acquire_score:
+                    continue
                 _, _, w, h = _geometry(box)
                 if max(w / old_w, old_w / w, h / old_h, old_h / h) <= max(3.0, self.config.max_size_ratio):
                     search_candidates.append(box)

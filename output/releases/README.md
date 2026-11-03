@@ -1,44 +1,29 @@
-# 当前交付：只看这个目录
+# 本轮交付：队友基线续走候选
 
-**Pi包已修订为v22修订2：** 修复Windows CRLF导致的`set: Illegal option -`。已解压早先v22包时可直接执行[说明顶部的换行修复命令](../../docs/香橙派v22人脸与小狗测试.md)，无需重刷、重新上传或重新编译FPGA。
+当前工程为 `D:\GOWIN_PROJECTS\acg720_obstacle_resume`，分支 `fix/teammate-obstacle-resume-20261103`。基于用户报告能起步、到点、遇障停车的队友源码，修复地图完成事件被丢弃导致的等待，等长路线优先左绕。旧工程目录中的位流不是本次结果。
 
-这里的两个交付文件配套使用：
-
-GitHub只保存本说明和发布JSON，下面的二进制文件仅在原开发机存在。新成员从`vision_robot_ui.gprj`编译位流，并运行`python tools/package_orangepi_client.py --code-only --output output/releases/acg720-orangepi-v22-code.zip`生成Pi包。现场模型/标定需另行取得，示例不代替实测。
+文件在本机 `teammate-resume-20261103/`：
 
 | 文件 | 用途 |
-| --- | --- |
-| `vision_robot_core_r7_2136_NOT_TIMING_CLOSED.fs` | 本机FPGA R7测试候选，21:36已完成布局布线 |
-| `acg720-orangepi-v22-code.zip` | 由打包器生成的香橙派v22应用程序更新包 |
+|---|---|
+| `vision_robot_teammate_resume_2357_NOT_TIMING_CLOSED.fs` | 11月3日23:57生成的FPGA测试候选 |
+| `fpga-source-2357.zip` | 本次编译冻结的FPGA输入和哈希 |
+| `validation-evidence-2357.zip` | 两次构建报告/日志、新增HDL正反例、原有动态回归日志 |
 
-`records/`中的发布JSON保留构建结果与哈希；源码快照ZIP、证据ZIP、旧位流和旧Pi包仅存原开发机，不提交Git。GitHub上的源码与Git历史用于协作和追溯。
+位流SHA256：`2d3ada689372f22dbe0bdde4aec4507b68596de77143153db3accfbafd72b132`，19,986,320字节。
 
-## 为什么Gowin窗口没有显示已完成
+**布线完成，完整时序未闭合**：732个setup、386个hold违例端点，Recovery/Removal计数未知，构建记录 `upload_allowed=false` 保留。未通过自动下载门槛，未烧录或实车验收。不能只凭FS存在、工具退出0或主要时钟达标宣称全部通过。
 
-21:36的R7是在独立工程目录中编译的，原工程窗口不会同步那次状态。可以在Programmer里直接选择本目录的R7 `.fs`，无需再次编译它。用户21:49已另行启动原工程编译；那一轮的结果以它自己的最新日志和生成时间为准。整理未改动正在编译的源码、约束或`impl`目录。
+GitHub只保存源码、说明和 [验证记录](../../docs/validation/teammate-resume-20261103.json)，不上传FS、ZIP、照片、模型或实测标定。
 
-R7已布通，但完整时序仍有跨时钟和复位违例，因此文件标为`NOT_TIMING_CLOSED`测试候选；未完成实车验收。[详细结果](../../docs/R7编译结果与更新_20261025.md)。
+## 手动选文件与验收
 
-## 香橙派更新：不用重刷系统或SD卡
+Gowin Programmer保留原器件设置，在FS File中手动选上述完整文件，核对文件名/哈希后再决定测试下载。SRAM Program断电丢失，不能当作已更新Flash。代理不自动下载或操作底盘。
 
-网线接电脑与Pi，电脑PowerShell执行：
+题4先测空场(1000,0)，再测试障碍存在时规划绕行、移走后同一目标恢复、等待时STOP取消；记录位流SHA、LCD状态和实测位姿。[详细步骤、修复依据与测试限制](../../docs/队友基线续走协作_20261103.md)。
 
-```powershell
-scp D:\GOWIN_PROJECTS\acg720_vision_robot\output\releases\acg720-orangepi-v22-code.zip orangepi@192.168.10.3:/home/orangepi/
-ssh orangepi@192.168.10.3
-```
+## Pi
 
-登录Pi后执行：
+本轮没有Pi代码/协议变化，保留现有v22修订4，无需因本次FPGA修改重装或重启。不要部署历史R7/v22修订2包覆盖当前版本。
 
-```bash
-cd /home/orangepi
-unzip -o acg720-orangepi-v22-code.zip
-cd /home/orangepi/acg720_vision
-python3 -c "import json; print(json.load(open('manifest.json'))['client_bundle_version'])"
-sh tools/start_fpga_follow.sh --restart
-sh tools/start_fpga_follow.sh --status
-```
-
-版本应输出`22`，服务应显示`active (running)`。旧服务的2100启动参数会更新为`--initial-tilt-angle 135`。不要再叠加启动旧的nohup命令。
-
-本包只更新应用代码，保留现场`config/gimbal.json`、`config/visual_task.json`、识别模型和已有Python环境。新版包含135°/90°下限、人脸和小狗独立跟踪、默认寻找人脸的修改。完成后把网线接回FPGA，按[人脸与小狗测试步骤](../../docs/香橙派v22人脸与小狗测试.md)操作。
+历史R7记录保留在 `records/vision_robot_core_r7_2136.json`，仅供溯源。

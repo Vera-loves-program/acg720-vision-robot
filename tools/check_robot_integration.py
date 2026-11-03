@@ -127,7 +127,7 @@ def check_core_profile():
         'assignarmed=ui_armed||follow_armed;','software_stopped<=0;',
         'robot_follow_control#(.ENABLE_CHOOSER(0))u_follow('), 'core owners')
     ports(sub,'u_navigation',{'avoid_enable':'!manual_view&&!remote_turn_active',
-        'cruise_counts':'cruise','turn_counts':'turn_speed','arrival_tolerance_mm':'mission_arrival_tolerance',
+        'cruise_counts':"avoid_view?16'd5:cruise",'turn_counts':'turn_speed','arrival_tolerance_mm':'mission_arrival_tolerance',
         'body_nav_ahead':'nav_obstacle_ahead','lidar_valid':'avoid_lidar_ready'})
     tokens(u,('assignmanual_speed_left=16\'d30;assignmanual_speed_right=16\'d30;',
         'assigncruise_counts=16\'d30;assignturn_counts=16\'d12;',
@@ -140,7 +140,8 @@ def check_core_profile():
     # for new stationary map integrations. Raw node traffic is not scan age.
     tokens(nav,('goto_arrival_tolerance_mm<=arrival_tolerance_mm<5?16\'d5:arrival_tolerance_mm;',
         'approach_sample<=remaining_mm[10:3];','point_driving&&run_request&&body_nav_ahead',
-        'avoid_enable&&!gyro_only_turn&&!gyro_only_turn_result'), 'precise NAV')
+        'avoid_enable&&(GUARD_EXPLICIT_TURN!=0||(!gyro_only_turn&&!gyro_only_turn_result))'), 'precise NAV')
+    tokens(s,('robot_navigation#(.BODY_GUARD(1),.GUARD_EXPLICIT_TURN(1))u_navigation(',), 'guarded NAV turns')
     tokens(m,('final_dx>=-5&&final_dx<=5&&final_dy>=-5&&final_dy<=5',
         'nav_arrival_tolerance_mm<=60;detouring<=1;',"planner_next_x[6:1],7'd0",
         'else if(refreshing_map)begin'.replace(' ',''),'0:if(capture_boundary)begin',
