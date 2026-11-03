@@ -17,7 +17,7 @@
 //         5 drive, 6 arrived, 7 blocked, 8 stale sensor, 9 odometry/config fault.
 // fault: bit0 implausible encoder jump; bit1 overrun; bit2 bad pose/goal;
 //        bit3 invalid command speed/angle. STOP or accepted POSE_SET clears it.
-module robot_navigation #(parameter BODY_GUARD=0)(
+module robot_navigation #(parameter BODY_GUARD=0,parameter GUARD_EXPLICIT_TURN=0)(
     input wire clk, reset_n, tick_10ms,
     input wire safety_stop, motion_enable,
     input wire signed [31:0] encoder_position_left, encoder_position_right,
@@ -128,9 +128,11 @@ module robot_navigation #(parameter BODY_GUARD=0)(
         motion_mode==MODE_DONE && gyro_turn_done;
     wire motion_pose_ok=pose_valid || ((gyro_only_turn || gyro_only_turn_result) &&
         gyro_calibrated && gyro_fresh && fault==0);
-    // Explicit90/180 commands are gyro turns, not map missions. GOTO still
-    // checks live lidar while rotating toward a goal and while translating.
-    wire avoid_required=avoid_enable && !gyro_only_turn && !gyro_only_turn_result;
+    // Legacy standalone gyro tests retain their opt-out by default. The
+    // integrated NAV/AVOID pages guard explicit turns too; manual/remote
+    // commissioning remains gyro-only through its avoid_enable=0 owner.
+    wire avoid_required=avoid_enable && (GUARD_EXPLICIT_TURN!=0 ||
+        (!gyro_only_turn && !gyro_only_turn_result));
     wire signed [16:0] gyro_corrected={gyro_latest[15],gyro_latest}-
                                       {gyro_bias[15],gyro_bias};
     wire signed [31:0] gyro_extended={{15{gyro_corrected[16]}},gyro_corrected};

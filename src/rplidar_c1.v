@@ -807,7 +807,13 @@ module lidar_body_guard(
                     ROT_APPLY:begin
                         if(cz>=0)begin cx<=cx-shifted_y;cy<=cy+shifted_x;cz<=cz-atan_q6(iteration);end
                         else begin cx<=cx+shifted_y;cy<=cy-shifted_x;cz<=cz+atan_q6(iteration);end
-                        if(iteration==11)state<=DIV_INIT;else iteration<=iteration+1'b1;
+                        if(iteration==11)state<=DIV_INIT;
+                        else begin
+                            // Each iteration must shift the newly rotated
+                            // vector. Reusing iteration zero's operands turns
+                            // chassis returns into phantom collision points.
+                            iteration<=iteration+1'b1;state<=ROTATE;
+                        end
                     end
                     DIV_INIT:begin
                         sign_x<=cx[25];sign_y<=cy[25];

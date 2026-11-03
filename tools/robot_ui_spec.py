@@ -47,7 +47,7 @@ VIEWS = {
     (0, 0): View('SIX TASK DEMOS', 'menu', ('1 CAMERA + IMU', '2 MOTOR CONTROL', '3 LIDAR AVOID', '4 XY NAVIGATION', '5 GIMBAL TRACK', '6 FIND FACE'), 'SELECT A TASK', 'BACK TO HOME'),
     (0, 1): View('CAMERA', 'camera', (), 'LOCAL FPGA VIDEO'),
     (2, 1): View('LIDAR MAP', 'map', ('BACK', 'CLEAR MAP'), '8.192M / 64MM', 'LIVE MAP'),
-    (2, 3): View('3 LIDAR AVOID', 'leaf', ('START', 'STOP', 'VIEW MAP', 'RADAR +90'), 'SLOW AND STOP', 'LIVE LIDAR'),
+    (2, 3): View('3 LIDAR AVOID', 'leaf', ('GO 1M', 'STOP', 'VIEW MAP', 'RADAR +90'), 'AUTO DETOUR 1M', 'MAP REQUIRED'),
     (3, 3): View('GOAL X Y MM', 'leaf', ('X -', 'X +', 'Y -', 'Y +', 'STEP', 'DONE'), 'X FRONT Y LEFT', 'MM / DEGREES'),
     (4, 0): View('2 MOTOR CONTROL', 'leaf', ('FORWARD', 'REVERSE', 'TURN LEFT', 'TURN RIGHT', 'TURN 180', 'STOP'), 'CLICK TO MOVE', 'STOP TO FINISH'),
     (4, 1): View('4 XY NAVIGATION', 'leaf', ('LEFT 90', 'RIGHT 90', 'HERE IS ZERO', 'GO TO GOAL', 'SET GOAL', 'STOP'), 'X FRONT Y LEFT', 'MM / DEGREES'),

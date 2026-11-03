@@ -481,7 +481,8 @@ def main():
     assert 'wire valid_turn_command=command_valid && command==3\'d2 &&' in code
     assert '(command_valid ? valid_turn_command : motion_mode==MODE_TURN)' in code
     assert 'wire gyro_only_turn=' in code
-    assert 'wire avoid_required=avoid_enable && !gyro_only_turn && !gyro_only_turn_result;' in code
+    assert 'wire avoid_required=avoid_enable && (GUARD_EXPLICIT_TURN!=0 ||' in code
+    assert '(!gyro_only_turn && !gyro_only_turn_result));' in code
     assert 'wire gyro_only_turn_result=!command_valid &&' in code
     assert 'motion_mode==MODE_DONE && gyro_turn_done;' in code
     assert 'wire motion_pose_ok=pose_valid || ((gyro_only_turn || gyro_only_turn_result) &&' in code

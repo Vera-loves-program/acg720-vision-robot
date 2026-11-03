@@ -29,7 +29,15 @@ from gimbal_image_calibration import normalize_sample, fit_image_calibration, ca
 from usb_camera import UsbCamera, hardware_inventory
 
 ROOT = Path(__file__).resolve().parents[1]
+SOFTWARE_REVISION = 4
+SOFTWARE_LABEL = 'v22修订4'
+_UNSPECIFIED_MODE = object()
 BROWSER_HEARTBEAT_ERROR = '浏览器心跳已过期，PWM已关闭；连接恢复后请重新点击开启本轴PWM'
+SPEED_PROFILES = {
+    'slow': dict(slew=150, gain=2., normalized_gain_dps=35., max_rate_dps=25.),
+    'normal': dict(slew=600, gain=3., normalized_gain_dps=60., max_rate_dps=45.),
+    'fast': dict(slew=1200, gain=4., normalized_gain_dps=90., max_rate_dps=75.),
+}
 
 
 def finite(value, name):
@@ -71,6 +79,10 @@ class GimbalApp:
     def __init__(self, config_path, *, backend=None, camera_config=None,
                  dataset=None, max_age=.75, heartbeat_timeout=5.0, follow_link=None, standalone=False):
         self.config_path = Path(config_path)
+        self.software_revision = SOFTWARE_REVISION
+        self.software_info = dict(version=22, revision=SOFTWARE_REVISION, label=SOFTWARE_LABEL,
+                                  source=str(Path(__file__).resolve()),
+                                  source_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16])
         self.config = json.loads(self.config_path.read_text(encoding='utf-8')) if self.config_path.is_file() else default_config()
         if camera_config is not None:
             self.config['camera'] = deepcopy(camera_config)
@@ -162,10 +174,20 @@ class GimbalApp:
         self.camera = camera
         self.thread.start()
 
-    def publish(self, result, config_generation=None):
+    def _detection_kind(self):
+        """Caller holds app.lock. An explicit active task owns inference."""
+        if self.follow_link and self.follow_link.auto_select:
+            return self.follow_link.auto_kind
+        if self.tracking and self.tracker:
+            return self.tracker.selected_kind
+        return None  # Idle/paused preview retains both target catalogues.
+
+    def publish(self, result, config_generation=None, inference_kind=_UNSPECIFIED_MODE):
         with self.condition:
             if config_generation is not None and config_generation != self.config_generation:
                 return False  # Inference started before an intrinsics/config edit.
+            if inference_kind is not _UNSPECIFIED_MODE and inference_kind != self._detection_kind():
+                return False  # A slow result belongs to the task just replaced.
             key = (result.width, result.height, json.dumps(self.config.get('camera', {}), sort_keys=True))
             if self.tracker is None or self.camera_key != key:
                 self.tracking = False
@@ -435,7 +457,7 @@ class GimbalApp:
             memory = deepcopy(self.tracking_memory)
             memory['last_seen_age_s'] = (None if self._memory_seen_at is None else
                                           max(0, time.monotonic() - self._memory_seen_at))
-            return dict(gimbal=gimbal, config=view_config,
+            return dict(gimbal=gimbal, config=view_config, software=dict(self.software_info),
                         fpga_follow=None if self.follow_link is None else dict(
                             software_version='v22',target_kind=self.follow_link.auto_kind,
                             startup_pose=getattr(self.follow_link,'runtime_info',None),
@@ -574,6 +596,21 @@ class GimbalApp:
                     self.control_error = None
                     self.browser_recovered = True  # Never rearm outputs on reconnection.
                 return {'ok': True}
+            if action == 'set_speed_profile':
+                profile = SPEED_PROFILES.get(data.get('profile'))
+                if profile is None:
+                    raise ValueError('请选择慢速、标准或快速')
+                candidate = deepcopy(self.config)
+                for axis in ('pan', 'tilt'):
+                    candidate['axes'][axis]['slew_us_per_s'] = profile['slew']
+                candidate.setdefault('tracking', {}).update(
+                    {k: v for k, v in profile.items() if k != 'slew'})
+                validate_config(candidate)
+                result = self._save_tracking_candidate(candidate)
+                for axis in ('pan', 'tilt'):
+                    self.gimbal.apply_axis_config(axis, candidate['axes'][axis], clear_pending=False)
+                result.update(tracking_paused=True, profile=data['profile'])
+                return result
             if action == 'save_mount':
                 endpoint = data.get('upright_tilt_deg')
                 mount_image_sign(endpoint)
@@ -816,8 +853,11 @@ class GimbalApp:
                 index = data.get('index')
                 if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < len(frame[2]):
                     raise ValueError('Invalid target index')
-                self._hold_tracking()
                 self.tracker.select_target(frame[2][index], frame[1], frame_seq=frame[0])
+                if self.follow_link:
+                    self.follow_link.browser_selection()
+                self.tracking = False
+                self._hold_tracking()
                 self.target_selected = True
                 self.tracking_result = None
                 return {'selected': frame[2][index]}
@@ -1017,7 +1057,7 @@ class IndependentDetectors:
     no model, manifest, calibration or package installation is changed here.
     """
     def __init__(self,args):
-        self.engines={};self.errors={}
+        self.engines={};self.errors={};self.active_kind=None
         for kind in ('dog','human'):
             if kind=='human' and getattr(args,'no_face',False):continue
             try:
@@ -1032,9 +1072,14 @@ class IndependentDetectors:
                 self.errors[kind]=str(exc)
                 print('VISION '+kind+' unavailable: '+str(exc),flush=True)
 
-    def predict(self,image):
-        result={};elapsed={}
+    def predict(self,image,kind=None):
+        if kind not in (None,'dog','human'):
+            raise ValueError('Detection kind must be dog, human or both')
+        self.active_kind=kind
+        result={'dog':[],'human':[]};elapsed={'dog':0.,'human':0.}
         for kind in ('dog','human'):
+            if self.active_kind is not None and kind!=self.active_kind:
+                continue  # Do not spend the other model's latency on this task.
             started=time.perf_counter()
             try:
                 result[kind]=self.engines[kind].predict(image) if kind in self.engines else []
@@ -1049,6 +1094,8 @@ class IndependentDetectors:
     def status(self):
         return dict(state=('partial' if self.errors else 'enabled') if self.engines else 'error',
                     dog='dog' in self.engines,face='human' in self.engines,
+                    active_kind=self.active_kind,
+                    scheduled=dict(dog=self.active_kind in (None,'dog'),face=self.active_kind in (None,'human')),
                     errors=dict(self.errors),error='; '.join(k+': '+v for k,v in self.errors.items()) or None)
 
 
@@ -1072,6 +1119,7 @@ class VisionWorker:
                     self.app.detection_status.update(detector.status())
                 print('VISION engines: '+json.dumps(detector.status(),ensure_ascii=False),flush=True)
             sequence = 0
+            last_kind=_UNSPECIFIED_MODE
             while not self.app.stop.is_set():
                 frame = self.camera.newest(after=sequence)
                 if frame is None:
@@ -1086,6 +1134,11 @@ class VisionWorker:
                 with self.app.lock:
                     calibration = deepcopy(self.app.config.get('camera', {}))
                     generation = self.app.config_generation
+                    inference_kind = self.app._detection_kind()
+                if inference_kind!=last_kind:
+                    print('VISION mode: '+('FACE; dog inference paused' if inference_kind=='human' else
+                          'DOG; face inference paused' if inference_kind=='dog' else 'preview; both detectors'),flush=True)
+                    last_kind=inference_kind
                 coefficients = calibration.get('distortion_coefficients')
                 coordinates = 'original USB pixels'
                 if coefficients is not None:
@@ -1096,9 +1149,7 @@ class VisionWorker:
                                        [0, calibration['fy'], calibration['cy']], [0, 0, 1]], dtype=np.float64)
                     image = cv2.undistort(image, matrix, np.array(coefficients, dtype=np.float64))
                     coordinates = 'undistorted pixels with original K; saved photograph remains RAW'
-                boxes, faces, dog_ms, face_ms = detector.predict(image) if detector else ([], [], 0, 0)
-                if detector:
-                    with self.app.lock:self.app.detection_status.update(detector.status())
+                boxes, faces, dog_ms, face_ms = detector.predict(image,kind=inference_kind) if detector else ([], [], 0, 0)
                 detections = [dict(x1=b.x0, y1=b.y0, x2=b.x1, y2=b.y1, score=b.confidence, kind=kind)
                               for kind, group in (('dog', boxes), ('human', faces)) for b in group]
                 preview = image.copy()
@@ -1111,14 +1162,19 @@ class VisionWorker:
                                 (round(box['x1']), max(18, round(box['y1']) - 5)),
                                 cv2.FONT_HERSHEY_SIMPLEX, .5, color, 1)
                 cv2.drawMarker(preview, (w // 2, h // 2), (0, 220, 220), cv2.MARKER_CROSS, 18, 1)
-                cv2.putText(preview, f'USB {sequence} dog {dog_ms:.0f}ms face {face_ms:.0f}ms',
+                mode='FACE' if inference_kind=='human' else 'DOG' if inference_kind=='dog' else 'BOTH'
+                dog_text='skip' if inference_kind=='human' else f'{dog_ms:.0f}ms'
+                face_text='skip' if inference_kind=='dog' else f'{face_ms:.0f}ms'
+                cv2.putText(preview, f'USB {sequence} {mode} dog {dog_text} face {face_text}',
                             (6, h - 10), cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 220, 220), 1)
                 ok, encoded = cv2.imencode('.jpg', preview, [cv2.IMWRITE_JPEG_QUALITY, 80])
                 if not ok:
                     raise RuntimeError('Cannot encode browser preview')
-                self.app.publish(VisionFrame(sequence, frame.arrived_at, frame.image, encoded.tobytes(),
-                    detections, frame.gimbal, w, h, (time.perf_counter() - started) * 1000, coordinates),
-                    config_generation=generation)
+                with self.app.lock:
+                    published=self.app.publish(VisionFrame(sequence, frame.arrived_at, frame.image, encoded.tobytes(),
+                        detections, frame.gimbal, w, h, (time.perf_counter() - started) * 1000, coordinates),
+                        config_generation=generation,inference_kind=inference_kind)
+                    if published and detector:self.app.detection_status.update(detector.status())
         except Exception as exc:
             with self.app.lock:
                 self.app.detection_status.update(state='error', error=str(exc))
@@ -1225,7 +1281,8 @@ def main():
     parser.add_argument('--no-detection', action='store_true', help='Camera/photographs only, without loading ONNX')
     parser.add_argument('--no-face', action='store_true')
     parser.add_argument('--confidence', type=float, default=.5)
-    parser.add_argument('--face-confidence', type=float, default=.6)
+    parser.add_argument('--face-confidence', type=float, default=.4,
+                        help='Detection floor; face acquisition still requires tracker face_acquire_score (default .50)')
     parser.add_argument('--iou', type=float, default=.45)
     parser.add_argument('--face-iou', type=float, default=.3)
     parser.add_argument('--threads', type=int, default=4)
@@ -1269,6 +1326,7 @@ def main():
         calibration = json.loads(args.camera_config.read_text(encoding='utf-8')) if args.camera_config else None
         app = GimbalApp(args.config, backend=backend, camera_config=calibration,
                         dataset=args.dataset, max_age=args.max_frame_age, follow_link=follow_link, standalone=args.standalone)
+        print('SOFTWARE runtime: '+json.dumps(app.software_info,ensure_ascii=False),flush=True)
         if follow_link:follow_link.log_runtime(app)
         camera = UsbCamera(args.camera, args.width, args.height, args.fps, app.gimbal.snapshot)
         # The lambda follows a controller replaced after saving calibration.
