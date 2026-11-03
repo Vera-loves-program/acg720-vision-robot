@@ -1,3 +1,33 @@
+# 当前交付：预设演示测试候选（11月4日03:31）
+
+**布线已完成，完整时序未闭合；未烧录、未实车验证。** 最新RTL来源为 `7ac3189`，分支 `feature/preset-demo-20261104`，[PR #3](https://github.com/Vera-loves-program/acg720-vision-robot/pull/3)。这份是待现场验证的候选，不能称为稳定版。
+
+本机新FS的完整路径：
+
+```text
+D:\GOWIN_PROJECTS\acg720_obstacle_resume\output\releases\preset-demo-20261104\vision_robot_preset_demo_20261104_0331_NOT_TIMING_CLOSED.fs
+```
+
+SHA256：`8c96072354b93df40c9e4774c1b5c65c0be9612b443338deb6d3dffe08ffcf51`，20,059,120字节。文件只在本机生成，未上传GitHub。
+
+同目录还有 `build-result.json` 和 `validation-and-sources.zip`，包含冻结编译输入、构建报告与HDL日志。Git中保留[验证记录](../../docs/validation/preset-demo-20261104.json)。
+
+如由现场成员决定做受控下载测试，在Gowin Programmer中双击当前器件行的FS File，手动选择上述完整路径；操作保留SRAM Program，点击绿色运行按钮并核对下载日志。SRAM下载断电会丢失，不会更新Flash。代理没有连接下载器或操作底盘。
+
+下载后的新版识别特征：题5、题6都有 **PRESET DEMO**。点击后LCD标题变为 **PRESET DEMO**，完整等待5秒，再在传感器就绪时启动。题5是直行、左30°、直行、回原方向、直行；题6是两次150°、右调8°、直行停止。STOP、HOME、BACK可以取消。它是明确标注的预设轨迹，不依赖或伪造视觉目标。
+
+**Pi保持现有v22修订6，无需上传新包或修改参数。** [详细按键、参数与验收](../../docs/预设轨迹演示与5秒启动_20261104.md)。
+
+本轮五组HDL测试通过：544条序列断言、515条带实际导航器/命令寄存级的断言、517条实际触摸/子系统断言、208条命令原子性/取消断言，另有54,736周期电机控制器差分测试；原雷达保护/UI/规划回归也已运行通过。这些均为离线验证。
+
+最终布局布线资源：Logic 39,033（比基线+492）、Register 20,408（+295）、CLS 25,266（+111）、BSRAM 60、DSP 7.5。地图存储没有增加。
+
+时序仍有 **776个setup、376个hold违例端点**，Recovery/Removal总计数未提供，`upload_allowed=false` 保留。主时钟Fmax 50.018/50MHz、接收以太网125.697/125MHz、发送以太网125.313/125MHz、LCD46.276/45MHz；主时钟裕量很小。名义时钟指标达标不能证明全工程时序闭合。
+
+---
+
+下面是历史基线与Pi代码包记录，不能混作本次预设演示FS。
+
 # 本轮交付：Pi修订6与原FPGA续走候选
 
 使用 `pi-tracking-r6-20261104/acg720-orangepi-v22-r6-code.zip` 修复首帧黑屏，保留标定/模型；[更新步骤](../../docs/香橙派v22修订6启动修复_20261104.md)。修订5原包保留溯源，不再部署。
