@@ -1419,6 +1419,7 @@ module robot_status_text #(parameter integer CLK_HZ=50000000,parameter integer P
             8:planner_label=22;9:planner_label=23;11:planner_label=89;12:planner_label=90;
             13:planner_label=92;14:planner_label=93;15:planner_label=94;16:planner_label=95;
             17:planner_label=96;18:planner_label=97;19:planner_label=98;20:planner_label=99;21:planner_label=108;
+            22:planner_label=115;
             default:planner_label=56;
         endcase end
     endfunction

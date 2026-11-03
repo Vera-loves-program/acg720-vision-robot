@@ -5,6 +5,7 @@ module tb_nav_observation_gate;
  reg cv=0;reg[2:0] cmd=1;reg[3:0] coverage=0;
  wire run,calibrated;wire[3:0] status;wire[7:0] fault;
  wire signed[15:0] ls,rs;wire[3:0] required;
+ wire measurement_unknown;
  integer cases=0;
  robot_navigation #(.BODY_GUARD(1)) dut(
   .clk(clk),.reset_n(rst),.tick_10ms(tick),.safety_stop(1'b0),.motion_enable(1'b1),
@@ -21,7 +22,7 @@ module tb_nav_observation_gate;
   .body_turn_stop(turn_stop),.body_nav_ahead(1'b0),.body_coverage(coverage),
   .lidar_correction_valid(1'b0),.lidar_correction_x_mm(16'sd0),.lidar_correction_y_mm(16'sd0),
   .run_request(run),.target_speed_left(ls),.target_speed_right(rs),.gyro_calibrated(calibrated),.status(status),.fault(fault),
-  .diagnostic_required_coverage(required)
+  .diagnostic_required_coverage(required),.diagnostic_measurement_unknown(measurement_unknown)
  );
  task step;begin @(negedge clk);end endtask
  task issue; input[2:0] value;begin cmd=value;cv=1;step;cv=0;end endtask
@@ -32,18 +33,18 @@ module tb_nav_observation_gate;
   repeat(128)begin sample=1;step;sample=0;step;end
   check(calibrated,"gyro calibration from inputs");
   issue(1);frame;frame;
-  check(!run && status==8 && required==1,"no forward evidence UNKNOWN");
+  check(!run && status==8 && required==1 && measurement_unknown,"no forward evidence UNKNOWN");
   coverage=1;frame;
-  check(run && ls==10 && rs==10,"known free accepts motion");
+  check(run && ls==10 && rs==10 && !measurement_unknown,"known free accepts motion");
   front_stop=1;frame;
   check(!run && status==7,"actual front obstacle blocked");
   front_stop=0;frame;
   check(run,"same active manual task recovers");
-  lv=0;frame;check(!run && status==8,"scan loss stops");lv=1;
+  lv=0;frame;check(!run && status==8 && !measurement_unknown,"scan loss stops");lv=1;
   gv=0;frame;check(!run && status==8,"gyro invalid stops");gv=1;
-  guard_ready=0;frame;check(!run,"processing unhealthy stops");guard_ready=1;
+  issue(1);guard_ready=0;frame;check(!run && status==8 && !measurement_unknown,"processing unhealthy is sensor unavailable");guard_ready=1;
   coverage=15;issue(2);frame;frame;$display("TURN run%0d L%0d R%0d req%0d kind%0d turnw%0d brake%b error%0d state%0d",run,ls,rs,required,dut.decision_kind,dut.turn_work,dut.turn_braking,dut.heading_error_sample,dut.state);check(run && required==15,"observed turn accepts");
-  coverage=7;frame;check(!run && status==8,"turn missing rear UNKNOWN");
+  coverage=7;frame;check(!run && status==8 && measurement_unknown,"turn missing rear UNKNOWN");
   coverage=15;turn_stop=1;frame;check(!run && status==7,"actual turn obstacle");
   turn_stop=0;issue(1);frame;
   repeat(21)begin tick=1;step;tick=0;repeat(2200)step;end

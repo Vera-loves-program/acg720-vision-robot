@@ -14,7 +14,9 @@
 // A blocked point mission stops and reports a suggested side. It deliberately
 // does not claim that a single clear side proves an entire detour is traversable.
 // status: 0 stop, 1 calibrating, 2 geometry/gyro uncalibrated, 3 manual, 4 turn,
-//         5 drive, 6 arrived, 7 blocked, 8 stale sensor, 9 odometry/config fault.
+//         5 drive, 6 arrived, 7 obstacle, 8 sensor/observation unavailable,
+//         9 odometry/config fault. diagnostic_measurement_unknown distinguishes
+//         insufficient directional evidence from unavailable/stale processing.
 // fault: bit0 implausible encoder jump; bit1 overrun; bit2 bad pose/goal;
 //        bit3 invalid command speed/angle. STOP or accepted POSE_SET clears it.
 module robot_navigation #(parameter BODY_GUARD=0)(
@@ -61,6 +63,7 @@ module robot_navigation #(parameter BODY_GUARD=0)(
     ,output wire diagnostic_gyro_fresh
     ,output wire [5:0] diagnostic_gyro_age
     ,output wire [3:0] diagnostic_required_coverage
+    ,output reg diagnostic_measurement_unknown
 );
     localparam [2:0] MODE_STOP=0, MODE_MANUAL=1, MODE_TURN=2,
         MODE_GOTO=3, MODE_DONE=4, MODE_ALIGN=5;
@@ -303,7 +306,7 @@ module robot_navigation #(parameter BODY_GUARD=0)(
     wire [31:0] arrival_q8={16'd0,arrival_limit}<<8;
     reg signed [10:0] steering_work, speed_work, left_work, right_work;
     reg [15:0] turn_work;
-    reg blocked_work, turning_work, reverse_work, unknown_work;
+    reg blocked_work, turning_work, reverse_work, unknown_work,sensor_unready_work;
     // Registered decision stages break the measured cruise_counts -> wheel
     // target/status path. All stages run at50MHz inside ONE10ms frame.
     localparam [4:0] D_SPEED=17,D_SLOW=18,D_STEER=19,D_MIX=20,
@@ -378,6 +381,7 @@ module robot_navigation #(parameter BODY_GUARD=0)(
             recommended_side<=0;turn_complete_pulse<=0;half_turn_direction<=0;
             steering_work<=0;speed_work<=0;left_work<=0;right_work<=0;turn_work<=0;
             blocked_work<=0;turning_work<=0;reverse_work<=0;unknown_work<=0;
+            sensor_unready_work<=0;diagnostic_measurement_unknown<=0;
             decision_kind<=D_HOLD;decision_mode<=MODE_STOP;decision_status<=0;
             decision_valid<=0;decision_hold_heading<=0;decision_turn_done<=0;decision_start_drive<=0;
             cruise_sample<=1;approach_sample<=1;turn_sample<=1;
@@ -582,7 +586,7 @@ module robot_navigation #(parameter BODY_GUARD=0)(
                     decision_valid<=0;decision_status<=0;
                     decision_hold_heading<=0;decision_turn_done<=0;decision_start_drive<=0;
                     left_work<=0;right_work<=0;speed_work<=0;
-                    turning_work<=0;reverse_work<=0;blocked_work<=0;unknown_work<=0;
+                    turning_work<=0;reverse_work<=0;blocked_work<=0;unknown_work<=0;sensor_unready_work<=0;
                     cruise_sample<=cruise_limit[7:0];turn_sample<=turn_limit[6:0];
                     // Bound distance independently, BEFORE comparing it with
                     // the registered cruise setting in the next stage.
@@ -672,6 +676,7 @@ module robot_navigation #(parameter BODY_GUARD=0)(
                 D_CLAMP:begin
                     blocked_work<=decision_blocked_live;
                     unknown_work<=avoid_required && decision_unknown;
+                    sensor_unready_work<=avoid_required && BODY_GUARD && !body_guard_ready;
                     if(left_work>200)left_work<=200;
                     else if(left_work< -200)left_work<=-200;
                     if(right_work>200)right_work<=200;
@@ -681,13 +686,18 @@ module robot_navigation #(parameter BODY_GUARD=0)(
                 D_COMMIT:begin
                     run_request<=0;target_speed_left<=0;target_speed_right<=0;
                     recommended_side<=0;
-                    if(decision_mode==motion_mode && frame_generation==command_generation)
+                    if(decision_mode==motion_mode && frame_generation==command_generation)begin
                         status<=decision_status;
+                        diagnostic_measurement_unknown<=0;
+                    end
                     if(decision_valid && decision_mode==motion_mode &&
                        frame_generation==command_generation && motion_enable && !safety_stop &&
                        motion_pose_ok && !calibrating && (!avoid_required || lidar_valid))begin
                         if(blocked_work || decision_blocked_live)begin
-                            status<=unknown_work || decision_unknown ? 8 : 7;
+                            status<=unknown_work || decision_unknown || sensor_unready_work ||
+                                (BODY_GUARD && !body_guard_ready) ? 8 : 7;
+                            diagnostic_measurement_unknown<=(unknown_work || decision_unknown) &&
+                                !sensor_unready_work && (!BODY_GUARD || body_guard_ready);
                             if(left_known && clear_left_mm>=rotation_limit &&
                                (!right_known || clear_left_mm>clear_right_mm))recommended_side<=1;
                             else if(right_known && clear_right_mm>=rotation_limit)recommended_side<=2;
@@ -760,6 +770,7 @@ module robot_navigation #(parameter BODY_GUARD=0)(
                     0:begin
                         motion_mode<=MODE_STOP; run_request<=0; target_speed_left<=0;
                         target_speed_right<=0; fault<=0; status<=0; point_driving<=0;
+                        diagnostic_measurement_unknown<=0;
                     end
                     1:begin
                         run_request<=0; target_speed_left<=0; target_speed_right<=0;
@@ -813,6 +824,7 @@ module robot_navigation #(parameter BODY_GUARD=0)(
                 target_speed_left<=0; target_speed_right<=0;
                 status<=calibrating ? 1 : 0;
             end else if (!motion_pose_ok || calibrating || (avoid_required && !lidar_valid)) begin
+                diagnostic_measurement_unknown<=0;
                 turn_complete_pulse<=0;
                 // Do not queue a movement that could start unexpectedly after
                 // calibration or sensor recovery. A new command is required.

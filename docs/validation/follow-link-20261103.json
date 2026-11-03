@@ -1,0 +1,394 @@
+{
+  "date": "2026-11-03",
+  "scope": "RX timing and navigation observation cause; no flashing/hardware tests",
+  "build": {
+    "started_local": "2026-11-03T22:32:48.508008+08:00",
+    "user_authorized": true,
+    "command": [
+      "D:\\GOWIN\\Gowin_V1.9.11.03_Education_x64\\IDE\\bin\\gw_sh.exe",
+      "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tmp\\follow-link-20261103\\builds\\build-223248.tcl"
+    ],
+    "inputs": {
+      "vision_robot_ui.gprj": "f72ca4b502a80839cfea8d7df479bd14844dc29bf9f186e7f7c188cc8f3a4fad",
+      "src\\actuator_test_control.v": "9d418e333d3547a85ef08fb01d405b33a3953ae24149a60e69ed2c185f594e09",
+      "src\\actuator_test_panel.v": "84b0a04c50446c515de4ef71fb6cb5ba65288bd96fc76fe35661d2d6cb5b3698",
+      "src\\bm8563_clock.v": "1b087d4b63e54e778a4551ed79934943843c1d4a2a8dd126b0e9f9aef132eb08",
+      "src\\bq34z100_board_setup.v": "d6bf907358acaf087f3ea0cb78609eba5ff3675d93617a5c5778bacf05b8ae71",
+      "src\\bq34z100_gauge.v": "475cf43ef492f6a3b93a97b7f853286265105dd71342de2d3079211c8f76dbf7",
+      "src\\bq34z100_i2c_master.v": "d1edb8299b81b0d7402fed7dc4af79e0ab2aa80eff224722c89d249db5c8a1a5",
+      "src\\bq34z100_status_text.v": "61d76dfd13d9ce057494e69760158a39351ef1dba2109a15679dd31b2ad72189",
+      "src\\cs100a_demo.v": "ca51c7b0549d9bbb384f44b71c44b1023469f26b24580ee74b9ebc08f22d07d4",
+      "src\\encoder_quadrature.v": "d02699af979e3c4120059b7c79bb73a8afa4a64acb110716ba9b7e16f15a124a",
+      "src\\gaussian3x3_rgb565.v": "414f7e617a2b9a4eb73fb208696b1aec0e4dc44d17b1bf6d0aed4f7fb1549802",
+      "src\\gt911_touch.v": "34067643146706c13fe7ea881a8660f1c7d0d020a04a7e1a9bd40ac1ff5f4688",
+      "src\\lcd1024_interaction_ui.v": "81d9645c8fac369149850b49d92cecc036f8c37ddb907503ed4cc3ea2df36eca",
+      "src\\lcd_camera_zoom.v": "e31e601586a4285e97380bd723cc1986bae9d50c95c7d8ed6eb2206ed770d238",
+      "src\\lidar_grid_map.v": "a8e36b0ce1df9a40a67e149da886ea366fdc621e3c5fd603357b2cd8a76743d9",
+      "src\\lidar_path_planner.v": "99f0e6cd7d544c47f04f76228d0af2d6b19f502e6d0508d95f8ef0089d311e34",
+      "src\\lsm6dsv16x_demo.v": "cfc4c064a52f20b30e12ea5f63d02a36af763eaa90f93b2d901a9a03d7f25477",
+      "src\\motor_axis_control.v": "526728ce3c75c0b38a521f0d3f7ddb9e06317ea3f7f7cba866f9955d1de8da11",
+      "src\\motor_drive_control.v": "728db0118dd32dea1902d1dc8ef6bebeafab248c826d71ab12f6eea7236d3404",
+      "src\\motor_status_text.v": "d488e44a8b84d3af6b2cdb74c339205fc0a967766febe3e769df2ca1cfc34938",
+      "src\\motor_tuning_control.v": "21995bfe3b817cd348594c867e2ba55b287ea5a3652ea4a514c445246d3dce7f",
+      "src\\motor_uart_commands.v": "c76f1b5205f78f0d52846c3f4b48a0ed7f228156cfae68bbfcf75aca5e14df9a",
+      "src\\pid_touch_controls.v": "9c915293fc347f2e412e3474fb5eb5979ca3ff453aaff852093acc10a7e708a4",
+      "src\\robot_control_panel.v": "42c9da7ba95548771a4ee04b83ec3a7d3341fe9da1a764b9a8de25c76cecc69d",
+      "src\\robot_mission_control.v": "fe55fdd74c22ce96651aefca50c10cee53e1713c58cf01284442933e46a030b6",
+      "src\\robot_navigation.v": "0ef1e1cc779ccb9e8ef1de93900da91488d7c8e18f3d098feb317847b1479b5c",
+      "src\\robot_status_text.v": "7cdcd668f27daa83fef67ffe37474026cf3d32afd2c5e110bd8320bdb7a06a03",
+      "src\\robot_subsystem.v": "37eb6573a3456de35b500109f8fd29ca39542f26faa704e54e78c6e01e5772b2",
+      "src\\robot_ui_control.v": "ab92a3a6c9a6cb880cc008a2eafe4d4cbacaa273da90f3c506e1abc4e8e286f3",
+      "src\\rplidar_c1.v": "bb7a97dcf33e2977e5d58abafaf3eeb87932bb164da0f17cc7eb09c16004fc16",
+      "src\\rtc_calendar_valid.v": "8a3aa7d4c6c89f4f6c395f7b53299f924cf5f2b5f0709fd497030872fe6c6d91",
+      "src\\seg7_clock_display.v": "3526b88e9312d0475afcaf2e9f6a3037184f76be4389e82b547baa2a1b6b6d57",
+      "src\\sensor_demo_commands.v": "7374d3b58e3100e44467660426fc499a7a0657916fe13bd0bf9ddd83eb549e1e",
+      "src\\sensor_demo_text.v": "743143c693ae046c37d72486fd7b65d034f2c6b9811f53c638d166bfa18ab2d3",
+      "src\\sensor_demo_uart.v": "4fbc2ac00009bf05dd56c0b8eb34505771a768522130779e630ef849c8c6faff",
+      "src\\sensor_i2c_master.v": "d2c91d2e3cf95e591467558346f6165fd10de5f350b924d4c4dfdfe20acc831b",
+      "src\\servo_pulse_output.v": "e4a5ac9c46964c2cf2b877884fdfb1394928213551935cf5d8879f5af44a4138",
+      "src\\tb6612_axis_pwm.v": "d48d896f7a7e53fd6c68ed079e6563edb302353a2ead05e2858acf6953e7a483",
+      "src\\touch_gestures.v": "c815914c954b1bc68dd9608c324191ee456edc9f3ca2557377b711e4095918c0",
+      "src\\uart_rtc_set_parser.v": "47b85494475b92b072bb2e769dba723ac67c5e23899dca901439c2c5dfabf26b",
+      "src\\udp_detection_feedback.v": "b5345b68647f825a2fead3339192a02787494ef16da56d6e7dd86ff0936924cf",
+      "src\\udp_ui_command_parser.v": "00536474e7bba8b67293d8e9db332d7ae767b4bdecc18fcdc9be451d0ddcc619",
+      "src\\ui_video_tx_mux.v": "eb199929646275c6be242c103be21a4cbabb8761a188b00f95343ef77c206f47",
+      "src\\unsigned_divmod.v": "b622c910f6478fa71914dbc2511558746337c55a6f2a17c80f20b8e994bfd7bb",
+      "src\\video_400x240_packetizer.v": "911b68ce29b65d9a3a1f870b11b97c013eb080a20864a6fbe68bdd16d7e55714",
+      "src\\vision_robot_ui_top.v": "f5bcbd09d7e6eb2a747d2ab4132cd1a54bafba8dd12b135fdf346e5722dbee57",
+      "src\\gowin_pll_45\\gowin_pll.v": "19fc720168d168557cc1bacc0965e06688a8df17ae9c644b21769be671baaf4b",
+      "src\\gowin_pll_45\\gowin_pll_mod.v": "9523c0aa02e002c95066a1fca05b981323fde1fe3d70c7d3a847af3f92e328b4",
+      "src\\gowin_pll_45\\pll_init.v": "3fc6bef9a7086f0920bfa47265b1766854a53f6ca1c0f75084eaf6b6ef4d6258",
+      "src\\vendor\\pll_mDRP_intf.v": "6380774c682f607f11088cafa39ed1556e4c4db925ee2e72b78340026d4fd6ad",
+      "src\\vendor\\camera_init\\camera_init.v": "f67549489a29185e8c302be2e2a27f70b677a29c3dd9dcf981ac3807aec218ae",
+      "src\\vendor\\camera_init\\ov5640_init_table_rgb.v": "31e7abc88f5cf47917161e3b7333e73db72ae2bee3dc19ac7d3efebcaf12a96d",
+      "src\\vendor\\ddr3_ctrl_2port\\ddr3_ctrl_2port.v": "e5f2d30af76ffd64cec32d216138af035c81560b4207fe6e3865cab15fdcecec",
+      "src\\vendor\\ddr3_ctrl_2port\\fifo_ddr3_adapter.v": "fd407102d4bb47e0e19960f9f3d03acfe7ea4c2697e02b59cf66615022ff3fd8",
+      "src\\vendor\\ddr3_memory_interface\\ddr3_memory_interface.v": "9aa5bce36ff79ef315c622d782108faf14ad38b8b1dec648712db83693528a6d",
+      "src\\vendor\\ddr_pll\\ddr_pll.v": "1029730ed0b0cbe5285fed46910c45a5036dba764216ed334b853b164013c251",
+      "src\\vendor\\ddr_pll\\ddr_pll_mod.v": "52e0b36c890c80e39d09cff38a39908a6e9ec2ddf3476c887e5ed93b58438055",
+      "src\\vendor\\DVP_Capture\\DVP_Capture.v": "80077081c43a66439ed3a3ec507e6e1d44038566a10ff1e69d7ec98e607f5733",
+      "src\\vendor\\ethernet\\crc32_d8.v": "bc5f7b1ee9d60fa0ae75b1be7db055680c545e826ecafd86138c4f842d660f3d",
+      "src\\vendor\\ethernet\\eth_tx_ctrl.v": "d19f6bc541c5bb084deabec685ff8c7c024eb31495ef90e292402c232437d177",
+      "src\\vendor\\ethernet\\eth_tx_fifo.v": "19b03e561e3223aa73391dc63eaee3f1318cd8c37944f0ffa7cb794779912df7",
+      "src\\vendor\\ethernet\\eth_udp_rx_gmii.v": "0d0d3e204f49e7928b6d80847c1a4f980e3462db490e5781371e1cf968dd83a5",
+      "src\\vendor\\ethernet\\eth_udp_tx_gmii.v": "578163babcf6fb284aa58a71b654aaa7b79a09c5a5cf6ff82bcbb9e4e9359e04",
+      "src\\vendor\\ethernet\\gmii_to_rgmii.v": "603dcd696f1eaf5a33153bccb32c954618b836a4684e5ca9941a565b97e25c91",
+      "src\\vendor\\ethernet\\ip_checksum.v": "5995d9e89dbacb792cc086286912f197d1490b456c5b59e4aa6e594bc633b1dd",
+      "src\\vendor\\ethernet\\mdio_bit_shift.v": "470bf1ff074072ecd9977403651b18d8df125e5c0d670d35ce06cd5139796057",
+      "src\\vendor\\ethernet\\phy_reg_config.v": "2401a4a435482341b0dd78168a2ed4c5e9e91c5624a97d5dbc01176c061f2043",
+      "src\\vendor\\ethernet\\rgmii_to_gmii.v": "eba0c5c6d624cb618da37cd2a5a185ce113409154a0cc424cb22b4dda1f92842",
+      "src\\vendor\\net_pll\\gowin_pll.v": "08759f94d64823d5a6d23935e3f10e80c174401ce30613d3f0dbe332fb7ad4e0",
+      "src\\vendor\\net_pll\\gowin_pll_mod.v": "495395f7cf26ade4c10ba757b9f63753e1b000797007c2c9291e9b6c9bc23885",
+      "src\\vendor\\rd_data_fifo\\rd_data_fifo.v": "1ed3d3ebecdcf869329f8edcac25a7d7a6b83394dee567c4d2c06884d7398033",
+      "src\\vendor\\wr_data_fifo\\wr_data_fifo.v": "d0f8c50b9c92d12fcd887fb46dd3b09a0bd5c8236f012bcaaf8e28ad0ed507b9",
+      "src\\vendor\\camera_init\\i2c_control\\i2c_bit_shift.v": "00ffafdc833bda4ea094bcff65ec74ac25c0cd4215559457482e29119540338a",
+      "src\\vendor\\camera_init\\i2c_control\\i2c_control.v": "7d8106cd3e377afbfe03e1a959903a6ae409c061cd06da4d1c1650f550bad829",
+      "src\\lcd_interaction.sdc": "cc6447969fdd87cd72c3e2e5e85fd1e65eb910121c0714c9f1af16e01864f6a5",
+      "src\\lcd_interaction.cst": "11f44b3c089cc108fd1f051ed4eee19324c4dc13986b90e0b1ae2fe735da0b0f",
+      "impl\\vision_robot_netfix_process_config.json": "c17d80ca890727b7da4a230560dec6b199c4517dc596d43a402da366d9575c81",
+      "impl\\vision_robot_process_config.json": "84b7ee4f57798b68a72670e23eb363fdb6629f657bd047bf10df2f4822719fff",
+      "impl\\vision_robot_ui_process_config.json": "ac73cae0044db0d876709d50ddf8d8668294782d05c11c18bf1a586453712e30"
+    },
+    "log": "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tmp\\follow-link-20261103\\builds\\build-223248.log",
+    "scope": "synthesis/P&R only; no device actions; isolated identical-profile clone with report-only SDC",
+    "build_project": "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tmp\\follow-link-20261103\\builds\\build-222923-project\\vision_robot_ui.gprj",
+    "output_directory": "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tmp\\follow-link-20261103\\builds\\build-222923-project\\impl",
+    "original_project_sha256": "f72ca4b502a80839cfea8d7df479bd14844dc29bf9f186e7f7c188cc8f3a4fad",
+    "effective_project_sha256": "c220428ec15e6f410ffb6c42454ea868a0defe001891c614405b9f9296593c1d",
+    "profile_sha256": "ac73cae0044db0d876709d50ddf8d8668294782d05c11c18bf1a586453712e30",
+    "original_sdc_sha256": "cc6447969fdd87cd72c3e2e5e85fd1e65eb910121c0714c9f1af16e01864f6a5",
+    "effective_sdc_sha256": "8a9feaa009126459413ef191ba777c5e0754824da02c15fe2c15f01955204713",
+    "report_only_commands": [
+      "report_timing -setup -from_clock [get_clocks {clk50M}] -to_clock [get_clocks {clk50M}] -max_paths 25 -max_common_paths 1",
+      "report_timing -setup -from_clock [get_clocks {rgmii_rx_clk}] -to_clock [get_clocks {rgmii_rx_clk}] -max_paths 25 -max_common_paths 1",
+      "report_timing -setup -from_clock [get_clocks {lcd_pclk}] -to_clock [get_clocks {lcd_pclk}] -max_paths 25 -max_common_paths 1"
+    ],
+    "resumed_from": "tmp\\follow-link-20261103\\builds\\build-222923.json",
+    "reused_netlist_sha256": "c97f41f7cc0249de870817f9ba061bcd4d79a3541dd0559fc3a5534788ccf56e",
+    "exit_code": 0,
+    "elapsed_seconds": 630.8,
+    "errors": [],
+    "finished_local": "2026-11-03T22:43:19.443249+08:00",
+    "inputs_changed_during_build": [],
+    "fresh_fs": true,
+    "success": true,
+    "build_completed": true,
+    "effective_profile_sha256_after": "ac73cae0044db0d876709d50ddf8d8668294782d05c11c18bf1a586453712e30",
+    "profile_preserved": true,
+    "timing": {
+      "clocks": [
+        {
+          "clock": "clk50M",
+          "required_mhz": 50.0,
+          "actual_mhz": 47.925
+        },
+        {
+          "clock": "camera_pclk",
+          "required_mhz": 50.0,
+          "actual_mhz": 147.383
+        },
+        {
+          "clock": "rgmii_rx_clk",
+          "required_mhz": 125.0,
+          "actual_mhz": 120.545
+        },
+        {
+          "clock": "lcd_pclk",
+          "required_mhz": 45.0,
+          "actual_mhz": 43.834
+        },
+        {
+          "clock": "ddr_memory_clk",
+          "required_mhz": 400.0,
+          "actual_mhz": 2016.128
+        },
+        {
+          "clock": "ddr_ui_clk",
+          "required_mhz": 100.0,
+          "actual_mhz": 178.292
+        },
+        {
+          "clock": "u_net_pll/u_pll/PLLA_inst/CLKOUT1.default_gen_clk",
+          "required_mhz": 125.0,
+          "actual_mhz": 115.967
+        }
+      ],
+      "setup_violated_endpoints": 1963,
+      "hold_violated_endpoints": 383,
+      "timing_closed": false
+    },
+    "fully_validated_build": false,
+    "bitstream": {
+      "path": "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tmp\\follow-link-20261103\\builds\\build-222923-project\\impl\\pnr\\vision_robot_ui.fs",
+      "bytes": 20059064,
+      "sha256": "f4f16aa68d8f9d52a37acc0f7460c3039e489f300e155084270e0f482ce04ac6"
+    }
+  },
+  "bitstream": {
+    "path": "output\\releases\\follow-link-20261103\\vision_robot_follow_link_2243_NOT_TIMING_CLOSED.fs",
+    "bytes": 20059064,
+    "sha256": "f4f16aa68d8f9d52a37acc0f7460c3039e489f300e155084270e0f482ce04ac6"
+  },
+  "baseline_build": "tmp/lidar-moving-20261103/builds/build-192837.json",
+  "baseline_timing": {
+    "clocks": [
+      {
+        "clock": "clk50M",
+        "required_mhz": 50.0,
+        "actual_mhz": 46.035
+      },
+      {
+        "clock": "camera_pclk",
+        "required_mhz": 50.0,
+        "actual_mhz": 146.533
+      },
+      {
+        "clock": "rgmii_rx_clk",
+        "required_mhz": 125.0,
+        "actual_mhz": 118.465
+      },
+      {
+        "clock": "lcd_pclk",
+        "required_mhz": 45.0,
+        "actual_mhz": 45.291
+      },
+      {
+        "clock": "ddr_memory_clk",
+        "required_mhz": 400.0,
+        "actual_mhz": 2016.128
+      },
+      {
+        "clock": "ddr_ui_clk",
+        "required_mhz": 100.0,
+        "actual_mhz": 188.412
+      },
+      {
+        "clock": "u_net_pll/u_pll/PLLA_inst/CLKOUT1.default_gen_clk",
+        "required_mhz": 125.0,
+        "actual_mhz": 110.703
+      }
+    ],
+    "setup_violated_endpoints": 2635,
+    "hold_violated_endpoints": 386,
+    "timing_closed": false
+  },
+  "lidar_hdl": {
+    "tool": "Icarus Verilog actual HDL execution",
+    "runs": [
+      {
+        "top": "tb_lidar_body_guard",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 3.031,
+        "sha256": {
+          "tests/tb_lidar_body_guard.v": "7a52294526a3102f56f577dd2224bd12154d2e96c829d26016343bbd48511c5e",
+          "src/rplidar_c1.v": "bb7a97dcf33e2977e5d58abafaf3eeb87932bb164da0f17cc7eb09c16004fc16"
+        },
+        "original_subsystem_sha256": null
+      },
+      {
+        "top": "tb_rplidar_raw_diagnostics",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.375,
+        "sha256": {
+          "tests/tb_lidar_body_guard.v": "7a52294526a3102f56f577dd2224bd12154d2e96c829d26016343bbd48511c5e",
+          "src/rplidar_c1.v": "bb7a97dcf33e2977e5d58abafaf3eeb87932bb164da0f17cc7eb09c16004fc16"
+        },
+        "original_subsystem_sha256": null
+      },
+      {
+        "top": "tb_lidar_planner_start",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 64.125,
+        "sha256": {
+          "tests/tb_lidar_planner_start.v": "004cc746495905581330fef9c0a305cb4ca07c6f1013c7ed631bf72b5af5668b",
+          "src/lidar_path_planner.v": "99f0e6cd7d544c47f04f76228d0af2d6b19f502e6d0508d95f8ef0089d311e34"
+        },
+        "original_subsystem_sha256": null
+      },
+      {
+        "top": "tb_lidar_detour_preference",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 24.125,
+        "sha256": {
+          "tests/tb_lidar_detour_preference.v": "8d73f17b5f3a6c10dee98bc89cb3ab442ce62ff754c31bc62f163fd6eaacef38",
+          "src/lidar_path_planner.v": "99f0e6cd7d544c47f04f76228d0af2d6b19f502e6d0508d95f8ef0089d311e34"
+        },
+        "original_subsystem_sha256": null
+      },
+      {
+        "top": "tb_mission_observation_resume",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.188,
+        "sha256": {
+          "tests/tb_mission_observation_resume.v": "b8fde400cb74a04577703e27822a43a2073c2d335d9cecfe6abe8093bd92f3f5",
+          "src/robot_mission_control.v": "fe55fdd74c22ce96651aefca50c10cee53e1713c58cf01284442933e46a030b6"
+        },
+        "original_subsystem_sha256": null
+      },
+      {
+        "top": "tb_robot_map_viewport",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 2.656,
+        "sha256": {
+          "tests/tb_robot_map_viewport.v": "59df42547b65805a60cfc75e971cfd8a989021462e01e90edf016fe8414bcb8f",
+          "src/robot_control_panel.v": "42c9da7ba95548771a4ee04b83ec3a7d3341fe9da1a764b9a8de25c76cecc69d",
+          "src/rplidar_c1.v": "bb7a97dcf33e2977e5d58abafaf3eeb87932bb164da0f17cc7eb09c16004fc16"
+        },
+        "original_subsystem_sha256": null
+      },
+      {
+        "top": "tb_nav_observation_gate",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.391,
+        "sha256": {
+          "tests/tb_nav_observation_gate.v": "7928be400c7537ac65d2d96e62069c2a06732dbf5baf41babf7bb8eae9aff531",
+          "src/robot_navigation.v": "0ef1e1cc779ccb9e8ef1de93900da91488d7c8e18f3d098feb317847b1479b5c",
+          "src/unsigned_divmod.v": "b622c910f6478fa71914dbc2511558746337c55a6f2a17c80f20b8e994bfd7bb"
+        },
+        "original_subsystem_sha256": null
+      },
+      {
+        "top": "tb_diagnostic_snapshot",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.172,
+        "sha256": {
+          "tests/tb_diagnostic_snapshot.v": "9d660cc2b07e82705bac01ab7567027af2b7adccfe02734967824ec10940012f",
+          "src/robot_subsystem.v": "37eb6573a3456de35b500109f8fd29ca39542f26faa704e54e78c6e01e5772b2",
+          "src/motor_tuning_control.v": "21995bfe3b817cd348594c867e2ba55b287ea5a3652ea4a514c445246d3dce7f"
+        },
+        "original_subsystem_sha256": null
+      },
+      {
+        "top": "tb_lidar_lookahead",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.953,
+        "sha256": {
+          "tests/tb_lidar_lookahead.v": "db5bad559ec9296a025f4378e345617ea714c5c34ba7ef99bb6e00750d326ec7",
+          "tmp/lidar-20261103/hdl/actual_lookahead.v": "54fa64b096bdef1eacc4d18ae82afef01fe45829d672de9e5b4265699c19be82",
+          "src/rplidar_c1.v": "bb7a97dcf33e2977e5d58abafaf3eeb87932bb164da0f17cc7eb09c16004fc16",
+          "src/robot_navigation.v": "0ef1e1cc779ccb9e8ef1de93900da91488d7c8e18f3d098feb317847b1479b5c",
+          "src/unsigned_divmod.v": "b622c910f6478fa71914dbc2511558746337c55a6f2a17c80f20b8e994bfd7bb"
+        },
+        "original_subsystem_sha256": "37eb6573a3456de35b500109f8fd29ca39542f26faa704e54e78c6e01e5772b2"
+      },
+      {
+        "top": "tb_map_ray_evidence",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 1.89,
+        "sha256": {
+          "tests/tb_map_ray_evidence.v": "bc0b118d971a45374b67d30cf2890964532378756e3b81e56960191f9c4816ac",
+          "src/lidar_grid_map.v": "a8e36b0ce1df9a40a67e149da886ea366fdc621e3c5fd603357b2cd8a76743d9"
+        },
+        "original_subsystem_sha256": null
+      },
+      {
+        "top": "tb_robot_rejection_status",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 17.907,
+        "sha256": {
+          "tests/tb_robot_rejection_status.v": "81fd27cb4c25d9634a3ae18fb70ed4c4d7e9753b7d61db28289b61c06b40a15f",
+          "tmp/lidar-20261103/hdl/actual_rejection_pipeline.v": "bcb3bf0442b1411f02f6685265af1a7311c9a0336f74430aaf075e6f7d40d686",
+          "src/robot_status_text.v": "7cdcd668f27daa83fef67ffe37474026cf3d32afd2c5e110bd8320bdb7a06a03",
+          "src/lidar_grid_map.v": "a8e36b0ce1df9a40a67e149da886ea366fdc621e3c5fd603357b2cd8a76743d9",
+          "src/lidar_path_planner.v": "99f0e6cd7d544c47f04f76228d0af2d6b19f502e6d0508d95f8ef0089d311e34"
+        },
+        "original_subsystem_sha256": "37eb6573a3456de35b500109f8fd29ca39542f26faa704e54e78c6e01e5772b2"
+      },
+      {
+        "top": "tb_world_mapping_motion",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 2.687,
+        "sha256": {
+          "tests/tb_world_mapping_motion.v": "8a015ac49cc3dfb87a2f11f7a9abbe19214ed5ac33f0adca4160900d767315eb",
+          "tmp/lidar-20261103/hdl/actual_mapping_pose_gate.v": "0d2c714326e1f0210519fa9eccedac0971715c7f34a80f57cedfe4c4ec762b4a",
+          "src/robot_navigation.v": "0ef1e1cc779ccb9e8ef1de93900da91488d7c8e18f3d098feb317847b1479b5c",
+          "src/unsigned_divmod.v": "b622c910f6478fa71914dbc2511558746337c55a6f2a17c80f20b8e994bfd7bb",
+          "src/rplidar_c1.v": "bb7a97dcf33e2977e5d58abafaf3eeb87932bb164da0f17cc7eb09c16004fc16",
+          "src/lidar_grid_map.v": "a8e36b0ce1df9a40a67e149da886ea366fdc621e3c5fd603357b2cd8a76743d9"
+        },
+        "original_subsystem_sha256": "37eb6573a3456de35b500109f8fd29ca39542f26faa704e54e78c6e01e5772b2"
+      }
+    ],
+    "selected_only": null,
+    "all_passed": true,
+    "hardware_tested": false,
+    "cdc_proof": false,
+    "official_ram_model_sha256": "202f65ccf77126d04e47db36c95e237e48522f3a105a3e64d9fcbf4e3b782f27"
+  },
+  "ingress_hdl": {
+    "passed": true,
+    "sources": {
+      "tests/tb_follow_udp_ingress.v": "601b2675ef4a3990617bfa6d4277e9721b994a9b72adf109c62db1b55f3a4f1d",
+      "src/vendor/ethernet/eth_udp_rx_gmii.v": "0d0d3e204f49e7928b6d80847c1a4f980e3462db490e5781371e1cf968dd83a5",
+      "src/vendor/ethernet/ip_checksum.v": "5995d9e89dbacb792cc086286912f197d1490b456c5b59e4aa6e594bc633b1dd",
+      "src/vendor/ethernet/crc32_d8.v": "bc5f7b1ee9d60fa0ae75b1be7db055680c545e826ecafd86138c4f842d660f3d",
+      "src/udp_detection_feedback.v": "b5345b68647f825a2fead3339192a02787494ef16da56d6e7dd86ff0936924cf",
+      "src/robot_subsystem.v": "37eb6573a3456de35b500109f8fd29ca39542f26faa704e54e78c6e01e5772b2",
+      "tests/tb_ip_checksum_pipeline.v": "42d58f70bce9755daa5cc2fd947b08d25073c27a592ac78f93e481500fea8949",
+      "pc/robot_follow.py": "4f72844aece4a59a69f4b4fc7b3142564c3fb852dfe8dd0d32a2caf984a00d95"
+    },
+    "frame_sha256": "e64473910b3ef09c4ba369792bc827b9cf5daf800a801d7ac1ba40dcf846b425",
+    "log": "packet=1 bytes=32 error=0 crc=2144df1c metadata_count=32\npacket=2 bytes=64 error=0 crc=2144df1c metadata_count=32\npacket=3 bytes=96 error=0 crc=2144df1c metadata_count=32\npacket=4 bytes=128 error=0 crc=2144df1c metadata_count=32\npacket=5 bytes=160 error=1 crc=99f8b879 metadata_count=32\npacket=6 bytes=192 error=0 crc=2144df1c metadata_count=32\npacket=7 bytes=224 error=0 crc=2144df1c metadata_count=32\npacket=8 bytes=256 error=0 crc=2144df1c metadata_count=32\npacket=9 bytes=264 error=0 crc=2144df1c metadata_count=8\npacket=10 bytes=281 error=0 crc=2144df1c metadata_count=17\npacket=11 bytes=299 error=0 crc=2144df1c metadata_count=18\npacket=12 bytes=363 error=0 crc=2144df1c metadata_count=32\npacket=13 bytes=395 error=0 crc=2144df1c metadata_count=32\npacket=14 bytes=427 error=0 crc=2144df1c metadata_count=32\npacket=15 bytes=459 error=0 crc=2144df1c metadata_count=32\npacket=16 bytes=491 error=0 crc=2144df1c metadata_count=32\npacket=17 bytes=523 error=0 crc=2144df1c metadata_count=32\nPASS real GMII UDP ingress 23 checks, 17 packets, 11 mailbox commits; broadcast/unicast,CCITT,FCS,IP,port,sequence,PWM,RBT ACK\nw\u0000s\u0000l\u0000:\u0000 \u0000�hKm0R \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006tM�n\f�FO*g\\��P0R \u0000W\u0000S\u0000L\u0000\u00020N\u0000A\u0000T\u0000 \u0000!j\u000f_\u000bN�v \u0000W\u0000S\u0000L\u0000 \u0000\nN/e\u0001c \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006t\u00020\n\u0000\n\u0000",
+    "checksum_log": "PASS actual IPv4 checksum 1028 assertions:514 headers,carry/previous-header,unchanged default TX latency,pipelined RX latency\nw\u0000s\u0000l\u0000:\u0000 \u0000�hKm0R \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006tM�n\f�FO*g\\��P0R \u0000W\u0000S\u0000L\u0000\u00020N\u0000A\u0000T\u0000 \u0000!j\u000f_\u000bN�v \u0000W\u0000S\u0000L\u0000 \u0000\nN/e\u0001c \u0000l\u0000o\u0000c\u0000a\u0000l\u0000h\u0000o\u0000s\u0000t\u0000 \u0000�N\u0006t\u00020\n\u0000\n\u0000"
+  },
+  "hardware_tested": false,
+  "cdc_proof": false,
+  "extra_selftests": {
+    "PowerShell snapshot/ACK decode": "passed; no serial port opened",
+    "Pi passive probe decode": "passed; no socket opened"
+  },
+  "evidence_zip_sha256": "3cfccbe69386b36d913daa14576b7b2a2b373c0704f704633c77e458537ccc1f",
+  "source_zip_sha256": "30b0eee8ca4500fc58f02218164c4f58e55086bba1d742237cc79188ed5379c5"
+}

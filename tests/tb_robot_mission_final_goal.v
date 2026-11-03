@@ -19,6 +19,7 @@ module tb_robot_mission_final_goal;
         .clk(clk),.reset_n(reset_n),.tick_10ms(1'b1),.permit(permit),.safety_stop(1'b0),
         .user_command_valid(user_valid),.user_command(user_command),.user_goal_x(32'sd300),.user_goal_y(32'sd0),
         .pose_x(pose_x),.pose_y(pose_y),.pose_valid(1'b1),.nav_status(nav_status),
+        .nav_measurement_unknown(1'b0),
         .virtual_contact(1'b0),.rear_clear(1'b1),.recovery_counts(16'd10),
         .map_ready(1'b1),.map_busy(map_busy),.map_capture_ready(map_capture_ready),
         .scan_complete(scan_complete),.map_scan_count(map_scans),

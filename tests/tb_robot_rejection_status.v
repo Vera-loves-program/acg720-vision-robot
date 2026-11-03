@@ -62,6 +62,7 @@ module tb_robot_rejection_status;
    19:expect_status(98,"NAV MATH FAULT  ");
    20:expect_status(99,"OUTSIDE MAP     ");
    21:expect_status(108,"MOTION PAUSED   ");
+   22:expect_status(115,"MEASURE UNKNOWN ");
   endcase end
  endtask
  initial begin
@@ -71,7 +72,7 @@ module tb_robot_rejection_status;
   // current mission rejection. Read BOTH live ID and full transmitted row.
   for(p=0;p<2;p=p+1)begin
    planner_error=p==0 ? 0 : 4;
-   for(e=13;e<=21;e=e+1)begin mission_error=e;mission_status(e);end
+   for(e=13;e<=22;e=e+1)begin mission_error=e;mission_status(e);end
   end
   mission_error=0;planner_error=4;expect_status(87,"NO KNOWN PATH   ");
   planner_error=2;expect_status(85,"START BLOCKED   ");

@@ -74,6 +74,7 @@ module robot_subsystem (
     output wire shutdown_requested,software_stopped
 );
     wire [3:0] body_coverage,body_free_coverage,nav_required_coverage;
+    wire nav_measurement_unknown;
     wire gyro_fresh_diag;wire [5:0] gyro_age_diag;
     wire raw_node_valid,raw_parse_error;wire [2:0] raw_reject_reason;
     wire [5:0] body_scan_age;wire [7:0] body_scan_period;
@@ -500,6 +501,7 @@ module robot_subsystem (
         .user_command_valid(page==5 ? follow_command_valid : ui_command_valid),.user_command(page==5 ? follow_command : ui_command),
         .user_goal_x(page==5 ? follow_goal_x : goal_x),.user_goal_y(page==5 ? follow_goal_y : goal_y),
         .pose_x(robot_x),.pose_y(robot_y),.pose_valid(pose_valid),.nav_status(nav_status),
+        .nav_measurement_unknown(nav_measurement_unknown),
         .virtual_contact(virtual_contact),.rear_clear(body_guard_ready && body_coverage[3] && !body_rear_stop),.recovery_counts(cruise),
         .map_ready(map_ready),.map_busy(map_busy),.map_capture_ready(world_map_pose_valid && avoid_lidar_ready &&
             body_guard_ready && speed_left>=-1 && speed_left<=1 && speed_right>=-1 && speed_right<=1),
@@ -561,6 +563,7 @@ module robot_subsystem (
         .correction_accepted(correction_ack),.correction_count(correction_count),
         .diagnostic_gyro_fresh(gyro_fresh_diag),.diagnostic_gyro_age(gyro_age_diag),
         .diagnostic_required_coverage(nav_required_coverage)
+        ,.diagnostic_measurement_unknown(nav_measurement_unknown)
     );
     assign target_left=!remote_turn_active && manual_view && manual_active ? manual_target_left : nav_target_left;
     assign target_right=!remote_turn_active && manual_view && manual_active ? manual_target_right : nav_target_right;
@@ -614,7 +617,7 @@ module robot_subsystem (
             diagnostic_conditions_q[6]<=(virtual_contact);
             diagnostic_conditions_q[7]<=(nav_obstacle_ahead);
             diagnostic_conditions_q[8]<=((body_front_stop && nav_required_coverage[0]) || (body_rear_stop && nav_required_coverage[3]) || (body_turn_stop && nav_required_coverage==15));
-            diagnostic_conditions_q[9]<=((body_free_coverage & nav_required_coverage)!=nav_required_coverage);
+            diagnostic_conditions_q[9]<=((body_free_coverage & nav_required_coverage)!=nav_required_coverage || mission_error==22);
             diagnostic_conditions_q[10]<=(map_local);
             diagnostic_conditions_q[11]<=(mission_waiting_map);
             diagnostic_conditions_q[12]<=(effective_planner_error==8);
@@ -665,7 +668,7 @@ module robot_subsystem (
     assign diag_words[160+:32]={2'd0,scan_raw_nodes,scan_usable_nodes,scan_invalid_nodes};
     assign diag_words[192+:32]={12'd0,scan_parse_errors,scan_overruns,body_coverage};
     assign diag_words[224+:32]=direction_point_counts;
-    assign diag_words[256+:32]={11'd0,nav_required_coverage,body_free_coverage,unconfirmed_flags,body_front_stop,body_rear_stop,body_front_slow,body_turn_stop,virtual_contact,diagnostic_trigger_valid,2'd0};
+    assign diag_words[256+:32]={10'd0,nav_measurement_unknown,nav_required_coverage,body_free_coverage,unconfirmed_flags,body_front_stop,body_rear_stop,body_front_slow,body_turn_stop,virtual_contact,diagnostic_trigger_valid,2'd0};
     assign diag_words[288+:32]={10'd0,diagnostic_trigger_kind,diagnostic_trigger_scan};
     assign diag_words[320+:32]={1'd0,diagnostic_trigger_angle,diagnostic_trigger_distance};
     assign diag_words[352+:32]={26'd0,diagnostic_trigger_quality};

@@ -18,7 +18,7 @@ REASONS={0:'no live rejection classified; inspect mission/planner errors',1:'sca
 
 MISSION_ERRORS={0:'none',13:'map refresh timeout',14:'pose unavailable',15:'map unavailable',
  16:'virtual contact',17:'precise final leg blocked',18:'NAV sensors stale',
- 19:'NAV fault',20:'coordinates outside map',21:'motion permit unavailable'}
+ 19:'NAV fault',20:'coordinates outside map',21:'motion permit unavailable',22:'directional measurements UNKNOWN'}
 def signed(x,bits=32):
     x &= (1<<bits)-1
     return x-(1<<bits) if x & (1<<(bits-1)) else x
@@ -29,6 +29,7 @@ def decode_words(w):
     reason=w[39]&255
     return dict(reason_code=reason,reason=REASONS.get(reason,'unclassified'),
       nav_status=w[1]&15,nav_fault=w[1]>>24,mission_error=(w[1]>>16)&255,planner_error=(w[1]>>8)&255,
+      nav_measurement_unknown=bool(w[8]&(1<<21)),
       sensors=dict(gyro_age_ticks=(w[2]>>10)&63,gyro_fresh=bool(w[2]&512),gyro_calibrated=bool(w[2]&256),
         calibrating=bool(w[2]&128),gyro_valid=bool(w[2]&64),lidar_ready=bool(w[2]&32),
         avoid_lidar_ready=bool(w[2]&16),body_guard_ready=bool(w[2]&8),scan_enable=bool(w[2]&4),running=bool(w[2]&2)),

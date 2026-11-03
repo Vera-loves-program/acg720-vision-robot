@@ -7,6 +7,7 @@ module tb_mission_observation_resume;
     reg [2:0] user_command=0;
     reg signed [31:0] user_x=1000,user_y=0,pose_x=0,pose_y=0;
     reg [3:0] nav_status=0;
+    reg nav_measurement_unknown=0;
     reg map_capture_ready=1,capture_boundary=0,map_pulse=0,map_valid=0;
     reg [15:0] scan_id=0,integrated_id=0;
     reg planner_busy=0,planner_done=0,planner_reachable=0;
@@ -23,6 +24,7 @@ module tb_mission_observation_resume;
         .clk(clk),.reset_n(reset_n),.tick_10ms(1'b1),.permit(permit),.safety_stop(safety_stop),
         .user_command_valid(user_valid),.user_command(user_command),.user_goal_x(user_x),.user_goal_y(user_y),
         .pose_x(pose_x),.pose_y(pose_y),.pose_valid(1'b1),.nav_status(nav_status),
+        .nav_measurement_unknown(nav_measurement_unknown),
         .virtual_contact(1'b0),.rear_clear(1'b1),.recovery_counts(16'd1),
         .map_ready(1'b1),.map_busy(1'b0),.map_capture_ready(map_capture_ready),.scan_complete(1'b0),
         .capture_boundary(capture_boundary),.scan_id(scan_id),.map_integrated_id(integrated_id),
@@ -127,6 +129,21 @@ module tb_mission_observation_resume;
         observe(16'hffff,1);repeat(4)step;
         if(starts!=2)$fatal(1,"wrapped stale observation retried route");
         observe(1,2);expect_start(3);reply(1);
+        stop;
+        // Retain the actual NAV rejection after mission STOP clears its
+        // direction mask: missing measurements must not become stale sensors.
+        reset_n=0;repeat(3)step;reset_n=1;nav_status=0;pose_x=0;pose_y=0;step;
+        observe(10,11);go(1000,0);expect_start(1);reply(1);
+        nav_measurement_unknown=1;nav_status=8;step;nav_status=0;repeat(3)step;
+        if(mission_error!=22 || !active || !waiting_path || motion_permit)
+            $fatal(1,"measurement UNKNOWN mislabeled as sensors stale: error=%0d",mission_error);
+        checks=checks+1;
+        nav_measurement_unknown=0;
+        observe(11,12);expect_start(2);reply(1);
+        nav_status=8;step;nav_status=0;repeat(3)step;
+        if(mission_error!=18 || !active || !waiting_path || motion_permit)
+            $fatal(1,"actual stale sensor not preserved as error18");
+        checks=checks+1;
         stop;
         $display("PASS mission actualFSM: %0d checks, post-stop captureID barrier, stale/equal/wrapped ID rejection, same-goal fresh-map resume, STOP, connector and final5mm",checks);
         $finish;

@@ -132,6 +132,11 @@ module eth_udp_rx_gmii(
   reg  [3:0]  cnt_udp_header;
   reg  [15:0] cnt_data;
   reg  [4:0]  cnt_drp_data;
+  // Snapshot the terminal indices while still receiving the IP header.
+  // Removes length-1 ->16bit compare -> FSM from the125MHz data path.
+  reg  [15:0] payload_last;
+  reg  [4:0] padding_last;
+  reg payload_short;
 
   assign clk125m_o = clk125m;
   assign debug_crc_check = crc_check;
@@ -299,10 +304,19 @@ module eth_udp_rx_gmii(
   //ip_header: 20byte
   //rx_data_length = rx_total_len - udp_header - ip_header;
   always@(posedge clk125m or posedge reset_p)
-  if(reset_p)
+  if(reset_p)begin
     rx_data_length <= 16'd0;
+    payload_last <= 16'd0;
+    padding_last <= 5'd0;
+    payload_short <= 1'b0;
+  end
   else if(curr_state == RX_IP_HEADER && cnt_ip_header == 5'd19)
-    rx_data_length <= rx_total_len - 8'd20 - 8'd8;
+  begin
+    rx_data_length <= rx_total_len - 16'd28;
+    payload_last <= rx_total_len - 16'd29;
+    padding_last <= 5'd13 - rx_total_len[4:0]; // (45-total_len) modulo32
+    payload_short <= (rx_total_len - 16'd28)<16'd18;
+  end
   else
     rx_data_length <= rx_data_length;
 
@@ -314,7 +328,7 @@ module eth_udp_rx_gmii(
   else
     ip_checksum_cal_en <= 1'b0;
 
-  ip_checksum ip_checksum(
+  ip_checksum #(.PIPELINED_FOLD(1)) ip_checksum(
     .clk            (clk125m           ),
     .reset_p        (reset_p           ),
   
@@ -444,7 +458,9 @@ module eth_udp_rx_gmii(
           next_state = RX_IP_HEADER;
 
       RX_UDP_HEADER:
-        if(cnt_udp_header == 4'd2 && ip_header_check_ok == 1'b0)
+        // Registered carry fold settles during the UDP header. Check after
+        // byte4, with three clocks left before any payload is published.
+        if(cnt_udp_header == 4'd4 && ip_header_check_ok == 1'b0)
           next_state = IDLE;
         else if(cnt_udp_header == 4'd7 && udp_header_check_ok == 1'b0)
           next_state = IDLE;
@@ -454,15 +470,15 @@ module eth_udp_rx_gmii(
           next_state = RX_UDP_HEADER;
 
       RX_DATA:
-        if((rx_data_length < 5'd18) && (cnt_data == rx_data_length - 1'b1))
+        if(payload_short && (cnt_data == payload_last))
           next_state = RX_DRP_DATA;
-        else if(cnt_data == rx_data_length - 1'b1)
+        else if(cnt_data == payload_last)
           next_state = RX_CRC;
         else
           next_state = RX_DATA;
 
       RX_DRP_DATA:
-        if(cnt_drp_data == 5'd17 - rx_data_length)
+        if(cnt_drp_data == padding_last)
           next_state = RX_CRC;
         else
           next_state = RX_DRP_DATA;

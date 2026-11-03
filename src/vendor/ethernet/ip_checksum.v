@@ -15,7 +15,9 @@
 // 
 /////////////////////////////////////////////////////////////////////////////////
 
-module ip_checksum(
+// RX can spend an additional header clock on the carry fold. Default retains
+// the vendor TX interface latency. No checksum bits or acceptance rules change.
+module ip_checksum #(parameter integer PIPELINED_FOLD=0)(
   input           clk            ,
   input           reset_p        ,
 
@@ -40,6 +42,7 @@ module ip_checksum(
 
   reg  [31:0]suma;
   wire [16:0]sumb;
+  wire [16:0]fold_sum = suma[31:16]+suma[15:0];
   wire [15:0]sumc;
 
   always@(posedge clk or posedge reset_p)
@@ -52,7 +55,15 @@ module ip_checksum(
   else
     suma <= suma;
 
-  assign sumb = suma[31:16]+suma[15:0];
+  generate if(PIPELINED_FOLD!=0)begin:registered_fold
+    reg [16:0] value;
+    always @(posedge clk or posedge reset_p)
+      if(reset_p)value<=0;
+      else value<=fold_sum;
+    assign sumb=value;
+  end else begin:original_fold
+    assign sumb=fold_sum;
+  end endgenerate
   assign sumc = sumb[16]+sumb[15:0];
 
   assign checksum = ~sumc;

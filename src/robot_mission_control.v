@@ -13,6 +13,7 @@ module robot_mission_control (
     input wire signed [31:0] pose_x,pose_y,
     input wire pose_valid,
     input wire [3:0] nav_status,
+    input wire nav_measurement_unknown,
     input wire virtual_contact,rear_clear,
     input wire [15:0] recovery_counts,
     input wire map_ready,map_busy,map_capture_ready,scan_complete,
@@ -92,7 +93,8 @@ module robot_mission_control (
     // which never launched BFS, rather than displaying an old NO ROUTE.
     // 13 map-refresh timeout,14 pose unavailable,15 map unavailable,
     // 16 virtual contact,17 exact final leg blocked,18 stale NAV sensors,
-    // 19 NAV fault,20 coordinates outside map,21 motion permit unavailable.
+    // 19 NAV fault,20 coordinates outside map,21 motion permit unavailable,
+    // 22 directional measurements UNKNOWN (not a stale/failed sensor).
     wire signed [31:0] final_dx=pose_x-final_x,final_dy=pose_y-final_y;
     // A map cell/waypoint is NOT the user's exact destination. Keep a
     // relaxed waypoint acceptance, but finish only within5mm on BOTH axes.
@@ -243,7 +245,7 @@ module robot_mission_control (
                 end else if(nav_status==8 || nav_status==9)begin
                     nav_command<=0;nav_command_valid<=1;
                     no_path<=1;waiting_path<=1;
-                    mission_error<=nav_status==8 ? 8'd18 : 8'd19;
+                    mission_error<=nav_status==8 ? (nav_measurement_unknown ? 8'd22 : 8'd18) : 8'd19;
                     if(nav_status==9)fault_paused<=1;
                 end
             end
