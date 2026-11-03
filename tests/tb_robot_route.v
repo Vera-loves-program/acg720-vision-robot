@@ -123,7 +123,10 @@ module tb_robot_route;
         if(!active || !waiting_path || plan_error!=8)$fatal(1,"unknown start was not held");
         unknown_start=0;prior_plans=plans;clocks(20);
         if(plans!=prior_plans)$fatal(1,"retry without a new map");
+        // A repeated pulse for the SAME failed-map ID is not a new scan.
         integrated_id=scan_id;integrated=1;clocks(1);integrated=0;clocks(12);
+        if(plans!=prior_plans)$fatal(1,"duplicate map ID restarted parked mission");
+        scan_id=scan_id+1'b1;integrated_id=scan_id;integrated=1;clocks(1);integrated=0;clocks(12);
         if(!busy)$fatal(1,"fresh map did not restart parked mission");
         prior_commands=commands;request(0);clocks(20);
         if(active || busy || freeze || commands!=prior_commands)$fatal(1,"STOP failed to cancel BFS ownership");

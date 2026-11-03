@@ -28,29 +28,29 @@ def route(free,start,goal,directions):
             if n in free and n not in parents:parents[n]=p;queue.append(n)
     return None
 
-# Derive expected body-right independently by rotating Cartesian vectors.
+# Derive expected body-left independently by rotating Cartesian vectors.
 canonical=((1,0),(-1,0),(0,1),(0,-1))
 physical_to_code={v:i for i,v in enumerate(canonical)}
 table={int(a,16):int(b) for a,b in re.findall(r"4'h([0-9A-F]):ordered_direction=(\d);",planner)}
 for q in range(4):
-    order=tuple(rotate(v,q) for v in ((1,0),(0,-1),(0,1),(-1,0)))
+    order=tuple(rotate(v,q) for v in ((1,0),(0,1),(0,-1),(-1,0)))
     assert tuple(table[q*4+rank] for rank in range(4))==tuple(physical_to_code[v] for v in order)
     # Symmetric obstacle has equal detours. The first sideways edge must be
-    # body-right, including when worldRIGHT is +X/+Y/-X rather than -Y.
+    # body-left, including when it is world-X/-Y/+X rather than +Y.
     base={(x,y) for x in range(-10,11) for y in range(-10,11)
           if not(-1<=x<=1 and -1<=y<=1)}
     free={rotate(p,q) for p in base}
     start,goal=rotate((-6,0),q),rotate((6,0),q)
     path=route(free,start,goal,order)
     assert len(path)==len(route(free,start,goal,canonical))
-    right=rotate((0,-1),q)
+    left=rotate((0,1),q)
     lateral=next((b[0]-a[0],b[1]-a[1]) for a,b in zip(path,path[1:])
                  if (b[0]-a[0],b[1]-a[1]) not in (rotate((1,0),q),rotate((-1,0),q)))
-    assert lateral==right
-    # Blocking the preferred side cannot force an unsafe/right-only path.
-    left_only={p for p in free if p[0]*right[0]+p[1]*right[1]<=0}
-    left_path=route(left_only,start,goal,order)
-    assert left_path and all(p in left_only for p in left_path)
+    assert lateral==left
+    # Blocking the preferred side must leave the known-free opposite path.
+    right_only={p for p in free if p[0]*left[0]+p[1]*left[1]<=0}
+    right_path=route(right_only,start,goal,order)
+    assert right_path and all(p in right_only for p in right_path)
 
 rng=random.Random(20261025)
 for _ in range(500):
@@ -58,7 +58,7 @@ for _ in range(500):
     free={p for p,v in cells.items() if v==1};start=(1,1);goal=(10,10)
     old=route(free,start,goal,canonical)
     for q in range(4):
-        order=tuple(rotate(v,q) for v in ((1,0),(0,-1),(0,1),(-1,0)))
+        order=tuple(rotate(v,q) for v in ((1,0),(0,1),(0,-1),(-1,0)))
         new=route(free,start,goal,order)
         assert (new is None)==(old is None)
         if new:
@@ -69,12 +69,14 @@ def after_or_equal(tag,required):return ((tag-required)&65535)<32768
 
 class Barrier:
     def __init__(self):self.required=None
-    def step(self,eligible,boundary,scan,tag,valid,pulse):
+    def step(self,eligible,boundary,scan,tag,valid,pulse,fresh=True):
+        complete=self.required is not None and valid and fresh and after_or_equal(tag,self.required)
+        if complete:return bool(eligible)
         if not eligible:self.required=None;return False
         if self.required is None:
             if boundary:self.required=scan
             return False
-        return valid and pulse and after_or_equal(tag,self.required)
+        return False
 
 for required in (0,1,2,32767,32768,65534,65535):
     b=Barrier();previous=(required-1)&65535
@@ -84,11 +86,14 @@ for required in (0,1,2,32767,32768,65534,65535):
     assert not b.step(True,False,required,required,False,True)
     assert b.step(True,False,(required+1)&65535,required,True,True)
     # A correction may discard the exact required scan; later complete scan
-    # may satisfy, but a sticky16bit alias with no integration event cannot.
-    assert not b.step(True,False,required,required,True,False)
+    # may satisfy. Held fresh certificates survive consumer readiness gaps;
+    # an expired16bit alias still cannot substitute for a new observation.
+    assert b.step(True,False,required,required,True,False)
+    assert not b.step(True,False,required,required,True,False,fresh=False)
     assert b.step(True,False,required,(required+1)&65535,True,True)
     assert not b.step(False,False,required,required,True,True)
-    assert not b.step(True,False,required,required,True,False)
+    assert b.step(True,False,required,required,True,False)
+    b=Barrier()
     assert not b.step(True,True,(required+3)&65535,required,True,True)
     assert not b.step(True,False,required,required,True,True)
 
@@ -128,8 +133,8 @@ for offset in range(100):
 compact=lambda s:re.sub(r'\s+','',re.sub(r'//[^\n]*|/\*.*?\*/','',s,flags=re.S))
 m,p,g=map(compact,(mission,planner,mapper))
 assert 'if(pending_command==3)begin' in m and 'if(reusable_map)planner_start<=1;' in m
-assert 'current_map_scan_age<=16\'d2&&map_capture_ready' in m
-assert 'map_integrated_pulse&&!integrated_after_required[15]' in m
+assert 'current_map_scan_age<=16\'d2;' in m and 'reusable_map=recent_integrated_map&&map_capture_ready' in m
+assert 'required_scan_integrated=recent_integrated_map&&!integrated_after_required[15]' in m
 assert 'required_capture_id<=scan_id;refresh_phase<=1;' in m
 assert all(name not in m for name in ('refresh_map_count','last_map_count','retry_map_count'))
 assert 'refresh_scans' not in m and 'refresh_integrations' not in m
@@ -158,8 +163,8 @@ assert 'reference_scans>=MIN_REFERENCE_SCANS' in g
 assert 'pose_valid&&correction_enable&&reference_mature&&' in g
 assert 'scan_count>=MIN_REFERENCE_SCANS' not in g
 
-print('PASS:4 heading-relative right detours, blocked-right alternate path, 2000 random shortest-route comparisons')
+print('PASS:4 heading-relative left detours, blocked-left alternate path, 2000 random shortest-route comparisons')
 print('PASS: old queued tags, correction drops, eligibility loss,65535->0 wrap, sticky-tag alias and clear/session barriers')
 print('PASS: immediate recent-map planning, single complete new scan budget, retained exact5mm/STOP/source contracts')
-print('PASS: one-clock integration events replace3wide snapshots; saturating reference maturity for9 thresholds/9000 scans')
+print('PASS: held fresh integration certificates survive readiness gaps; saturating reference maturity for9 thresholds/9000 scans')
 print('Independent models/source checks only; no HDL simulation/build/device action.')

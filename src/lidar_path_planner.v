@@ -70,20 +70,20 @@ module lidar_path_planner #(
     reg build_free,build_unknown;
     reg [1:0] neighbour_rank,heading_quadrant,previous_back_direction;
     // BFS remains shortest-path. Only equal-length ties prefer body-forward,
-    // then body-right, body-left, body-back at the captured planning heading.
+    // then body-left, body-right, body-back at the captured planning heading.
     // Direction codes in parent RAM remain world +X,-X,+Y,-Y.
     function [1:0] ordered_direction;
         input [1:0] quadrant,rank;
         begin
             case({quadrant,rank})
-                4'h0:ordered_direction=0;4'h1:ordered_direction=3;
-                4'h2:ordered_direction=2;4'h3:ordered_direction=1;
-                4'h4:ordered_direction=2;4'h5:ordered_direction=0;
-                4'h6:ordered_direction=1;4'h7:ordered_direction=3;
-                4'h8:ordered_direction=1;4'h9:ordered_direction=2;
-                4'hA:ordered_direction=3;4'hB:ordered_direction=0;
-                4'hC:ordered_direction=3;4'hD:ordered_direction=1;
-                4'hE:ordered_direction=0;4'hF:ordered_direction=2;
+                4'h0:ordered_direction=0;4'h1:ordered_direction=2;
+                4'h2:ordered_direction=3;4'h3:ordered_direction=1;
+                4'h4:ordered_direction=2;4'h5:ordered_direction=1;
+                4'h6:ordered_direction=0;4'h7:ordered_direction=3;
+                4'h8:ordered_direction=1;4'h9:ordered_direction=3;
+                4'hA:ordered_direction=2;4'hB:ordered_direction=0;
+                4'hC:ordered_direction=3;4'hD:ordered_direction=0;
+                4'hE:ordered_direction=1;4'hF:ordered_direction=2;
             endcase
         end
     endfunction

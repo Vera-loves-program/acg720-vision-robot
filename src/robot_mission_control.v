@@ -48,6 +48,9 @@ module robot_mission_control (
     reg [8:0] refresh_ticks;
     reg [5:0] map_age_ticks;
     reg invalid_goal,fault_paused;
+    reg waiting_path_previous;
+    reg [15:0] parked_map_id;
+    wire [15:0] newer_than_parked=map_integrated_id-parked_map_id;
     reg turn_mission;
     reg [1:0] recovery_attempts;
     reg [8:0] recovery_ticks;
@@ -76,14 +79,14 @@ module robot_mission_control (
     assign motion_permit=permit && !planning && !planner_busy && !no_path && !pending;
     assign waiting_map=refreshing_map;
     wire [15:0] current_map_scan_age=scan_id-map_integrated_id;
-    wire reusable_map=map_integrated_valid && (map_age_ticks<30 || map_integrated_pulse) &&
-        current_map_scan_age<=16'd2 && map_capture_ready;
+    wire recent_integrated_map=map_integrated_valid && (map_age_ticks<30 || map_integrated_pulse) &&
+        current_map_scan_age<=16'd2;
+    wire reusable_map=recent_integrated_map && map_capture_ready;
     wire [15:0] integrated_after_required=map_integrated_id-required_capture_id;
-    // The one-clock integration event also excludes a sticky old16bit tag after a
-    // long pause/half-wrap. Equality OR modulo-newer accepts a later complete
-    // fresh scan if the first required scan was dropped by a correction.
-    wire required_scan_integrated=map_integrated_valid &&
-        map_integrated_pulse && !integrated_after_required[15];
+    // The committed ID is held by the real mapper. Its one-clock pulse only
+    // refreshes age; it need not coincide with every consumer readiness gate.
+    // Age plus scanner-relative identity excludes old/half-wrapped tags.
+    wire required_scan_integrated=recent_integrated_map && !integrated_after_required[15];
     // Error0 delegates to planner_error. These codes distinguish failures
     // which never launched BFS, rather than displaying an old NO ROUTE.
     // 13 map-refresh timeout,14 pose unavailable,15 map unavailable,
@@ -112,8 +115,11 @@ module robot_mission_control (
             refreshing_map<=0;refresh_phase<=0;required_capture_id<=0;
             refresh_ticks<=0;map_age_ticks<=63;
             waiting_path<=0;invalid_goal<=0;fault_paused<=0;
+            waiting_path_previous<=0;parked_map_id<=0;
         end else begin
             planner_start<=0;nav_command_valid<=0;
+            waiting_path_previous<=waiting_path;
+            if(waiting_path && !waiting_path_previous)parked_map_id<=map_integrated_id;
             if(!map_integrated_valid)map_age_ticks<=63;
             else if(map_integrated_pulse)map_age_ticks<=0;
             else if(tick_10ms && map_age_ticks!=63)map_age_ticks<=map_age_ticks+1'b1;
@@ -167,15 +173,18 @@ module robot_mission_control (
                 if(!pose_valid || !map_ready || refresh_ticks==300)begin
                     refreshing_map<=0;planning<=0;no_path<=1;waiting_path<=1;
                     mission_error<=!pose_valid ? 8'd14 : !map_ready ? 8'd15 : 8'd13;
+                end else if(refresh_phase && required_scan_integrated)begin
+                    // This complete post-stop observation is already certified.
+                    // Hold it through a current readiness gap; no need to wait
+                    // for an unrelated next finish pulse or discard its token.
+                    if(map_capture_ready)begin refreshing_map<=0;planner_start<=1;end
                 end else if(!map_capture_ready)begin
                     refresh_phase<=0;
                 end else case(refresh_phase)
                     0:if(capture_boundary)begin
                         required_capture_id<=scan_id;refresh_phase<=1;
                     end
-                    1:if(required_scan_integrated)begin
-                        refreshing_map<=0;planner_start<=1;
-                    end
+                    1:begin end
                 endcase
             end else if(planning && planner_done)begin
                 planning<=0;
@@ -199,8 +208,8 @@ module robot_mission_control (
             end else if(mission_active && waiting_path && !planning && !planner_busy && !pending)begin
                 // No busy-loop replanning, and no timer that silently ends a
                 // mission. A new coherent observation is the retry trigger.
-                if(!invalid_goal && !fault_paused && permit && coordinates_inside && pose_valid && map_ready &&
-                   reusable_map && map_integrated_pulse)begin
+                if(!invalid_goal && !fault_paused && !virtual_contact && permit && coordinates_inside && pose_valid && map_ready &&
+                   waiting_path_previous && reusable_map && newer_than_parked!=0 && !newer_than_parked[15])begin
                     waiting_path<=0;no_path<=0;mission_error<=0;planning<=1;planner_start<=1;
                     
                 end
