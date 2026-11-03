@@ -144,19 +144,30 @@ module robot_subsystem (
     wire mission_explicit_cancel=safety_stop || clear_map || pose_set || encoder_zeroed;
     // Demo ownership is separate from real visual tasks. The start button is
     // explicit and labelled; a STOP pulse is retained on the release edge.
-    wire demo_start=ui_tap_valid && page==5 && (subpage==0 || subpage==3) && ui_tap==4;
+    wire demo_start_raw=ui_tap_valid && page==5 && (subpage==0 || subpage==3) && ui_tap==4;
+    reg demo_start,demo_cancel_tap;
     wire demo_engaged,demo_moving,demo_command_valid,demo_servo_enable;
     wire [3:0] demo_phase;
     wire [2:0] demo_seconds,demo_command;
     wire signed [15:0] demo_speed;
     wire signed [31:0] demo_heading;
     wire [11:0] demo_pan_us,demo_tilt_us;
+    // Actual STA exposed page -> hit-test -> tap validity -> demo owner ->
+    // navigation arithmetic as a29ns path. Break the event path here.
+    // Physical STOP/contact still reaches explicit_local_stop directly.
+    always @(posedge clk or negedge reset_n)begin
+        if(!reset_n)begin demo_start<=0;demo_cancel_tap<=0;end
+        else begin
+            demo_start<=demo_start_raw;
+            demo_cancel_tap<=demo_engaged && ui_tap_valid && !demo_start_raw;
+        end
+    end
     wire demo_owns=demo_engaged || demo_command_valid || demo_start;
     wire demo_cancel=safety_stop || emergency_stop_pulse || explicit_local_stop ||
         remote_takeover || remote_active || remote_turn_active || ui_motor_fault || !touch_ready ||
         (snapshot_valid && snapshot_cancel) || shutdown_requested || battery_a_low ||
         page!=5 || (subpage!=0 && subpage!=3) ||
-        (demo_engaged && ui_tap_valid && !demo_start);
+        demo_cancel_tap;
     wire demo_permit=demo_engaged && demo_moving && !demo_cancel && gains_ready_q;
     wire demo_ready=gains_ready_q && geometry_valid && gyro_ready && !calibrating &&
         avoid_lidar_ready && body_guard_ready;

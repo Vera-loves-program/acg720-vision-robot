@@ -107,6 +107,11 @@ def main():
         result = subprocess.run([str(args.gowin.resolve()), str(workspace / 'build.tcl')],
                                 cwd=workspace, stdout=log, stderr=subprocess.STDOUT)
     output = log_path.read_text(encoding='utf-8', errors='replace')
+    if reused_synthesis is not None:
+        # Gowin can automatically invalidate copied synthesis state after a
+        # project relocation, even for run pnr. Report what actually happened.
+        reused_synthesis['tool_reran_synthesis'] = 'GowinSynthesis finish' in output
+        reused_synthesis['used_without_resynthesis'] = not reused_synthesis['tool_reran_synthesis']
     errors = re.findall(r'^.*(?:ERROR\s*\(|FATAL\b).*$', output, re.M | re.I)
     changed = [name for name, sha in source_hashes.items() if digest(ROOT / name) != sha]
     fs = workspace / 'impl/pnr/vision_robot_ui.fs'
