@@ -31,7 +31,12 @@ module robot_preset_demo #(
     reg [8:0] delay_ticks;
     reg [15:0] elapsed,turn_ticks;
     reg turn_busy_seen,turn_finished;
-    reg signed [31:0] initial_heading;
+    // Navigator headings lie within +/-180000mdeg; even a +150deg target
+    // fits signed20 bits. Separate addition, wrap and publication edges to
+    // avoid a32-bit add/compare/subtract chain on the50MHz control clock.
+    reg signed [19:0] initial_heading,raw_turn_heading;
+    wire signed [19:0] current_heading={{1{heading_mdeg[18]}},heading_mdeg[18:0]};
+    reg [1:0] turn_setup;
     reg [5:0] head_ticks;
     reg [4:0] head_offset;
     reg head_down;
@@ -47,11 +52,11 @@ module robot_preset_demo #(
     assign pan_us=12'd1488+{7'd0,head_offset};
     assign tilt_us=12'd1076;
 
-    function signed [31:0] wrapped;
-        input signed [31:0] angle;
+    function signed [19:0] wrapped;
+        input signed [19:0] angle;
         begin
-            if(angle>180000)wrapped=angle-360000;
-            else if(angle< -180000)wrapped=angle+360000;
+            if(angle>20'sd180000)wrapped=angle-20'sd360000;
+            else if(angle< -20'sd180000)wrapped=angle+20'sd360000;
             else wrapped=angle;
         end
     endfunction
@@ -60,15 +65,15 @@ module robot_preset_demo #(
     endtask
     task begin_drive;
         input [3:0] next_phase;
-        begin phase<=next_phase;elapsed<=0;command_valid<=1;command<=1;end
+        begin phase<=next_phase;elapsed<=0;turn_setup<=0;command_valid<=1;command<=1;end
     endtask
     task begin_turn;
         input [3:0] next_phase;
-        input signed [31:0] target;
+        input signed [19:0] target;
         begin
             phase<=next_phase;elapsed<=0;turn_ticks<=0;
             turn_busy_seen<=0;turn_finished<=0;
-            turn_heading<=wrapped(target);command_valid<=1;command<=2;
+            raw_turn_heading<=target;turn_setup<=1;
         end
     endtask
     always @(posedge clk or negedge reset_n)begin
@@ -76,22 +81,26 @@ module robot_preset_demo #(
             phase<=IDLE;mode<=0;delay_ticks<=0;elapsed<=0;turn_ticks<=0;
             seconds_left<=0;command_valid<=0;command<=0;turn_heading<=0;
             turn_busy_seen<=0;turn_finished<=0;initial_heading<=0;
+            raw_turn_heading<=0;turn_setup<=0;
             head_ticks<=0;head_offset<=12;head_down<=0;
         end else begin
             command_valid<=0;
             // STOP/page exit/fault always wins over START on the same clock.
             if(cancel)begin
                 if(engaged)stop_command;
-                phase<=IDLE;seconds_left<=0;
+                phase<=IDLE;seconds_left<=0;turn_setup<=0;
             end else if(start)begin
                 phase<=DELAY;mode<=search_mode;delay_ticks<=START_TICKS;
                 seconds_left<=5;elapsed<=0;turn_ticks<=0;
                 turn_busy_seen<=0;turn_finished<=0;
+                turn_setup<=0;
                 head_ticks<=0;head_offset<=12;head_down<=0;
                 stop_command;
             end else if(live && (!ready || nav_fault!=0 || nav_status==9))begin
-                phase<=FAULT;stop_command;
+                phase<=FAULT;turn_setup<=0;stop_command;
             end else begin
+                if(turn_setup==1)begin turn_heading<=wrapped(raw_turn_heading);turn_setup<=2;end
+                else if(turn_setup==2)begin command_valid<=1;command<=2;turn_setup<=0;end
                 // The navigator's completion is a one-clock pulse, unrelated
                 // to the10ms tick. Never miss it or reuse an earlier turn.
                 if(turning && nav_status==4)turn_busy_seen<=1;
@@ -124,8 +133,8 @@ module robot_preset_demo #(
                             end
                         end
                         WAIT_READY:if(ready && nav_fault==0)begin
-                            initial_heading<=heading_mdeg;
-                            if(mode)begin_turn(TURN1,heading_mdeg+32'sd150000);
+                            initial_heading<=current_heading;
+                            if(mode)begin_turn(TURN1,current_heading+20'sd150000);
                             else begin_drive(DRIVE1);
                         end
                         DRIVE1,DRIVE2,DRIVE3:begin
@@ -141,13 +150,13 @@ module robot_preset_demo #(
                         end
                         PAUSE1,PAUSE2,PAUSE3,PAUSE4,PAUSE5:begin
                             if(elapsed>=PAUSE_TICKS-1'b1)begin
-                                if(phase==PAUSE1)begin_turn(TURN1,initial_heading+32'sd30000);
+                                if(phase==PAUSE1)begin_turn(TURN1,initial_heading+20'sd30000);
                                 else if(phase==PAUSE2)begin
-                                    if(mode)begin_turn(TURN2,heading_mdeg+32'sd150000);
+                                    if(mode)begin_turn(TURN2,current_heading+20'sd150000);
                                     else begin_drive(DRIVE2);
                                 end else if(phase==PAUSE3)begin_turn(TURN2,initial_heading);
                                 else if(phase==PAUSE4)begin
-                                    if(mode)begin_turn(FINE,heading_mdeg-32'sd8000);
+                                    if(mode)begin_turn(FINE,current_heading-20'sd8000);
                                     else begin_drive(DRIVE3);
                                 end else begin_drive(DRIVE3);
                             end else elapsed<=elapsed+1'b1;

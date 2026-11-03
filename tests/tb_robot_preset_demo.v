@@ -12,7 +12,7 @@ module tb_robot_preset_demo;
     wire signed [15:0] speed;
     wire signed [31:0] target;
     wire [11:0] pan,tilt;
-    integer checks=0,starts=0,turns=0,stops=0,k,drive_remaining;
+    integer checks=0,starts=0,turns=0,stops=0,k,drive_remaining,previous_turns,setup_stage;
     reg [3:0] before_phase;
     robot_preset_demo #(.DRIVE1_TICKS(3),.DRIVE2_TICKS(3),.DRIVE3_TICKS(3),
         .SEARCH_DRIVE_TICKS(3),.PAUSE_TICKS(2),.TURN_TIMEOUT_TICKS(30)) dut(
@@ -100,6 +100,21 @@ module tb_robot_preset_demo;
         cancel_now;
         @(negedge clk);start=1;cancel=1;@(negedge clk);start=0;cancel=0;clocks(3);
         check(!engaged,"simultaneous cancel wins over start");
+        // Negative wrap exercises the narrowed arithmetic's opposite bound.
+        heading=-115000;search=1;pulse_start;repeat(501)tick_once;
+        check(target==35000,"negative initial heading +150");complete_turn;
+        tick_once;tick_once;check(target== -175000,"second150 wraps negative");complete_turn;
+        tick_once;tick_once;check(target==177000,"fine adjustment crosses negative180 boundary");complete_turn;
+        cancel_now;
+        // Cancel on each added register stage. No queued TURN may escape
+        // after a STOP even though target addition has already completed.
+        for(setup_stage=1;setup_stage<=2;setup_stage=setup_stage+1)begin
+            previous_turns=turns;pulse_start;repeat(500)tick_once;
+            @(negedge clk);tick=1;@(negedge clk);tick=0;
+            if(setup_stage==2)clocks(1);
+            cancel=1;@(negedge clk);cancel=0;clocks(5);
+            check(turns==previous_turns && !engaged && !nav_run,"STOP kills pipelined pending turn");
+        end
         $display("PASS: preset sequencer %0d checks; full5s, two150 turns, pause/resume, cancellation, faults",checks);
         $finish;
     end
