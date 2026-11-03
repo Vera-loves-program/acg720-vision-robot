@@ -17,6 +17,11 @@ module rplidar_c1 #(
     output reg [14:0] angle_q6,
     output reg [15:0] distance_mm,
     output reg [5:0] quality,
+    // One pulse per structurally decoded node, including quality0/no echo.
+    // reason[0]=quality0,[1]=below50mm,[2]=above12m; point_valid is unchanged.
+    output reg raw_node_valid,
+    output reg [2:0] raw_reject_reason,
+    output reg raw_parse_error,
     output reg scan_start,
     output reg running, ready,
     output reg [7:0] error_code,
@@ -148,13 +153,14 @@ module rplidar_c1 #(
             descriptor_index<=0; health_index<=0; node_window<=0;
             node_fill<=0; tx_start<=0; tx_byte<=0;
             point_valid<=0; angle_q6<=0; distance_mm<=0; quality<=0;
+            raw_node_valid<=0;raw_reject_reason<=0;raw_parse_error<=0;
             scan_start<=0; running<=0; ready<=0; error_code<=0;
             health_status<=8'hFF; health_error<=0; rx_bytes<=0;
             node_count<=0; point_count<=0; scan_count<=0;
             uart_errors<=0; packet_errors<=0; restart_count<=0;
             last_rx_word<=0;reply_capture<=0;last_tx_word<=0;
         end else begin
-            tx_start<=0; point_valid<=0; scan_start<=0;
+            tx_start<=0; point_valid<=0; scan_start<=0;raw_node_valid<=0;raw_parse_error<=0;
             if (rx_valid) begin
                 rx_bytes<=rx_bytes+1'b1;
                 last_rx_word<={last_rx_word[23:0],rx_byte};
@@ -179,6 +185,7 @@ module rplidar_c1 #(
             if (rx_frame_error) begin
                 uart_errors<=uart_errors+1'b1;
                 node_fill<=0;
+                if(state==STREAM)raw_parse_error<=1;
             end
             if (restart && scan_enable) begin
                 // Explicit operator restart can clear a protective shutdown.
@@ -370,13 +377,13 @@ module rplidar_c1 #(
                               0: begin
                                 if(rx_byte[0]^rx_byte[1]) begin
                                     node_window[7:0]<=rx_byte;node_fill<=1;
-                                end else packet_errors<=packet_errors+1'b1;
+                                end else begin packet_errors<=packet_errors+1'b1;raw_parse_error<=1;end
                               end
                               1: begin
                                 if(rx_byte[0]) begin
                                     node_window[15:8]<=rx_byte;node_fill<=2;
                                 end else begin
-                                    node_fill<=0;packet_errors<=packet_errors+1'b1;
+                                    node_fill<=0;packet_errors<=packet_errors+1'b1;raw_parse_error<=1;
                                 end
                               end
                               2: begin node_window[23:16]<=rx_byte;node_fill<=3;end
@@ -384,6 +391,8 @@ module rplidar_c1 #(
                               4: begin
                                 node_fill<=0;
                                 if(candidate_ok) begin
+                                    raw_node_valid<=1;
+                                    raw_reject_reason<={candidate_q2>16'd48000,candidate_q2<16'd200,candidate[7:2]==0};
                                     node_count<=node_count+1'b1;
                                     stream_age_ms<=0; ready<=1;error_code<=0;stream_seen_node<=1;
                                     angle_q6<=candidate_angle;
@@ -394,7 +403,7 @@ module rplidar_c1 #(
                                     if (candidate_usable) begin
                                         point_valid<=1; point_count<=point_count+1'b1;
                                     end
-                                end else packet_errors<=packet_errors+1'b1;
+                                end else begin packet_errors<=packet_errors+1'b1;raw_parse_error<=1;end
                               end
                               default:node_fill<=0;
                             endcase
@@ -609,16 +618,44 @@ endmodule
 // +X is vehicle front, +Y left. Fixed body returns are counted, never used to
 // ray-clear occluded space. The 10mm contact flag is a virtual proximity event,
 // not proof of a physical impact (there is no bumper sensor).
-module lidar_body_guard(
+module lidar_body_guard #(
+    // Engineering confirmation tolerances, not sensor accuracy guarantees.
+    parameter CLUSTER_ANGLE_Q6=192,
+    parameter CLUSTER_RANGE_MM=60
+)(
     input wire clk,reset_n,tick_10ms,active,
     input wire point_valid,scan_start,
     input wire [14:0] angle_q6,forward_angle_q6,
     input wire [15:0] distance_mm,
+    input wire [5:0] quality,
+    input wire raw_node_valid,raw_parse_error,
+    input wire [2:0] raw_reject_reason,
+    input wire [15:0] scan_id,
     input wire signed [15:0] offset_x_mm,offset_y_mm,
     input wire [15:0] body_front_mm,body_rear_mm,body_left_mm,body_right_mm,
     input wire [15:0] drive_margin_mm,turn_margin_mm,contact_margin_mm,
     output wire ready,front_stop,rear_stop,front_slow,turn_stop,virtual_contact,
     output reg [3:0] coverage,
+    // coverage is EXTERNAL HIT presence, never geometric corridor clearance.
+    // free_coverage requires all32 fine angular supports in each90deg sector.
+    // It is sampled visibility only; full swept-area checks still need a map.
+    output reg [3:0] free_coverage,
+    output wire [5:0] scan_age_ticks,
+    output reg [7:0] scan_period_ticks,
+    output wire projection_bad,
+    output reg last_scan_bad,
+    output reg [9:0] scan_raw_nodes,scan_usable_nodes,scan_invalid_nodes,
+    output reg [7:0] scan_parse_errors,scan_overruns,
+    output reg [31:0] direction_point_counts,
+    output wire [4:0] unconfirmed_flags,
+    // Last actual confirming/near-contact ray; sticky across empty scans.
+    // kind bits: front,rear,slow,turn,contact. Raw angle/range remain optical.
+    output reg trigger_valid,
+    output reg [4:0] trigger_kind,
+    output reg [14:0] trigger_angle_q6,
+    output reg [15:0] trigger_distance_mm,trigger_scan_id,
+    output reg [5:0] trigger_quality,
+    output reg signed [15:0] trigger_x_mm,trigger_y_mm,
     // Optical-origin ranges, after the SAME measured-body SELF rejection as
     // mapping/collision checks. A raw polar minimum can otherwise display a
     // wheel/chassis return as an obstacle (notably the offset sensor's LEFT).
@@ -629,12 +666,14 @@ module lidar_body_guard(
     output reg map_point_valid,
     output reg signed [15:0] body_point_x,body_point_y,
     output reg [14:0] map_point_angle,
-    output reg [15:0] map_point_distance
+    output reg [15:0] map_point_distance,
+    output reg [5:0] map_point_quality,
+    output reg confirmed_point_valid
 );
     localparam [5:0] CFG_X=0,CFG_Y=1,CFG_SUM=2,ROOT_TEST=3,ROOT_FINAL=4,
         CFG_DONE=5,IDLE=6,NORM=7,ROT_INIT=8,ROTATE=9,DIV_INIT=10,
         DIV_X=11,DIV_Y=12,HIT=13,RAD_X=14,RAD_Y=15,RAD_DONE=16,MUL_WAIT=17,
-        ROT_SHIFT=18,ROT_APPLY=19;
+        ROT_SHIFT=18,ROT_APPLY=19,BIN_INIT=20,BIN_DIVIDE=21,CLASSIFY=22;
     reg [5:0] state,after_multiply;
     reg [15:0] square_operand;
     reg [31:0] square_result,diagonal_squared,root_squared,point_x_squared;
@@ -659,6 +698,16 @@ module lidar_body_guard(
     reg signed [15:0] work_blocking_x,work_blocking_y;
     reg [17:0] work_blocking_metric;
     reg [3:0] work_coverage;
+    reg [7:0] period_age;
+    reg [9:0] work_raw_nodes,work_usable_nodes,work_invalid_nodes;
+    reg [7:0] work_parse_errors,work_overruns;
+    reg [31:0] work_direction_counts;
+    reg [127:0] work_free_bins,work_blocked_bins;
+    reg [4:0] candidate_flags,previous_flags,work_unconfirmed,published_unconfirmed;
+    reg previous_valid,previous_free,candidate_free;
+    reg [14:0] previous_angle;
+    reg [15:0] previous_distance;
+    reg [6:0] sample_bin,previous_bin;
     reg [15:0] work_range_front,work_range_right,work_range_rear,work_range_left;
     assign ready=active && config_ready && config_ok && scan_good && !work_bad && scan_age<30;
     assign front_stop=published_front || work_front;
@@ -666,8 +715,12 @@ module lidar_body_guard(
     assign front_slow=published_slow || work_slow;
     assign turn_stop=published_turn || work_turn;
     assign virtual_contact=published_contact || work_contact;
+    assign scan_age_ticks=scan_age;
+    assign projection_bad=work_bad;
+    assign unconfirmed_flags=work_unconfirmed | published_unconfirmed;
     reg [15:0] held_distance;
     reg [14:0] held_angle;
+    reg [5:0] held_quality;
     reg signed [16:0] theta;
     reg signed [25:0] cx,cy;
     reg signed [16:0] cz;
@@ -700,6 +753,20 @@ module lidar_body_guard(
     wire inside_body=x<=f && x>=-b && y<=l && y>=-r;
     wire in_drive_width=y<=l+dm && y>=-r-dm;
     wire within_contact=x<=f+cm && x>=-b-cm && y<=l+cm && y>=-r-cm;
+    wire sensor_inside_body=$signed(offset_x_mm)<=f && $signed(offset_x_mm)>=-b &&
+        $signed(offset_y_mm)<=l && $signed(offset_y_mm)>=-r;
+    wire outside_drive_box=x>f+dm || x< -b-dm || y>l+dm || y< -r-dm;
+    wire usable_point=point_valid && quality!=0 && distance_mm>=50 && distance_mm<=12000;
+    wire [14:0] pair_difference=held_angle>=previous_angle ? held_angle-previous_angle : previous_angle-held_angle;
+    wire [14:0] pair_angle=pair_difference>11520 ? 15'd23040-pair_difference : pair_difference;
+    wire [15:0] pair_range=held_distance>=previous_distance ? held_distance-previous_distance : previous_distance-held_distance;
+    wire adjacent_pair=previous_valid && pair_angle<=CLUSTER_ANGLE_Q6 && pair_range<=CLUSTER_RANGE_MM;
+    wire [4:0] confirmed_flags=(adjacent_pair ? candidate_flags & previous_flags : 5'd0) |
+        (candidate_flags[4] ? candidate_flags : 5'd0);
+    wire [4:0] work_flags={work_contact,work_turn,work_slow,work_rear,work_front};
+    wire [15:0] clockwise_angle=theta<=0 ? -$signed({theta[16],theta}) : 16'd23040-theta;
+    wire [15:0] shifted_bin_angle=clockwise_angle+16'd2880;
+    wire [14:0] bin_angle=shifted_bin_angle>=23040 ? shifted_bin_angle-16'd23040 : shifted_bin_angle;
     wire [17:0] blocking_metric={1'b0,abs_x}+{1'b0,abs_y};
     always @(posedge clk or negedge reset_n)begin
         if(!reset_n)begin
@@ -716,9 +783,31 @@ module lidar_body_guard(
             held_angle<=0;map_point_valid<=0;map_point_angle<=0;map_point_distance<=0;body_point_x<=0;body_point_y<=0;
             shifted_x<=0;shifted_y<=0;shift_left<=0;
             sign_x<=0;sign_y<=0;dividend<=0;quotient<=0;remainder<=0;divide_bit<=0;magnitude_x<=0;px<=0;py<=0;
+            free_coverage<=0;period_age<=0;scan_period_ticks<=0;last_scan_bad<=0;
+            scan_raw_nodes<=0;scan_usable_nodes<=0;scan_invalid_nodes<=0;scan_parse_errors<=0;scan_overruns<=0;
+            work_raw_nodes<=0;work_usable_nodes<=0;work_invalid_nodes<=0;work_parse_errors<=0;work_overruns<=0;
+            direction_point_counts<=0;work_direction_counts<=0;work_free_bins<=0;work_blocked_bins<=0;
+            candidate_flags<=0;previous_flags<=0;work_unconfirmed<=0;published_unconfirmed<=0;
+            previous_valid<=0;previous_free<=0;candidate_free<=0;previous_angle<=0;previous_distance<=0;
+            sample_bin<=0;previous_bin<=0;held_quality<=0;map_point_quality<=0;confirmed_point_valid<=0;
+            trigger_valid<=0;trigger_kind<=0;trigger_angle_q6<=0;trigger_distance_mm<=0;trigger_scan_id<=0;
+            trigger_quality<=0;trigger_x_mm<=0;trigger_y_mm<=0;
         end else begin
-            map_point_valid<=0;
+            map_point_valid<=0;confirmed_point_valid<=0;
             if(tick_10ms && scan_age!=63)scan_age<=scan_age+1'b1;
+            if(tick_10ms && period_age!=255)period_age<=period_age+1'b1;
+            if(config_ready && scan_seen)begin
+                if(raw_node_valid)begin
+                    if(work_raw_nodes!=1023)work_raw_nodes<=work_raw_nodes+1'b1;
+                    if(raw_reject_reason==0)begin
+                        if(work_usable_nodes!=1023)work_usable_nodes<=work_usable_nodes+1'b1;
+                    end else begin
+                        if(work_invalid_nodes!=1023)work_invalid_nodes<=work_invalid_nodes+1'b1;
+                        previous_valid<=0;previous_free<=0;
+                    end
+                end
+                if(raw_parse_error && work_parse_errors!=255)work_parse_errors<=work_parse_errors+1'b1;
+            end
             if(!active || !config_ok || current_config!=previous_config)begin
                 previous_config<=current_config;state<=CFG_X;config_ready<=0;
                 scan_seen<=0;scan_good<=0;work_bad<=0;scan_age<=63;
@@ -728,10 +817,26 @@ module lidar_body_guard(
                 work_range_front<=16'hffff;work_range_right<=16'hffff;work_range_rear<=16'hffff;work_range_left<=16'hffff;
                 filtered_front_mm<=16'hffff;filtered_right_mm<=16'hffff;filtered_rear_mm<=16'hffff;filtered_left_mm<=16'hffff;
                 blocking_x_mm<=0;blocking_y_mm<=0;work_blocking_x<=0;work_blocking_y<=0;work_blocking_metric<=18'h3ffff;
+                free_coverage<=0;period_age<=0;scan_period_ticks<=0;last_scan_bad<=0;
+                scan_raw_nodes<=0;scan_usable_nodes<=0;scan_invalid_nodes<=0;scan_parse_errors<=0;scan_overruns<=0;
+                work_raw_nodes<=0;work_usable_nodes<=0;work_invalid_nodes<=0;work_parse_errors<=0;work_overruns<=0;
+                direction_point_counts<=0;work_direction_counts<=0;work_free_bins<=0;work_blocked_bins<=0;
+                previous_valid<=0;previous_free<=0;work_unconfirmed<=0;published_unconfirmed<=0;
+                candidate_flags<=0;candidate_free<=0;trigger_valid<=0;trigger_kind<=0;
             end else if(scan_start && config_ready)begin
                 // The boundary point is omitted. Never mix a partly projected
                 // old ray into a new scan; overrun invalidates that whole scan.
                 scan_seen<=1;scan_good<=scan_seen && !work_bad && state==IDLE;
+                scan_period_ticks<=period_age;period_age<=0;
+                last_scan_bad<=work_bad || state!=IDLE;
+                scan_raw_nodes<=work_raw_nodes;scan_usable_nodes<=work_usable_nodes;scan_invalid_nodes<=work_invalid_nodes;
+                scan_parse_errors<=work_parse_errors;
+                scan_overruns<=work_overruns==255 ? 8'd255 : work_overruns+(state!=IDLE);
+                direction_point_counts<=work_direction_counts;
+                work_raw_nodes<=raw_node_valid ? 10'd1 : 10'd0;
+                work_usable_nodes<=raw_node_valid && raw_reject_reason==0 ? 10'd1 : 10'd0;
+                work_invalid_nodes<=raw_node_valid && raw_reject_reason!=0 ? 10'd1 : 10'd0;
+                work_parse_errors<=raw_parse_error ? 8'd1 : 8'd0;work_overruns<=0;
                 if(scan_seen && !work_bad && state==IDLE)begin
                     published_front<=work_front;published_rear<=work_rear;
                     published_slow<=work_slow;published_turn<=work_turn;published_contact<=work_contact;
@@ -740,14 +845,22 @@ module lidar_body_guard(
                     filtered_front_mm<=work_range_front;filtered_right_mm<=work_range_right;
                     filtered_rear_mm<=work_range_rear;filtered_left_mm<=work_range_left;
                     blocking_x_mm<=work_blocking_x;blocking_y_mm<=work_blocking_y;
-                end
+                    free_coverage<={(&work_free_bins[95:64]),(&work_free_bins[127:96]),
+                        (&work_free_bins[63:32]),(&work_free_bins[31:0])};
+                    published_unconfirmed<=work_unconfirmed;
+                end else begin free_coverage<=0;published_unconfirmed<=0;end
                 work_front<=0;work_rear<=0;work_slow<=0;work_turn<=0;work_contact<=0;work_self<=0;
                 work_bad<=0;state<=IDLE;
                 work_coverage<=0;
                 work_range_front<=16'hffff;work_range_right<=16'hffff;work_range_rear<=16'hffff;work_range_left<=16'hffff;
                 work_blocking_x<=0;work_blocking_y<=0;work_blocking_metric<=18'h3ffff;
+                work_direction_counts<=0;work_free_bins<=0;work_blocked_bins<=0;
+                previous_valid<=0;previous_free<=0;work_unconfirmed<=0;candidate_flags<=0;candidate_free<=0;
             end else begin
-                if(point_valid && config_ready && scan_seen && state!=IDLE)work_bad<=1;
+                if(point_valid && config_ready && scan_seen && state!=IDLE)begin
+                    work_bad<=1;
+                    if(work_overruns!=255)work_overruns<=work_overruns+1'b1;
+                end
                 case(state)
                     CFG_X:begin
                         square_operand<=body_front_mm>body_rear_mm ? body_front_mm : body_rear_mm;
@@ -780,10 +893,10 @@ module lidar_body_guard(
                     end
                     CFG_DONE:begin rotation_squared<=square_result;config_ready<=1;state<=IDLE;end
                     MUL_WAIT:state<=after_multiply;
-                    IDLE:if(point_valid && scan_seen)begin
+                    IDLE:if(usable_point && scan_seen)begin
                         theta<=$signed({2'b00,forward_angle_q6})-$signed({2'b00,angle_q6});
                         held_distance<=distance_mm;state<=NORM;
-                        held_angle<=angle_q6;
+                        held_angle<=angle_q6;held_quality<=quality;
                     end
                     NORM:begin
                         if(theta>=11520)theta<=theta-23040;
@@ -807,7 +920,8 @@ module lidar_body_guard(
                     ROT_APPLY:begin
                         if(cz>=0)begin cx<=cx-shifted_y;cy<=cy+shifted_x;cz<=cz-atan_q6(iteration);end
                         else begin cx<=cx+shifted_y;cy<=cy-shifted_x;cz<=cz+atan_q6(iteration);end
-                        if(iteration==11)state<=DIV_INIT;else iteration<=iteration+1'b1;
+                        if(iteration==11)state<=DIV_INIT;
+                        else begin iteration<=iteration+1'b1;state<=ROTATE;end
                     end
                     DIV_INIT:begin
                         sign_x<=cx[25];sign_y<=cy[25];
@@ -829,42 +943,83 @@ module lidar_body_guard(
                         end
                     end
                     HIT:begin
-                        if(inside_body)begin if(work_self!=65535)work_self<=work_self+1'b1;state<=IDLE;end
+                        if(inside_body)begin
+                            if(work_self!=65535)work_self<=work_self+1'b1;
+                            previous_valid<=0;previous_free<=0;state<=IDLE;
+                        end
                         else begin
                             map_point_valid<=1;map_point_angle<=held_angle;map_point_distance<=held_distance;
+                            map_point_quality<=held_quality;
                             body_point_x<=px[15:0];body_point_y<=py[15:0];
                             if(theta>=-2880 && theta<=2880)begin
                                 work_coverage[0]<=1;
+                                if(work_direction_counts[7:0]!=255)work_direction_counts[7:0]<=work_direction_counts[7:0]+1'b1;
                                 if(held_distance<work_range_front)work_range_front<=held_distance;
                             end else if(theta< -2880 && theta>=-8640)begin
                                 work_coverage[1]<=1;
+                                if(work_direction_counts[15:8]!=255)work_direction_counts[15:8]<=work_direction_counts[15:8]+1'b1;
                                 if(held_distance<work_range_right)work_range_right<=held_distance;
                             end else if(theta>2880 && theta<=8640)begin
                                 work_coverage[2]<=1;
+                                if(work_direction_counts[23:16]!=255)work_direction_counts[23:16]<=work_direction_counts[23:16]+1'b1;
                                 if(held_distance<work_range_left)work_range_left<=held_distance;
                             end else begin
                                 work_coverage[3]<=1;
+                                if(work_direction_counts[31:24]!=255)work_direction_counts[31:24]<=work_direction_counts[31:24]+1'b1;
                                 if(held_distance<work_range_rear)work_range_rear<=held_distance;
                             end
-                            if(within_contact)work_contact<=1;
-                            if((within_contact || (in_drive_width && x>=-b-dm && x<=f+dm)) && blocking_metric<work_blocking_metric)begin
-                                work_blocking_x<=px[15:0];work_blocking_y<=py[15:0];work_blocking_metric<=blocking_metric;
-                            end
-                            if(in_drive_width && x>=-b && x<=f+dm)work_front<=1;
-                            if(in_drive_width && x<=f && x>=-b-dm)work_rear<=1;
-                            if(in_drive_width && x>=-b && x<=f+dm+100)work_slow<=1;
+                            candidate_flags<={within_contact,1'b0,
+                                (in_drive_width && x>=-b && x<=f+dm+100),
+                                (in_drive_width && x<=f && x>=-b-dm),
+                                (in_drive_width && x>=-b && x<=f+dm)};
+                            candidate_free<=sensor_inside_body && outside_drive_box;
                             if(abs_x<={1'b0,rotation_radius_mm} && abs_y<={1'b0,rotation_radius_mm})begin
                                 square_operand<=abs_x[15:0];state<=MUL_WAIT;after_multiply<=RAD_Y;
-                            end else state<=IDLE;
+                            end else state<=BIN_INIT;
                         end
                     end
                     RAD_Y:begin point_x_squared<=square_result;square_operand<=abs_y[15:0];state<=MUL_WAIT;after_multiply<=RAD_DONE;end
                     RAD_DONE:begin
                         if({1'b0,point_x_squared}+{1'b0,square_result}<={1'b0,rotation_squared})begin
-                            work_turn<=1;
-                            if(blocking_metric<work_blocking_metric)begin
-                                work_blocking_x<=px[15:0];work_blocking_y<=py[15:0];work_blocking_metric<=blocking_metric;
-                            end
+                            candidate_flags[3]<=1;candidate_free<=0;
+                        end
+                        state<=BIN_INIT;
+                    end
+                    BIN_INIT:begin
+                        // Seven small shift/subtract cycles divide Q6 angle
+                        // by180 (2.8125deg); reuse the coordinate divider regs.
+                        dividend<={11'd0,bin_angle};quotient<=26'd11520;
+                        sample_bin<=0;divide_bit<=6;state<=BIN_DIVIDE;
+                    end
+                    BIN_DIVIDE:begin
+                        if(dividend[14:0]>=quotient[14:0])begin
+                            dividend<={11'd0,(dividend[14:0]-quotient[14:0])};
+                            sample_bin[divide_bit[2:0]]<=1;
+                        end
+                        quotient<=quotient>>1;
+                        if(divide_bit==0)state<=CLASSIFY;else divide_bit<=divide_bit-1'b1;
+                    end
+                    CLASSIFY:begin
+                        confirmed_point_valid<=adjacent_pair || candidate_flags[4];
+                        previous_valid<=1;previous_angle<=held_angle;previous_distance<=held_distance;
+                        previous_flags<=candidate_flags;previous_bin<=sample_bin;previous_free<=candidate_free;
+                        if(!candidate_free)begin
+                            work_blocked_bins[sample_bin]<=1;work_free_bins[sample_bin]<=0;
+                        end else if(previous_free && previous_bin==sample_bin && !work_blocked_bins[sample_bin])
+                            work_free_bins[sample_bin]<=1;
+                        // An isolated ordinary return is reported separately.
+                        // Actual10mm near-contact geometry bypasses pairing.
+                        work_unconfirmed<=(work_unconfirmed | candidate_flags) & ~(work_flags | confirmed_flags);
+                        if(confirmed_flags[0])work_front<=1;
+                        if(confirmed_flags[1])work_rear<=1;
+                        if(confirmed_flags[2])work_slow<=1;
+                        if(confirmed_flags[3])work_turn<=1;
+                        if(confirmed_flags[4])work_contact<=1;
+                        if(confirmed_flags!=0 && blocking_metric<work_blocking_metric)begin
+                            work_blocking_x<=px[15:0];work_blocking_y<=py[15:0];work_blocking_metric<=blocking_metric;
+                            trigger_valid<=1;trigger_kind<=confirmed_flags;trigger_angle_q6<=held_angle;
+                            trigger_distance_mm<=held_distance;trigger_quality<=held_quality;trigger_scan_id<=scan_id;
+                            trigger_x_mm<=px[15:0];trigger_y_mm<=py[15:0];
                         end
                         state<=IDLE;
                     end

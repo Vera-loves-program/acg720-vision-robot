@@ -8,6 +8,7 @@ module robot_status_text #(parameter integer CLK_HZ=50000000,parameter integer P
     input wire [7:0] follow_gain,planner_error,follow_diagnostic,follow_dog_score,
     input wire waiting_map,
     input wire waiting_path,
+    input wire [7:0] reject_diagnostic,
     input wire [15:0] follow_cap,follow_pan_us,follow_tilt_us,
     input wire signed [15:0] visual_x,visual_y,
     input wire armed,geometry_valid,gyro_calibrated,calibrating,lidar_ready,scan_enable,safety_stop,map_ready,gains_ready,
@@ -1220,6 +1221,153 @@ module robot_status_text #(parameter integer CLK_HZ=50000000,parameter integer P
         labels[1756]=8'h41;
         labels[1757]=8'h54;
         labels[1758]=8'h48;
+        // 110: SCAN NOT READY
+        labels[1760]=8'h53;
+        labels[1761]=8'h43;
+        labels[1762]=8'h41;
+        labels[1763]=8'h4e;
+        labels[1765]=8'h4e;
+        labels[1766]=8'h4f;
+        labels[1767]=8'h54;
+        labels[1769]=8'h52;
+        labels[1770]=8'h45;
+        labels[1771]=8'h41;
+        labels[1772]=8'h44;
+        labels[1773]=8'h59;
+        // 111: SCAN EXPIRED
+        labels[1776]=8'h53;
+        labels[1777]=8'h43;
+        labels[1778]=8'h41;
+        labels[1779]=8'h4e;
+        labels[1781]=8'h45;
+        labels[1782]=8'h58;
+        labels[1783]=8'h50;
+        labels[1784]=8'h49;
+        labels[1785]=8'h52;
+        labels[1786]=8'h45;
+        labels[1787]=8'h44;
+        // 112: GYRO NOT READY
+        labels[1792]=8'h47;
+        labels[1793]=8'h59;
+        labels[1794]=8'h52;
+        labels[1795]=8'h4f;
+        labels[1797]=8'h4e;
+        labels[1798]=8'h4f;
+        labels[1799]=8'h54;
+        labels[1801]=8'h52;
+        labels[1802]=8'h45;
+        labels[1803]=8'h41;
+        labels[1804]=8'h44;
+        labels[1805]=8'h59;
+        // 113: GYRO EXPIRED
+        labels[1808]=8'h47;
+        labels[1809]=8'h59;
+        labels[1810]=8'h52;
+        labels[1811]=8'h4f;
+        labels[1813]=8'h45;
+        labels[1814]=8'h58;
+        labels[1815]=8'h50;
+        labels[1816]=8'h49;
+        labels[1817]=8'h52;
+        labels[1818]=8'h45;
+        labels[1819]=8'h44;
+        // 114: LIDAR OVERRUN
+        labels[1824]=8'h4c;
+        labels[1825]=8'h49;
+        labels[1826]=8'h44;
+        labels[1827]=8'h41;
+        labels[1828]=8'h52;
+        labels[1830]=8'h4f;
+        labels[1831]=8'h56;
+        labels[1832]=8'h45;
+        labels[1833]=8'h52;
+        labels[1834]=8'h52;
+        labels[1835]=8'h55;
+        labels[1836]=8'h4e;
+        // 115: MEASURE UNKNOWN
+        labels[1840]=8'h4d;
+        labels[1841]=8'h45;
+        labels[1842]=8'h41;
+        labels[1843]=8'h53;
+        labels[1844]=8'h55;
+        labels[1845]=8'h52;
+        labels[1846]=8'h45;
+        labels[1848]=8'h55;
+        labels[1849]=8'h4e;
+        labels[1850]=8'h4b;
+        labels[1851]=8'h4e;
+        labels[1852]=8'h4f;
+        labels[1853]=8'h57;
+        labels[1854]=8'h4e;
+        // 116: NEAR OBSTACLE
+        labels[1856]=8'h4e;
+        labels[1857]=8'h45;
+        labels[1858]=8'h41;
+        labels[1859]=8'h52;
+        labels[1861]=8'h4f;
+        labels[1862]=8'h42;
+        labels[1863]=8'h53;
+        labels[1864]=8'h54;
+        labels[1865]=8'h41;
+        labels[1866]=8'h43;
+        labels[1867]=8'h4c;
+        labels[1868]=8'h45;
+        // 117: VIRTUAL CONTACT
+        labels[1872]=8'h56;
+        labels[1873]=8'h49;
+        labels[1874]=8'h52;
+        labels[1875]=8'h54;
+        labels[1876]=8'h55;
+        labels[1877]=8'h41;
+        labels[1878]=8'h4c;
+        labels[1880]=8'h43;
+        labels[1881]=8'h4f;
+        labels[1882]=8'h4e;
+        labels[1883]=8'h54;
+        labels[1884]=8'h41;
+        labels[1885]=8'h43;
+        labels[1886]=8'h54;
+        // 118: MAP NOT WORLD
+        labels[1888]=8'h4d;
+        labels[1889]=8'h41;
+        labels[1890]=8'h50;
+        labels[1892]=8'h4e;
+        labels[1893]=8'h4f;
+        labels[1894]=8'h54;
+        labels[1896]=8'h57;
+        labels[1897]=8'h4f;
+        labels[1898]=8'h52;
+        labels[1899]=8'h4c;
+        labels[1900]=8'h44;
+        // 119: WAIT INTEGRATE
+        labels[1904]=8'h57;
+        labels[1905]=8'h41;
+        labels[1906]=8'h49;
+        labels[1907]=8'h54;
+        labels[1909]=8'h49;
+        labels[1910]=8'h4e;
+        labels[1911]=8'h54;
+        labels[1912]=8'h45;
+        labels[1913]=8'h47;
+        labels[1914]=8'h52;
+        labels[1915]=8'h41;
+        labels[1916]=8'h54;
+        labels[1917]=8'h45;
+        // 120: PATH HIT CONFIRM
+        labels[1920]=8'h50;
+        labels[1921]=8'h41;
+        labels[1922]=8'h54;
+        labels[1923]=8'h48;
+        labels[1925]=8'h48;
+        labels[1926]=8'h49;
+        labels[1927]=8'h54;
+        labels[1929]=8'h43;
+        labels[1930]=8'h4f;
+        labels[1931]=8'h4e;
+        labels[1932]=8'h46;
+        labels[1933]=8'h49;
+        labels[1934]=8'h52;
+        labels[1935]=8'h4d;
     end
 
     // Six frozen20-bit values, one serial BCD converter and one2KB byte ROM.
@@ -1299,6 +1447,15 @@ module robot_status_text #(parameter integer CLK_HZ=50000000,parameter integer P
             if(follow_state==12)live_status=27;
             if(follow_state==13)live_status=14;
             if(follow_state==21)live_status=(follow_diagnostic==12 || follow_diagnostic==13) ? {1'b0,follow_diagnostic[5:0]} : 7'd19;
+        end
+        if((view==19 || view==33 || view==17 || (view==43 && armed)) && reject_diagnostic!=0)begin
+            case(reject_diagnostic)
+                1:live_status=110;2:live_status=111;3:live_status=112;4:live_status=113;
+                5:live_status=114;6:live_status=115;7:live_status=116;8:live_status=117;
+                9:live_status=118;10:live_status=119;11:live_status=22;12:live_status=85;
+                13:live_status=23;14:live_status=86;15:live_status=87;16:live_status=120;
+                default:begin end
+            endcase
         end
         if(motor_fault!=0)live_status=50;
         if(safety_stop)live_status=51;

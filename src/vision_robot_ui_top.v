@@ -196,6 +196,12 @@ module vision_robot_ui_top #(
     wire [31:0] robot_flags;
     wire robot_text_valid,robot_lidar_valid;
     wire robot_byte_valid,robot_byte_ready;
+    wire diagnostic_capture,diagnostic_busy,diagnostic_valid;
+    wire [5:0] diagnostic_index;
+    wire [31:0] diagnostic_data;
+    wire [15:0] diagnostic_epoch;
+    wire [29:0] map_overlay_model;
+    wire map_follow_car_pixel;
     wire [7:0] robot_byte_data,robot_byte_index;
     wire [2:0] robot_subpage;
     wire signed [31:0] robot_pid_argument;
@@ -538,6 +544,8 @@ module vision_robot_ui_top #(
         .task_valid(vofa_task_valid),.task_action(vofa_task_action),.task_value(vofa_task_value),.task_ready(vofa_task_ready),
         .task_rsp_valid(vofa_task_rsp_valid),.task_rsp_status(vofa_task_rsp_status),.task_rsp_value(vofa_task_rsp_value),
         .core_stop_override(settings_ui_stop),
+        .diagnostic_capture(diagnostic_capture),.diagnostic_index(diagnostic_index),.diagnostic_data(diagnostic_data),
+        .diagnostic_busy(diagnostic_busy),.diagnostic_valid(diagnostic_valid),.diagnostic_epoch(diagnostic_epoch),
         .core_armed(motor_armed),.core_running(motor_running),.core_mode_position(motor_mode_position),
         .core_link_fault(motor_link_fault),.core_fault_left(motor_fault_left),.core_fault_right(motor_fault_right),
         .core_selected_value(motor_selected_value),.core_min_duty(motor_min_duty),.core_max_duty(motor_max_duty)
@@ -913,6 +921,7 @@ module vision_robot_ui_top #(
         .test_status_data(test_status_mailbox), .test_status_ack(test_status_ack),
         .battery_status_request(battery_status_request),.battery_status_data(battery_status_mailbox),
         .battery_status_ack(battery_status_ack),
+        .map_overlay_model(map_overlay_model),.map_follow_car(map_follow_car_pixel),
         .robot_control(ROBOT_ACTIVE),.robot_status_request(robot_status_request),.robot_status_data(robot_status_mailbox),
         .robot_status_ack(robot_status_ack),.map_cell(map_read_cell),.map_read_valid(map_read_valid),
         .map_car_model(map_car_model),
@@ -1151,6 +1160,9 @@ module vision_robot_ui_top #(
         .calibration_duty_left(robot_calibration_duty_left),.calibration_duty_right(robot_calibration_duty_right),
         .emergency_stop_pulse(robot_emergency_stop),.clear_stop_pulse(robot_clear_stop),
         .drive_enable(robot_drive_enable),.armed(robot_armed),.target_left(robot_target_left),.target_right(robot_target_right),
+        .diagnostic_capture(diagnostic_capture),.diagnostic_index(diagnostic_index),.diagnostic_data(diagnostic_data),
+        .diagnostic_busy(diagnostic_busy),.diagnostic_valid(diagnostic_valid),.diagnostic_epoch(diagnostic_epoch),
+        .map_overlay_model(map_overlay_model),.map_follow_car_pixel(map_follow_car_pixel),
         .status_text(robot_text),.status_flags(robot_flags),.status_valid(robot_text_valid),
         .status_byte_valid(robot_byte_valid),.status_byte_data(robot_byte_data),.status_byte_index(robot_byte_index),
         .status_byte_ready(ROBOT_ACTIVE ? (robot_byte_ready && robot_lcd_byte_ready) : 1'b1),

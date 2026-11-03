@@ -10,8 +10,8 @@ def circle_kernel(radius_mm):
     """All fine rectangles intersecting coarse square[0,128]^2⊕disk(R)."""
     radius=(radius_mm+63)//64
     result=[]
-    for y in range(-radius,radius+2):
-        for x in range(-radius,radius+2):
+    for y in range(-radius-1,radius+3):
+        for x in range(-radius-1,radius+3):
             # Reference geometry works in millimetres, independently of
             # the RTL's integer-cell separation and serial-square setup.
             dx=max(0,-(x+1)*64,x*64-128)
@@ -42,7 +42,7 @@ def check_circle_geometry():
             acc+=shift if multiplier&1 else 0
             shift=(shift<<1)&((1<<22)-1);multiplier>>=1
         assert acc==radius_mm*radius_mm
-        r=(radius_mm+63)//64
+        r=(radius_mm+63)//64+(radius_mm%64==0)
         # Full kernels on every radius around each64mm transition plus
         # the measured291mm; scalar square arithmetic is exhaustive above.
         if radius_mm%64 not in (0,1,63) and radius_mm!=291:continue
@@ -54,7 +54,7 @@ def check_circle_geometry():
                 if gx*gx+gy*gy<=acc>>12:rtl.add((kx-r,ky-r))
         assert rtl==set(circle_kernel(radius_mm)),radius_mm
     assert len(circle_kernel(291))==132
-    assert len(circle_kernel(320))==140  # exact boundary contact is retained
+    assert len(circle_kernel(320))==156  # include outer closed-boundary contacts
     # A distant diagonal unknown is outside the swept circle and may be
     # skipped; every intersecting unknown/hit continues blocking the node.
     fine=[[1]*SIDE for _ in range(SIDE)]

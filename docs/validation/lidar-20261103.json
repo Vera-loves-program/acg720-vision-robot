@@ -1,0 +1,207 @@
+{
+  "date": "2026-11-03",
+  "branch": "fix/lidar-evidence-20261103",
+  "build_completed": true,
+  "timing_closed": false,
+  "hardware_tested": false,
+  "full_soc_simulated": false,
+  "cdc_proved": false,
+  "bitstream": "output\\releases\\lidar-20261103\\vision_robot_lidar_20261103_NOT_TIMING_CLOSED.fs",
+  "bitstream_sha256": "5ee44f50f88541352a8a760815290c14fbe5d6f13a54dec59ff6cc849e51279e",
+  "resources": {
+    "Logic": {
+      "used": 42099.0,
+      "total": 59904.0
+    },
+    "Register": {
+      "used": 21353.0,
+      "total": 60780.0
+    },
+    "CLS": {
+      "used": 25550.0,
+      "total": 29952.0
+    },
+    "BSRAM": {
+      "used": 62.0,
+      "total": 118.0
+    },
+    "DSP": {
+      "used": 7.5,
+      "total": 118.0
+    }
+  },
+  "build_manifest": "tmp/lidar-20261103/builds/build-151235.json",
+  "frozen_sources": "output\\releases\\lidar-20261103\\sources.zip",
+  "frozen_sources_sha256": "a2e35a021bee44efd9e4e93636342063ad62e15aa75cc0097990511d9eb17861",
+  "timing": {
+    "clocks": [
+      {
+        "clock": "clk50M",
+        "required_mhz": 50.0,
+        "actual_mhz": 47.064
+      },
+      {
+        "clock": "camera_pclk",
+        "required_mhz": 50.0,
+        "actual_mhz": 130.612
+      },
+      {
+        "clock": "rgmii_rx_clk",
+        "required_mhz": 125.0,
+        "actual_mhz": 108.762
+      },
+      {
+        "clock": "lcd_pclk",
+        "required_mhz": 45.0,
+        "actual_mhz": 42.486
+      },
+      {
+        "clock": "ddr_memory_clk",
+        "required_mhz": 400.0,
+        "actual_mhz": 2016.128
+      },
+      {
+        "clock": "ddr_ui_clk",
+        "required_mhz": 100.0,
+        "actual_mhz": 148.065
+      },
+      {
+        "clock": "u_net_pll/u_pll/PLLA_inst/CLKOUT1.default_gen_clk",
+        "required_mhz": 125.0,
+        "actual_mhz": 117.534
+      }
+    ],
+    "setup_violated_endpoints": 1866,
+    "hold_violated_endpoints": 21,
+    "timing_closed": false
+  },
+  "hdl": {
+    "tool": "Icarus Verilog actual HDL execution",
+    "runs": [
+      {
+        "top": "tb_lidar_body_guard",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 6.609,
+        "sha256": {
+          "tests/tb_lidar_body_guard.v": "7a52294526a3102f56f577dd2224bd12154d2e96c829d26016343bbd48511c5e",
+          "src/rplidar_c1.v": "bb7a97dcf33e2977e5d58abafaf3eeb87932bb164da0f17cc7eb09c16004fc16"
+        }
+      },
+      {
+        "top": "tb_rplidar_raw_diagnostics",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.641,
+        "sha256": {
+          "tests/tb_lidar_body_guard.v": "7a52294526a3102f56f577dd2224bd12154d2e96c829d26016343bbd48511c5e",
+          "src/rplidar_c1.v": "bb7a97dcf33e2977e5d58abafaf3eeb87932bb164da0f17cc7eb09c16004fc16"
+        }
+      },
+      {
+        "top": "tb_lidar_planner_start",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 100.938,
+        "sha256": {
+          "tests/tb_lidar_planner_start.v": "004cc746495905581330fef9c0a305cb4ca07c6f1013c7ed631bf72b5af5668b",
+          "src/lidar_path_planner.v": "044afd51e924b7707529b175d6666485edd5db585c25daf1df0421d4431c2284"
+        }
+      },
+      {
+        "top": "tb_mission_observation_resume",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.453,
+        "sha256": {
+          "tests/tb_mission_observation_resume.v": "156c91c7bbe765c0ecfb6a0c44747c311513f348912c126b9f9a1cabe1df672e",
+          "src/robot_mission_control.v": "fb06839e8e583b0bb0b5a88030ce58823211aa9a86396f3fe8d798cc20e332a9"
+        }
+      },
+      {
+        "top": "tb_robot_map_viewport",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 4.218,
+        "sha256": {
+          "tests/tb_robot_map_viewport.v": "59df42547b65805a60cfc75e971cfd8a989021462e01e90edf016fe8414bcb8f",
+          "src/robot_control_panel.v": "42c9da7ba95548771a4ee04b83ec3a7d3341fe9da1a764b9a8de25c76cecc69d",
+          "src/rplidar_c1.v": "bb7a97dcf33e2977e5d58abafaf3eeb87932bb164da0f17cc7eb09c16004fc16"
+        }
+      },
+      {
+        "top": "tb_nav_observation_gate",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 1.032,
+        "sha256": {
+          "tests/tb_nav_observation_gate.v": "f2a4970ea86ca8c7047989db5c09972dd077b4edb1d8776c7c57cb5ea378c994",
+          "src/robot_navigation.v": "d0ba149fb265136de89fe70f8f46c10681b34054e9d0c23f5c6608570afbfdb4",
+          "src/unsigned_divmod.v": "b622c910f6478fa71914dbc2511558746337c55a6f2a17c80f20b8e994bfd7bb"
+        }
+      },
+      {
+        "top": "tb_diagnostic_snapshot",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 0.531,
+        "sha256": {
+          "tests/tb_diagnostic_snapshot.v": "9d660cc2b07e82705bac01ab7567027af2b7adccfe02734967824ec10940012f",
+          "src/robot_subsystem.v": "a38ac0f79d1bcc1caa892e92f72e219ae119536bb72bbe6f6f7b6afc7a62e84d",
+          "src/motor_tuning_control.v": "21995bfe3b817cd348594c867e2ba55b287ea5a3652ea4a514c445246d3dce7f"
+        }
+      },
+      {
+        "top": "tb_lidar_lookahead",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 2.547,
+        "sha256": {
+          "tests/tb_lidar_lookahead.v": "3cf1cc59a6d93ec4dce5975dee395df59d7a527076ba9c9ece4152aac9f24e14",
+          "tmp/lidar-20261103/hdl/actual_lookahead.v": "e88bd6bb260753d8a8931a590605514249c317991420c7a6195a6b4f467714c3",
+          "src/rplidar_c1.v": "bb7a97dcf33e2977e5d58abafaf3eeb87932bb164da0f17cc7eb09c16004fc16",
+          "src/robot_navigation.v": "d0ba149fb265136de89fe70f8f46c10681b34054e9d0c23f5c6608570afbfdb4",
+          "src/unsigned_divmod.v": "b622c910f6478fa71914dbc2511558746337c55a6f2a17c80f20b8e994bfd7bb"
+        }
+      },
+      {
+        "top": "tb_map_ray_evidence",
+        "passed": true,
+        "exit_code": 0,
+        "seconds": 4.172,
+        "sha256": {
+          "tests/tb_map_ray_evidence.v": "bc0b118d971a45374b67d30cf2890964532378756e3b81e56960191f9c4816ac",
+          "src/lidar_grid_map.v": "a8e36b0ce1df9a40a67e149da886ea366fdc621e3c5fd603357b2cd8a76743d9"
+        }
+      }
+    ],
+    "all_passed": true,
+    "hardware_tested": false,
+    "cdc_proof": false,
+    "official_ram_model_sha256": "202f65ccf77126d04e47db36c95e237e48522f3a105a3e64d9fcbf4e3b782f27"
+  },
+  "primary_limits": [
+    "All clock-domain setup/hold/recovery must be assessed; route success is not timing closure.",
+    "No field scan replay or vehicle test; no automatic flashing.",
+    "Serial diagnostics are frozen per-word, not globally atomic.",
+    "Sampled angular visibility is not continuous geometric free-space proof.",
+    "Only current leg/endpoints are displayed, not a complete BFS path bitmap."
+  ],
+  "original_project_constraints_profiles_unchanged": true,
+  "timing_audit": {
+    "same_clock_setup_slack_ns": {
+      "clk50M": -1.248,
+      "rgmii_rx_clk": -1.194,
+      "lcd_pclk": -1.315
+    },
+    "real_ddr_hold_ns": [
+      -0.043,
+      -0.043,
+      -0.039
+    ],
+    "worst_recovery_ns": -9.893,
+    "global_setup_endpoints": 1866,
+    "global_hold_endpoints": 21,
+    "all_hold_is_cdc": false
+  }
+}

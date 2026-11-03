@@ -241,7 +241,7 @@ module robot_vofa_uart #(
                         if(!number_valid)bad<=1;
                         case(rx_field)
                             0:if(magnitude<=65535 && !negative)parsed_seq<=magnitude[15:0];else bad<=1;
-                            1:if(magnitude<=9 && !negative)parsed_op<=magnitude[3:0];else bad<=1;
+                            1:if(magnitude<=10 && !negative)parsed_op<=magnitude[3:0];else bad<=1;
                             2:if(magnitude<=2 && !negative)parsed_wheel<=magnitude[1:0];else bad<=1;
                             3:if(magnitude<=9 && !negative)parsed_field<=magnitude[3:0];else bad<=1;
                             default:bad<=1;

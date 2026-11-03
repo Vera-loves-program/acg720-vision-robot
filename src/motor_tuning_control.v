@@ -289,6 +289,11 @@ module motor_vofa_settings_adapter #(parameter integer CLK_HZ=50000000)(
     input wire task_ready, task_rsp_valid,
     input wire [7:0] task_rsp_status,
     input wire signed [31:0] task_rsp_value,
+    output wire diagnostic_capture,
+    output wire [5:0] diagnostic_index,
+    input wire [31:0] diagnostic_data,
+    input wire diagnostic_busy,diagnostic_valid,
+    input wire [15:0] diagnostic_epoch,
     input wire core_armed, core_running, core_mode_position, core_link_fault,
     input wire [7:0] core_fault_left, core_fault_right,
     input wire signed [31:0] core_selected_value,
@@ -299,7 +304,8 @@ module motor_vofa_settings_adapter #(parameter integer CLK_HZ=50000000)(
         POSITION_STOP=7, POSITION_UNLOCK=8, POSITION_MODE=9,
         POSITION_ARM=10, POSITION_RUN=11, STOP=12,
         CLEAR_STOP=13, CLEAR_FAULT=14, WAIT_ONE=15, WAIT_TWO=16,
-        REPLY=17, TURN_STOP=18, TURN_START=19,TASK_SEND=20,TASK_WAIT=21;
+        REPLY=17, TURN_STOP=18, TURN_START=19,TASK_SEND=20,TASK_WAIT=21,
+        DIAG_CAPTURE=22,DIAG_WAIT=23;
     localparam [7:0] OK=0, RANGE_ERROR=2, BLOCKED=4, INTERRUPTED=5,TASK_TIMEOUT=6;
     localparam integer TASK_TIMEOUT_CYCLES=CLK_HZ/10<1 ? 1 : CLK_HZ/10;
     localparam integer TASK_AGE_WIDTH=TASK_TIMEOUT_CYCLES<=1 ? 1 : $clog2(TASK_TIMEOUT_CYCLES);
@@ -332,6 +338,9 @@ module motor_vofa_settings_adapter #(parameter integer CLK_HZ=50000000)(
     assign task_valid=state==TASK_SEND;
     assign task_action=held_field;
     assign task_value=held_value;
+    // Read-only operation10 never takes control or clears any safety latch.
+    assign diagnostic_index=held_value[5:0];
+    assign diagnostic_capture=state==DIAG_CAPTURE;
 
     // The wire codec has already converted decimal gains into unsigned Q8.
     // Reject values outside the core's actual limits rather than let a
@@ -435,10 +444,16 @@ module motor_vofa_settings_adapter #(parameter integer CLK_HZ=50000000)(
                                 (cmd_value< -3900 || cmd_value>3900) : cmd_value!=0))begin
                             transaction_error<=RANGE_ERROR;unknown_field<=1;state<=WAIT_ONE;
                           end else state<=TASK_SEND;
+                        10:if(cmd_wheel!=0 || cmd_field>1 ||
+                               (cmd_field==0 ? (cmd_value<0 || cmd_value>=48) : cmd_value!=0))begin
+                            transaction_error<=RANGE_ERROR;unknown_field<=1;state<=WAIT_ONE;
+                          end else state<=cmd_field==1 ? DIAG_CAPTURE : WAIT_ONE;
                         default:state<=WAIT_ONE;
                     endcase
                     end
                 end
+                DIAG_CAPTURE:state<=DIAG_WAIT;
+                DIAG_WAIT:if(!diagnostic_busy && diagnostic_valid)state<=WAIT_ONE;
                 SELECT_WHEEL:state<=SELECT_LOOP;
                 SELECT_LOOP:state<=SELECT_FIELD;
                 SELECT_FIELD:state<=CHECK_VALUE;
@@ -502,6 +517,9 @@ module motor_vofa_settings_adapter #(parameter integer CLK_HZ=50000000)(
                         // Invalid metadata never becomes a RUN/STOP/readback
                         // status reply just because the old owner is running.
                         rsp_value<=0;
+                    end else if(held_op==10)begin
+                        rsp_status<=diagnostic_valid ? OK : BLOCKED;
+                        rsp_value<=held_field==1 ? {16'd0,diagnostic_epoch} : diagnostic_data;
                     end else if(is_set || is_get)begin
                         rsp_value<=unknown_field ? 32'sd0 : core_selected_value;
                         if(is_set && transaction_error==OK &&

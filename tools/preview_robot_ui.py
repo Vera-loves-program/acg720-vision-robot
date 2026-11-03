@@ -97,15 +97,26 @@ def scene(key):
     elif view.kind == 'leaf':
         items.append(('rect', (28, 116, 388, 500 if key == (2, 0) else 416), 'WHITE'))
     elif view.kind == 'map':
-        items += [('rect', (28, 104, 412, 488), '#c6c7c6'),
-                  ('text', (48, 128), 'MAP EXAMPLE', 'MUTED')]
-        # A clearly labelled example pose. Uses the actual cell size and the
-        # same eight-sector visual model; not a captured position/map.
+        # Illustrative cells only: both viewports address the SAME gx/gy
+        # fixture. Global128*2px, field-centred local64*6px. No real map data.
         for gy in range(128):
             for gx in range(128):
-                color=car_cell_color(gx-64,gy-64,1)
-                if color:
-                    items.append(('rect',(28+gx*3,104+(127-gy)*3,31+gx*3,107+(127-gy)*3),color))
+                color='#c6c7c6' if gx<36 or gx>92 or gy<36 or gy>92 else 'WHITE'
+                if (gx in (42,43) and 45<=gy<72) or (gy in (82,83) and 58<=gx<81):color=_rgb565(0x18e3)
+                if gy==64 and 64<=gx<=70:color=_rgb565(0x781f)
+                if (gx==70 and abs(gy-67)<=1) or (gy==67 and abs(gx-70)<=1):color='GREEN'
+                if (gx==70 and abs(gy-64)<=1) or (gy==64 and abs(gx-70)<=1):color='#00ffff'
+                if gy==64 and 65<=gx<=67:color='#ffff00'
+                if (gx==64 and abs(gy-64)<=1) or (gy==64 and abs(gx-64)<=1):color='RED'
+                items.append(('rect',(32+gx*2,112+(127-gy)*2,34+gx*2,114+(127-gy)*2),color))
+                if 32<=gx<96 and 32<=gy<96:
+                    items.append(('rect',(416+(gx-32)*6,112+(95-gy)*6,422+(gx-32)*6,118+(95-gy)*6),color))
+        # Exact4m +/-2000mm field and separate4.096m ROI, matching RTL pixel spans.
+        for left,top,right,bottom,color in ((96,176,224,304,'BLUE'),
+                                          (97,177,223,303,_rgb565(0xfd20)),
+                                          (420,116,796,492,_rgb565(0xfd20))):
+            items += [('rect',(left,top,right,top+1),color),('rect',(left,bottom-1,right,bottom),color),
+                      ('rect',(left,top,left+1,bottom),color),('rect',(right-1,top,right,bottom),color)]
     elif view.kind == 'dashboard':
         items += [('rect', (32, 112, 384, 444), 'WHITE'),
                   ('rect', (432, 112, 784, 444), 'WHITE')]
@@ -117,8 +128,8 @@ def scene(key):
             key == (5,0) and button in (3,7)) or (key==(5,3) and button in (4,7)) or (key==(2,3) and button==2) or (key == (5,1) and button == 4)
         color = 'RED' if stop else 'BLUE' if button == 100 else 'SOFT'
         items.append(('rect', rect, color))
-        if view.kind == 'map' and button in (1, 3):
-            items.append(('rect', (619, rect[1], 620, rect[3]), 'WHITE'))
+        if view.kind == 'map' and button == 1:
+            items.append(('rect', (159, rect[1], 160, rect[3]), 'WHITE'))
         x, y, right = button_label(rect, view.kind, button)
         text = caption_for(*key, button)
         assert x + len(text) * 12 <= right, (key, button, text)
@@ -136,11 +147,15 @@ def scene(key):
             items += [('text', (36, 376), view.hint, 'MUTED'),
                       ('text', (36, 400), view.detail, 'MUTED')]
     elif view.kind == 'map':
-        items += [('text', (448, 80 + index * 32), text, 'INK')
-                  for index, text in enumerate(sample_rows(key))]
-        items.append(('text', (28, 504), '8.192M / 64MM', 'MUTED'))
-        items += [('text', (448, 272), 'MAPPT ----------', 'INK'),
-                  ('text', (448, 304), 'DROP -----------', 'INK')]
+        items += [('text',(32,88),'GLOBAL 8.192M','INK'),
+                  ('text',(416,88),'LOCAL 4.096M','INK'),
+                  ('text',(32,376),'64MM / CELL','MUTED'),
+                  ('rect',(32,402,65,404),'INK'),
+                  ('rect',(32,398,33,408),'INK'),('rect',(64,398,65,408),'INK'),
+                  ('text',(80,396),'1.024M','MUTED'),
+                  ('text',(32,516),'4M FIELD',_rgb565(0xfd20)),
+                  ('text',(416,512),'FIELD CENTER','INK'),
+                  ('text',(620,512),'CURRENT LEG',_rgb565(0x781f))]
     elif view.kind == 'dashboard':
         items += [('text', (44, 80), 'LEFT WHEEL', 'INK'),
                   ('text', (444, 80), 'RIGHT WHEEL', 'INK')]

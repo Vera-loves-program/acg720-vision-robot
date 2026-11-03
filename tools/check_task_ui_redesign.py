@@ -62,7 +62,9 @@ class Tests(unittest.TestCase):
         nav=(ROOT/'src/robot_navigation.v').read_text(encoding='utf-8')
         mission=(ROOT/'src/robot_mission_control.v').read_text(encoding='utf-8')
         ui=(ROOT/'src/robot_ui_control.v').read_text(encoding='utf-8')
-        self.assertIn('avoid_enable && !gyro_only_turn && !gyro_only_turn_result',nav)
+        # Explicit TURN must respect an enabled live guard, not override it.
+        # Runtime coverage/obstacle behavior is tested in tb_nav_observation_gate.
+        self.assertIn('wire avoid_required=avoid_enable;',nav)
         self.assertIn('motion_mode!=MODE_TURN',nav)
         self.assertNotIn('recovery_state<=1',mission)
         self.assertIn("assign recovery_speed=16'sd0",mission)
@@ -144,8 +146,11 @@ class Tests(unittest.TestCase):
     def test_unknown_footprint_has_distinct_diagnostics(self):
         source=(ROOT/'src/lidar_path_planner.v').read_text(encoding='utf-8')
         self.assertIn("build_unknown<=plan_rd_cell==0",source)
-        self.assertIn("node_read_data[2] ? 8'd8 : 8'd2",source)
+        self.assertIn("plan_rd_cell==0 ? 8'd8 : 8'd2",source)
         self.assertIn("node_read_data[2] ? 8'd9 : 8'd3",source)
+        self.assertIn("reject_cell<=plan_rd_cell",source)
+        self.assertIn("start_check_phase==1",source)
+        self.assertIn("start_full_free<=node_read_data[3]",source)
 
 
 if __name__=='__main__':unittest.main()

@@ -151,9 +151,14 @@ class Tests(unittest.TestCase):
         self.assertIn('S_REQUEST:begin label_byte<=labels[{current_label,column}];state<=S_SEND;end',STATUS)
         self.assertIn('S_COMMIT:begin flags<=held_flags;text_valid<=1;state<=S_IDLE;end',STATUS)
 
-    def test_map_two_pixel_addressing(self):
-        self.assertIn("(x-11'd31)>>1",PANEL)
-        self.assertIn("(10'd367-y)>>1",PANEL)
+    def test_global_local_map_addressing(self):
+        self.assertIn("(screen_x-12'sd31)>>>1",PANEL)
+        self.assertIn("(12'sd367-screen_y)>>>1",PANEL)
+        self.assertIn("local_read_column/9'd6",PANEL)
+        self.assertIn("read_x_signed>=0 && read_x_signed<128",PANEL)
+        self.assertIn("read_location_valid ? read_x_signed[6:0] : 7'd0",PANEL)
+        self.assertIn("map_read_en=page==2 && subpage==1 && y>=112 && y<496",PANEL)
+        self.assertEqual(VIEWS[(2,1)].captions,('BACK','CLEAR MAP','FIELD / CAR'))
         self.assertNotIn("/11'd3",PANEL)
         for cell in range(128):
             for offset in (0,1):

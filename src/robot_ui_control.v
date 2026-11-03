@@ -45,6 +45,7 @@ module robot_ui_control #(parameter integer CLK_HZ=50000000)(
     output wire [15:0] body_front_mm,body_rear_mm,body_left_mm,body_right_mm,
     output wire [15:0] drive_margin_mm,turn_margin_mm,contact_margin_mm,
     output reg scan_enable,lidar_restart,map_clear,
+    output reg map_follow_car,
     output wire [4:0] selected_field,
     output reg [1:0] step_select,
     output wire signed [31:0] selected_value,
@@ -153,7 +154,7 @@ module robot_ui_control #(parameter integer CLK_HZ=50000000)(
             emergency_stop_pulse<=0;clear_stop_pulse<=0;armed<=0;
             command_valid<=0;command<=0;manual_left<=0;manual_right<=0;manual_heading_hold<=0;
             ui_notice<=0;pose_set<=0;goal_x_mm<=300;goal_y_mm<=0;turn_heading_mdeg<=0;
-            rebase_pending<=0;forward_degrees<=90;scan_enable<=0;lidar_restart<=0;map_clear<=0;
+            rebase_pending<=0;forward_degrees<=90;scan_enable<=0;lidar_restart<=0;map_clear<=0;map_follow_car<=0;
             step_select<=1;ms_count<=0;touch_age<=1023;view_cooldown_ms<=150;wait_release<=1;
             previous_count<=0;down_x<=0;down_y<=0;down_id<=0;down_button<=0;
             invalid_tap<=1;action<=0;action_valid<=0;
@@ -223,6 +224,7 @@ module robot_ui_control #(parameter integer CLK_HZ=50000000)(
                     if(action==5)step_select<=step_select==2 ? 0 : step_select+1'b1;
                 end
                 if(page==2 && subpage==1 && action==2)map_clear<=1;
+                if(page==2 && subpage==1 && action==3)map_follow_car<=!map_follow_car;
                 if(page==2 && subpage==3)begin
                     if(action==4)begin
                         forward_degrees<=forward_degrees>=270 ? forward_degrees-270 : forward_degrees+90;

@@ -16,8 +16,10 @@ MENU_RECTS = tuple((left, top, left + 352, top + 80)
                    for top in (128, 240, 352) for left in (32, 432))
 LEAF_RECTS = tuple((left, top, left + 188, top + 60)
                    for top in (128, 216, 304) for left in (408, 608))
-MAP_RECTS = ((440, 352, 620, 396), (620, 352, 800, 396),
-             (440, 408, 620, 452), (620, 408, 800, 452))
+MAP_RECTS = ((32, 472, 160, 512), (160, 472, 288, 512),
+             (32, 416, 288, 452))
+MAP_LABELS = ('GLOBAL 8.192M', 'LOCAL 4.096M', '64MM / CELL', '4M FIELD',
+              'FIELD CENTER', 'CAR CENTER', 'CURRENT LEG', '1.024M')
 SIDEBAR = {100: ((832, 60, 1008, 116), 'HOME'),
            101: ((832, 132, 1008, 188), 'BACK'),
            105: ((832, 400, 1008, 444), 'CLEAR STOP'),
@@ -46,7 +48,7 @@ class View:
 VIEWS = {
     (0, 0): View('SIX TASK DEMOS', 'menu', ('1 CAMERA + IMU', '2 MOTOR CONTROL', '3 LIDAR AVOID', '4 XY NAVIGATION', '5 GIMBAL TRACK', '6 FIND FACE'), 'SELECT A TASK', 'BACK TO HOME'),
     (0, 1): View('CAMERA', 'camera', (), 'LOCAL FPGA VIDEO'),
-    (2, 1): View('LIDAR MAP', 'map', ('BACK', 'CLEAR MAP'), '8.192M / 64MM', 'LIVE MAP'),
+    (2, 1): View('LIDAR MAP', 'map', ('BACK', 'CLEAR MAP', 'FIELD / CAR'), '8.192M / 64MM', 'LIVE MAP'),
     (2, 3): View('3 LIDAR AVOID', 'leaf', ('START', 'STOP', 'VIEW MAP', 'RADAR +90'), 'SLOW AND STOP', 'LIVE LIDAR'),
     (3, 3): View('GOAL X Y MM', 'leaf', ('X -', 'X +', 'Y -', 'Y +', 'STEP', 'DONE'), 'X FRONT Y LEFT', 'MM / DEGREES'),
     (4, 0): View('2 MOTOR CONTROL', 'leaf', ('FORWARD', 'REVERSE', 'TURN LEFT', 'TURN RIGHT', 'TURN 180', 'STOP'), 'CLICK TO MOVE', 'STOP TO FINISH'),
@@ -66,6 +68,7 @@ def labels():
         for text in (*view.captions, view.hint, view.detail):
             if text and text not in result:
                 result.append(text)
+    result.extend(text for text in MAP_LABELS if text not in result)
     assert len(result) < 128
     assert all(len(text) <= 16 and text.isascii() for text in result)
     return result
@@ -233,22 +236,29 @@ def generate_rom():
 
 
 def generate_panel():
-    return PANEL_TEMPLATE.replace('@CAPTIONS@', _caption_function()).replace(
+    panel = PANEL_TEMPLATE.replace('@CAPTIONS@', _caption_function()).replace(
         '@HINT@', _hint_function('hint')).replace('@DETAIL@', _hint_function('detail')).replace(
         '@VIEW_KINDS@', _view_constants()).replace('@HOME@', str(LABEL_ID['HOME'])).replace(
         '@BACK@', str(LABEL_ID['BACK'])).replace('@CLEAR@', str(LABEL_ID['CLEAR STOP'])).replace(
-        '@STOP@', str(LABEL_ID['ALL STOP'])).replace('@SETTINGS@', '0').replace('@SCALE@', str(LABEL_ID['8.192M / 64MM'])) + '\n' + generate_hit_test() + '\n' + generate_rom()
+        '@STOP@', str(LABEL_ID['ALL STOP'])).replace('@SETTINGS@', '0').replace('@SCALE@', str(LABEL_ID['8.192M / 64MM']))
+    for token, caption in zip(('GLOBAL', 'LOCAL', 'CELL', 'FIELD', 'FIELD_CENTER', 'CAR_CENTER', 'LEG', 'SCALE'), MAP_LABELS):
+        panel = panel.replace('@MAP_' + token + '@', str(LABEL_ID[caption]))
+    return panel + '\n' + generate_hit_test() + '\n' + generate_rom()
 
 
 PANEL_TEMPLATE = '''// Generated from tools/robot_ui_spec.py; edit the shared specification.
 // Main page stays 3 bits. Subpage occupies flags[30:28]; flags[31] is gains.
 // Compact descriptors preserve the existing layout/character/glyph/RGB pipe.
 module robot_control_panel (
+    input wire clk,
     input wire [10:0] x,
     input wire [9:0] y,
     input wire [31:0] flags,
     input wire [1:0] map_cell,
     input wire [39:0] map_car_model,
+    // Pixel-domain, coherent with map_car_model; valid bits precede address truncation.
+    input wire [29:0] map_overlay_model,
+    input wire map_follow_car,
     input wire map_read_valid,
     output wire map_read_en,
     output wire [6:0] map_read_x,map_read_y,
@@ -273,16 +283,55 @@ module robot_control_panel (
     end
     wire [7:0] hit_button;
     robot_ui_hit_test u_pixel_hit(.x(x),.y(y),.page(page),.subpage(subpage),.button(hit_button));
-    wire in_map=x>=32 && x<288 && y>=112 && y<368;
-    wire map_prefetch=x>=31 && x<287 && y>=112 && y<368;
-    wire [10:0] map_x_wide=(x-11'd31)>>1;
-    wire [9:0] map_y_wide=(10'd367-y)>>1;
-    assign map_read_en=page==2 && subpage==1 && map_prefetch;
-    assign map_read_x=map_x_wide[6:0];
-    assign map_read_y=map_y_wide[6:0];
-    wire [10:0] car_draw_x=(x-11'd32)>>1;
-    wire signed [8:0] car_dx=$signed({2'b00,car_draw_x[6:0]})-$signed({2'b00,map_car_model[15:9]});
-    wire signed [8:0] car_dy=$signed({2'b00,map_y_wide[6:0]})-$signed({2'b00,map_car_model[8:2]});
+    // Both views read ONE immutable LCD snapshot through its existing one-clock
+    // RAM port. Global:128 cells *2 pixels. Local:64 cells *6 pixels (4.096 m).
+    // The 4 m field below is a separate exact [-2000,+2000] mm world outline.
+    wire [6:0] roi_x=map_follow_car && map_car_model[39] ?
+        (map_car_model[15:9]<=32 ? 7'd0 : map_car_model[15:9]>=96 ? 7'd64 : map_car_model[15:9]-7'd32) : 7'd32;
+    wire [6:0] roi_y=map_follow_car && map_car_model[39] ?
+        (map_car_model[8:2]<=32 ? 7'd0 : map_car_model[8:2]>=96 ? 7'd64 : map_car_model[8:2]-7'd32) : 7'd32;
+    wire global_map=x>=32 && x<288 && y>=112 && y<368;
+    wire local_map=x>=416 && x<800 && y>=112 && y<496;
+    wire in_map=global_map || local_map;
+    wire global_prefetch=x>=31 && x<287 && y>=112 && y<368;
+    wire local_prefetch=x>=415 && x<799 && y>=112 && y<496;
+    // Widen and SIGN before subtraction, division and bounds checks. Never
+    // truncate a negative/out-of-window coordinate to a 7-bit RAM address.
+    wire signed [11:0] screen_x=$signed({1'b0,x});
+    wire signed [11:0] screen_y=$signed({2'b00,y});
+    // Screen bounds above establish nonnegative deltas BEFORE narrowing these
+    // small constant-/6 operands; no signed twelve-bit divider is inferred.
+    wire [8:0] local_read_column=local_prefetch ? x-11'd415 : 9'd0;
+    wire [8:0] local_row=local_prefetch ? 10'd495-y : 9'd0;
+    wire [6:0] local_read_dx=local_read_column/9'd6;
+    wire [6:0] local_dy=local_row/9'd6;
+    wire signed [11:0] read_x_signed=local_prefetch ? $signed({5'd0,roi_x})+$signed({5'd0,local_read_dx}) :
+        (screen_x-12'sd31)>>>1;
+    wire signed [11:0] read_y_signed=local_prefetch ? $signed({5'd0,roi_y})+$signed({5'd0,local_dy}) :
+        (12'sd367-screen_y)>>>1;
+    wire read_location_valid=(global_prefetch || local_prefetch) &&
+        read_x_signed>=0 && read_x_signed<128 && read_y_signed>=0 && read_y_signed<128;
+    // Keep the reader's bank ownership for the ENTIRE map band, including gaps
+    // and horizontal blanking. !rd_en still switches/ACKs the completed bank;
+    // it cannot switch between the two views or halfway through a visible map.
+    assign map_read_en=page==2 && subpage==1 && y>=112 && y<496;
+    assign map_read_x=read_location_valid ? read_x_signed[6:0] : 7'd0;
+    assign map_read_y=read_location_valid ? read_y_signed[6:0] : 7'd0;
+    // RAM and these15FF sample the SAME prefetch on the SAME pixel edge.
+    // Returned map_cell and registered world-grid coordinates then describe
+    // the current screen pixel. This splits /6+ROI from marker comparisons;
+    // it adds no RAM latency, raster delay, display bank or CDC crossing.
+    reg [6:0] draw_grid_x=0,draw_grid_y=0;
+    reg draw_sample_valid=0;
+    always @(posedge clk)begin
+        draw_grid_x<=map_read_x;draw_grid_y<=map_read_y;
+        draw_sample_valid<=read_location_valid;
+    end
+    wire signed [8:0] draw_x_signed=$signed({2'b00,draw_grid_x});
+    wire signed [8:0] draw_y_signed=$signed({2'b00,draw_grid_y});
+    wire draw_location_valid=in_map && draw_sample_valid;
+    wire signed [8:0] car_dx=draw_x_signed-$signed({2'b00,map_car_model[15:9]});
+    wire signed [8:0] car_dy=draw_y_signed-$signed({2'b00,map_car_model[8:2]});
     wire car_origin=(car_dx==0 && car_dy>=-1 && car_dy<=1) || (car_dy==0 && car_dx>=-1 && car_dx<=1);
     reg car_arrow;
     always @* begin
@@ -297,6 +346,44 @@ module robot_control_panel (
             default:car_arrow=car_dx== -car_dy && car_dx>0 && car_dx<=2;
         endcase
     end
+    // Goal/current-leg endpoint use exactly the SAME world-grid coordinate as
+    // occupancy and car. This is the current commanded leg, not the full BFS
+    // route. Draw its straight axis-aligned part; other legs show endpoints.
+    wire [6:0] goal_x=map_overlay_model[28:22],goal_y=map_overlay_model[21:15];
+    wire [6:0] leg_x=map_overlay_model[13:7],leg_y=map_overlay_model[6:0];
+    wire signed [8:0] goal_dx=draw_x_signed-$signed({2'b00,goal_x});
+    wire signed [8:0] goal_dy=draw_y_signed-$signed({2'b00,goal_y});
+    wire signed [8:0] leg_dx=draw_x_signed-$signed({2'b00,leg_x});
+    wire signed [8:0] leg_dy=draw_y_signed-$signed({2'b00,leg_y});
+    wire goal_marker=map_overlay_model[29] && ((goal_dx==0 && goal_dy>=-1 && goal_dy<=1) ||
+        (goal_dy==0 && goal_dx>=-1 && goal_dx<=1));
+    wire leg_marker=map_overlay_model[14] && ((leg_dx==0 && leg_dy>=-1 && leg_dy<=1) ||
+        (leg_dy==0 && leg_dx>=-1 && leg_dx<=1));
+    wire leg_line=map_overlay_model[14] && map_car_model[39] &&
+        ((leg_x==map_car_model[15:9] && car_dx==0 &&
+          ((car_dy>=0 && leg_dy<=0)||(car_dy<=0 && leg_dy>=0))) ||
+         (leg_y==map_car_model[8:2] && car_dy==0 &&
+          ((car_dx>=0 && leg_dx<=0)||(car_dx<=0 && leg_dx>=0))));
+    // World-coordinate boundaries in twelfths of a 64 mm cell. Pixel spans
+    // are 6 units globally and 2 locally. +/-2000 mm is EXACTLY393/1143 units
+    // from the map's -4096 mm edge; no 62/63-cell approximation or fake scale.
+    wire [11:0] global_px=x-11'd32,global_py=10'd367-y;
+    wire [11:0] local_px=x-11'd416,local_py=10'd495-y;
+    wire [11:0] roi_qx=({5'd0,roi_x}<<3)+({5'd0,roi_x}<<2);
+    wire [11:0] roi_qy=({5'd0,roi_y}<<3)+({5'd0,roi_y}<<2);
+    wire [11:0] pixel_qx=local_map ? roi_qx+(local_px<<1) : (global_px<<2)+(global_px<<1);
+    wire [11:0] pixel_qy=local_map ? roi_qy+(local_py<<1) : (global_py<<2)+(global_py<<1);
+    wire [11:0] pixel_span=local_map ? 12'd2 : 12'd6;
+    wire field_x_edge=(pixel_qx<=393 && pixel_qx+pixel_span>393) || (pixel_qx<=1143 && pixel_qx+pixel_span>1143);
+    wire field_y_edge=(pixel_qy<=393 && pixel_qy+pixel_span>393) || (pixel_qy<=1143 && pixel_qy+pixel_span>1143);
+    wire field_outline=(field_x_edge && pixel_qy<=1143 && pixel_qy+pixel_span>393) ||
+        (field_y_edge && pixel_qx<=1143 && pixel_qx+pixel_span>393);
+    wire roi_x_edge=(pixel_qx<=roi_qx && pixel_qx+pixel_span>roi_qx) ||
+        (pixel_qx<roi_qx+768 && pixel_qx+pixel_span>=roi_qx+768);
+    wire roi_y_edge=(pixel_qy<=roi_qy && pixel_qy+pixel_span>roi_qy) ||
+        (pixel_qy<roi_qy+768 && pixel_qy+pixel_span>=roi_qy+768);
+    wire roi_outline=global_map && ((roi_x_edge && pixel_qy>=roi_qy && pixel_qy<roi_qy+768) ||
+        (roi_y_edge && pixel_qx>=roi_qx && pixel_qx<roi_qx+768));
     wire [3:0] info_line=(y-10'd132)>>5;
     wire info_line_pixel=y>=132 && y<308 && (y[4:0]>=4 && y[4:0]<20);
     wire [3:0] map_info_line=(y-10'd80)>>5;
@@ -340,8 +427,9 @@ module robot_control_panel (
                 if(hit_button<=2)button_text_y=160;
                 else if(hit_button<=4)button_text_y=272;else button_text_y=384;
             end else if(view_kind==3)begin
-                button_text_x=hit_button[0] ? 448 : 628;button_label_right=hit_button[0] ? 616 : 796;
-                button_text_y=hit_button<=2 ? 366 : 422;
+                button_text_x=hit_button==2 ? 168 : 40;
+                button_label_right=hit_button==1 ? 156 : 284;
+                button_text_y=hit_button==3 ? 426 : 484;
             end else if(view_kind==4)begin
                 button_text_x=hit_button[0] ? 40 : 440;
                 button_label_right=hit_button[0] ? 380 : 780;
@@ -364,19 +452,28 @@ module robot_control_panel (
             override_base=1;
             if(view_kind==1 && x>=28 && x<388 && y>=116 && y<(view==16 ? 500 : 416))base_color=WHITE;
             if(view_kind==4 && y>=112 && y<444 && ((x>=32 && x<384)||(x>=432 && x<784)))base_color=WHITE;
-            if(view_kind==3 && in_map)base_color=!map_read_valid ? 16'h8410 :
+            if(view_kind==3 && draw_location_valid)base_color=!map_read_valid ? 16'h8410 :
                 map_cell==0 ? 16'hc618 : map_cell==1 ? WHITE : map_cell==2 ? 16'h45f2 : 16'h18e3;
-            if(view_kind==3 && in_map && map_car_model[39])begin
-                if(car_origin)base_color=BLUE;
+            if(view_kind==3 && draw_location_valid)begin
+                if(roi_outline)base_color=BLUE;
+                if(field_outline)base_color=16'hfd20;
+                if(leg_line)base_color=16'h781f;
+                if(goal_marker)base_color=GREEN;
+                if(leg_marker)base_color=16'h07ff;
+            end
+            if(view_kind==3 && draw_location_valid && map_car_model[39])begin
                 if(car_arrow)base_color=16'hffe0;
                 if(car_origin)base_color=RED;
             end
         end
         if(rect(x,824,1016,y,52,540))begin override_base=1;base_color=WHITE;end
+        //16 cells =1024 mm, exactly32 global pixels; ticks are not a rounded1m.
+        if(view_kind==3 && ((x>=32 && x<=64 && y>=402 && y<404) ||
+            ((x==32 || x==64) && y>=398 && y<408)))begin override_base=1;base_color=INK;end
         if(hit_button!=0)begin
             override_base=1;base_color=stop_button ? RED : SOFT;
             if(hit_button==100)base_color=BLUE;
-            if(view_kind==3 && x==619)base_color=WHITE;
+            if(view_kind==3 && x==159 && y>=472)base_color=WHITE;
             // Touch rectangles are much larger than their centered text.
             label_enable=1;label_literal=button_caption;
             label_x=button_text_x;label_right=button_label_right;label_y=button_text_y;
@@ -396,12 +493,26 @@ module robot_control_panel (
             label_enable=1;label_source=0;label_x=36;label_right=388;label_color=MUTED;
             label_y=y<392 ? 376 : 400;label_literal=y<392 ? view_hint(view) : view_detail(view);
         end
-        if(view_kind==3 && x>=448 && x<800 && map_info_pixel)begin
-            label_enable=1;label_source=1;label_row=map_info_line+4'd2;
-            label_x=448;label_right=800;label_y=10'd80+({6'd0,map_info_line}<<5);
+        if(view_kind==3 && y>=88 && y<104)begin
+            label_enable=1;label_y=88;
+            if(x>=32 && x<288)begin label_x=32;label_right=288;label_literal=7'd@MAP_GLOBAL@;end
+            else if(x>=416 && x<800)begin label_x=416;label_right=800;label_literal=7'd@MAP_LOCAL@;end
+            else label_enable=0;
         end
-        if(view_kind==3 && x>=28 && x<412 && y>=408 && y<424)begin
-            label_enable=1;label_literal=7'd@SCALE@;label_x=28;label_right=412;label_y=408;label_color=MUTED;
+        if(view_kind==3 && x>=32 && x<288 && y>=376 && y<392)begin
+            label_enable=1;label_literal=7'd@MAP_CELL@;label_x=32;label_right=288;label_y=376;label_color=MUTED;
+        end
+        if(view_kind==3 && x>=80 && x<288 && y>=396 && y<412)begin
+            label_enable=1;label_literal=7'd@MAP_SCALE@;label_x=80;label_right=288;label_y=396;label_color=MUTED;
+        end
+        if(view_kind==3 && y>=512 && y<528)begin
+            label_enable=1;label_y=512;
+            if(x>=416 && x<608)begin label_x=416;label_right=608;label_literal=map_follow_car ? 7'd@MAP_CAR_CENTER@ : 7'd@MAP_FIELD_CENTER@;end
+            else if(x>=620 && x<800)begin label_x=620;label_right=800;label_literal=7'd@MAP_LEG@;label_color=16'h781f;end
+            else label_enable=0;
+        end
+        if(view_kind==3 && x>=32 && x<288 && y>=516 && y<532)begin
+            label_enable=1;label_x=32;label_right=288;label_y=516;label_literal=7'd@MAP_FIELD@;label_color=16'hfd20;
         end
         // Exactly four concise status lines, common across all levels.
         if(x>=824 && x<1024 && y>=224 && y<336 && y[4:0]<16)begin

@@ -58,6 +58,9 @@ module robot_navigation #(parameter BODY_GUARD=0)(
     output wire correction_allowed, correction_ready,
     output reg correction_accepted,
     output reg [31:0] correction_count
+    ,output wire diagnostic_gyro_fresh
+    ,output wire [5:0] diagnostic_gyro_age
+    ,output wire [3:0] diagnostic_required_coverage
 );
     localparam [2:0] MODE_STOP=0, MODE_MANUAL=1, MODE_TURN=2,
         MODE_GOTO=3, MODE_DONE=4, MODE_ALIGN=5;
@@ -130,7 +133,10 @@ module robot_navigation #(parameter BODY_GUARD=0)(
         gyro_calibrated && gyro_fresh && fault==0);
     // Explicit90/180 commands are gyro turns, not map missions. GOTO still
     // checks live lidar while rotating toward a goal and while translating.
-    wire avoid_required=avoid_enable && !gyro_only_turn && !gyro_only_turn_result;
+    // The caller chooses whether avoidance applies. An explicit TURN must not
+    // silently override that choice; with avoidance enabled it needs all four
+    // measurement sectors and the same live swept-disk obstacle check.
+    wire avoid_required=avoid_enable;
     wire signed [16:0] gyro_corrected={gyro_latest[15],gyro_latest}-
                                       {gyro_bias[15],gyro_bias};
     wire signed [31:0] gyro_extended={{15{gyro_corrected[16]}},gyro_corrected};
@@ -322,6 +328,10 @@ module robot_navigation #(parameter BODY_GUARD=0)(
         (left_work>0 || right_work>0) ? clear_front_mm<stop_limit : 1'b0);
     wire decision_blocked_live=avoid_required && (decision_unknown || decision_obstacle ||
         (BODY_GUARD && !body_guard_ready));
+    assign diagnostic_gyro_fresh=gyro_fresh;
+    assign diagnostic_gyro_age=gyro_age;
+    assign diagnostic_required_coverage=!avoid_required ? 4'd0 : turning_work ? 4'b1111 :
+        reverse_work ? 4'b1000 : (left_work>0 || right_work>0) ? 4'b0001 : 4'd0;
     // Permission is a stable low-speed condition, suitable for mapper's
     // correction_enable. ready is the actual one-cycle odometry commit slot.
     // Mapper must hold valid and dx/dy until correction_accepted (ACK), then

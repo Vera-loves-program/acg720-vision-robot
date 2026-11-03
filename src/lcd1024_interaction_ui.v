@@ -44,6 +44,8 @@ module lcd1024_interaction_ui #(
     output wire [7:0] byte_text_read_index,
     input wire [1:0] map_cell,
     input wire [39:0] map_car_model,
+    input wire [29:0] map_overlay_model,
+    input wire map_follow_car,
     input wire map_read_valid,
     output wire map_read_en,
     output wire [6:0] map_read_x,map_read_y,
@@ -307,9 +309,10 @@ module lcd1024_interaction_ui #(
     wire [15:0] robot_label_color,robot_base_color;
     wire robot_label_enable,robot_override_label,robot_override_base;
     robot_control_panel u_robot_panel (
-        .x(ax),.y(ay),.flags(robot_display_flags),
+        .clk(clk),.x(ax),.y(ay),.flags(robot_display_flags),
         .map_cell(map_cell),.map_read_valid(map_read_valid),
         .map_car_model(map_car_model),
+        .map_overlay_model(map_overlay_model),.map_follow_car(map_follow_car),
         .map_read_en(map_read_en),.map_read_x(map_read_x),.map_read_y(map_read_y),
         .label_source(robot_label_source),.label_row(robot_label_row),.label_literal(robot_label_literal),
         .label_x(robot_label_x),.label_right(robot_label_right),

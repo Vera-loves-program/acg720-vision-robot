@@ -22,6 +22,7 @@ module robot_mission_control (
     input wire [31:0] map_scan_count,
     input wire planner_busy,planner_done,planner_reachable,
     input wire [6:0] planner_next_x,planner_next_y,
+    input wire planner_next_is_connector,
     output reg planner_start,
     output wire planner_cancel,
     output wire [6:0] planner_current_x,planner_current_y,planner_goal_x,planner_goal_y,
@@ -48,6 +49,9 @@ module robot_mission_control (
     reg [8:0] refresh_ticks;
     reg [5:0] map_age_ticks;
     reg invalid_goal,fault_paused;
+    reg waiting_path_previous;
+    reg [15:0] parked_map_id;
+    wire [15:0] newer_than_parked=map_integrated_id-parked_map_id;
     reg turn_mission;
     reg [1:0] recovery_attempts;
     reg [8:0] recovery_ticks;
@@ -102,7 +106,7 @@ module robot_mission_control (
     wire [7:0] rounded_next_x={1'b0,planner_next_x}+8'd1;
     wire [7:0] rounded_next_y={1'b0,planner_next_y}+8'd1;
     wire same_goal_cell=coordinates_inside && rounded_grid_x[7:1]==rounded_goal_x[7:1] && rounded_grid_y[7:1]==rounded_goal_y[7:1];
-    wire next_is_goal_cell=rounded_next_x[7:1]==rounded_goal_x[7:1] && rounded_next_y[7:1]==rounded_goal_y[7:1];
+    wire next_is_goal_cell=!planner_next_is_connector && rounded_next_x[7:1]==rounded_goal_x[7:1] && rounded_next_y[7:1]==rounded_goal_y[7:1];
     always @(posedge clk or negedge reset_n)begin
         if(!reset_n)begin
             planner_start<=0;nav_command_valid<=0;nav_command<=0;nav_goal_x<=0;nav_goal_y<=0;nav_arrival_tolerance_mm<=5;
@@ -111,9 +115,11 @@ module robot_mission_control (
             turn_mission<=0;recovery_attempts<=0;recovery_ticks<=0;retreat_x<=0;retreat_y<=0;recovery_state<=0;
             refreshing_map<=0;refresh_phase<=0;required_capture_id<=0;
             refresh_ticks<=0;map_age_ticks<=63;
-            waiting_path<=0;invalid_goal<=0;fault_paused<=0;
+            waiting_path<=0;invalid_goal<=0;fault_paused<=0;waiting_path_previous<=0;parked_map_id<=0;
         end else begin
             planner_start<=0;nav_command_valid<=0;
+            waiting_path_previous<=waiting_path;
+            if(planner_start || (waiting_path && !waiting_path_previous))parked_map_id<=map_integrated_id;
             if(!map_integrated_valid)map_age_ticks<=63;
             else if(map_integrated_pulse)map_age_ticks<=0;
             else if(tick_10ms && map_age_ticks!=63)map_age_ticks<=map_age_ticks+1'b1;
@@ -200,7 +206,8 @@ module robot_mission_control (
                 // No busy-loop replanning, and no timer that silently ends a
                 // mission. A new coherent observation is the retry trigger.
                 if(!invalid_goal && !fault_paused && permit && coordinates_inside && pose_valid && map_ready &&
-                   reusable_map && map_integrated_pulse)begin
+                   waiting_path_previous && reusable_map && map_integrated_pulse &&
+                   newer_than_parked!=0 && !newer_than_parked[15])begin
                     waiting_path<=0;no_path<=0;mission_error<=0;planning<=1;planner_start<=1;
                     
                 end

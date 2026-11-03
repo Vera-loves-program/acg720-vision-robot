@@ -63,9 +63,35 @@ module robot_subsystem (
     output wire [255:0] follow_telemetry,
     output wire [255:0] follow_laser_telemetry,
     output wire follow_pan_pwm,follow_tilt_pwm,
+    input wire diagnostic_capture,
+    input wire [5:0] diagnostic_index,
+    output wire [31:0] diagnostic_data,
+    output wire diagnostic_busy,diagnostic_valid,
+    output wire [15:0] diagnostic_epoch,
+    output wire [29:0] map_overlay_model,
+    output wire map_follow_car_pixel,
     input wire battery_a_low,
     output wire shutdown_requested,software_stopped
 );
+    wire [3:0] body_coverage,body_free_coverage,nav_required_coverage;
+    wire gyro_fresh_diag;wire [5:0] gyro_age_diag;
+    wire raw_node_valid,raw_parse_error;wire [2:0] raw_reject_reason;
+    wire [5:0] body_scan_age;wire [7:0] body_scan_period;
+    wire projection_bad,last_scan_bad;
+    wire [9:0] scan_raw_nodes,scan_usable_nodes,scan_invalid_nodes;
+    wire [7:0] scan_parse_errors,scan_overruns;
+    wire [31:0] direction_point_counts;
+    wire [4:0] unconfirmed_flags,trigger_kind;
+    wire trigger_valid;wire [14:0] trigger_angle;
+    wire [15:0] trigger_distance,trigger_scan_id;
+    wire [5:0] trigger_quality,map_point_quality;
+    wire signed [15:0] trigger_x,trigger_y;
+    wire map_seed_valid,map_seed_done,map_follow_car;
+    wire planner_connector,planner_reject_valid;
+    wire signed [9:0] planner_reject_x,planner_reject_y;
+    wire [1:0] planner_reject_cell;
+    wire [3:0] planner_reject_reason;
+    wire [2:0] planner_start_phase;
     wire ui_command_valid,pose_set,geometry_valid,gyro_invert,scan_enable,lidar_restart,clear_map;
     wire [2:0] ui_command;
     wire signed [15:0] manual_left,manual_right,offset_x,offset_y;
@@ -167,7 +193,7 @@ module robot_subsystem (
         .lidar_forward_q6(forward_angle),.lidar_offset_x_mm(offset_x),.lidar_offset_y_mm(offset_y),
         .body_front_mm(body_front),.body_rear_mm(body_rear),.body_left_mm(body_left),.body_right_mm(body_right),
         .drive_margin_mm(drive_margin),.turn_margin_mm(turn_margin),.contact_margin_mm(contact_margin),
-        .scan_enable(scan_enable),.lidar_restart(lidar_restart),.map_clear(clear_map),
+        .map_follow_car(map_follow_car),.scan_enable(scan_enable),.lidar_restart(lidar_restart),.map_clear(clear_map),
         .selected_field(selected_field),.step_select(step_select),.selected_value(selected_value),.selected_step(selected_step)
     );
     robot_follow_control #(.ENABLE_CHOOSER(0)) u_follow(
@@ -214,26 +240,35 @@ module robot_subsystem (
         .restart_count(restart_count),.front_mm(raw_front),.right_mm(raw_right),.back_mm(raw_rear),.left_mm(raw_left),
         .sector_valid(sector_valid),.scan_complete(scan_complete),
         .debug_status(lidar_debug_status),.last_rx_word(lidar_last_rx_word),
-        .reply_capture(lidar_reply_capture),.last_tx_word(lidar_last_tx_word)
+        .reply_capture(lidar_reply_capture),.last_tx_word(lidar_last_tx_word),
+        .raw_node_valid(raw_node_valid),.raw_reject_reason(raw_reject_reason),.raw_parse_error(raw_parse_error)
     );
     wire [15:0] front,right,left,rear;
     wire [15:0] filtered_front,filtered_right,filtered_rear,filtered_left;
     wire [15:0] body_self_points,rotation_radius;
     wire signed [15:0] blocking_x,blocking_y;
-    wire [3:0] body_coverage;
     // Same SELF rejection as mapping; values remain optical-origin ranges,
     // NOT body edge clearances. Unknown/stale sectors display FFFF.
     assign front=body_guard_ready && body_coverage[0] ? filtered_front : 16'hffff;
     assign right=body_guard_ready && body_coverage[1] ? filtered_right : 16'hffff;
     assign left=body_guard_ready && body_coverage[2] ? filtered_left : 16'hffff;
     assign rear=body_guard_ready && body_coverage[3] ? filtered_rear : 16'hffff;
-    wire map_point_valid;
+    wire map_point_valid,confirmed_point_valid;
     wire [14:0] map_point_angle;
     wire [15:0] map_point_distance;
     wire signed [15:0] body_point_x,body_point_y;
     lidar_body_guard u_body_guard(
         .clk(clk),.reset_n(reset_n),.tick_10ms(tick_10ms),.active(scan_enable && lidar_running),
         .point_valid(point_valid),.scan_start(scan_start),.angle_q6(point_angle),.distance_mm(point_distance),
+        .quality(point_quality),.scan_id(lidar_scans[15:0]),
+        .raw_node_valid(raw_node_valid),.raw_reject_reason(raw_reject_reason),.raw_parse_error(raw_parse_error),
+        .free_coverage(body_free_coverage),.scan_age_ticks(body_scan_age),.scan_period_ticks(body_scan_period),
+        .projection_bad(projection_bad),.last_scan_bad(last_scan_bad),
+        .scan_raw_nodes(scan_raw_nodes),.scan_usable_nodes(scan_usable_nodes),.scan_invalid_nodes(scan_invalid_nodes),
+        .scan_parse_errors(scan_parse_errors),.scan_overruns(scan_overruns),.direction_point_counts(direction_point_counts),
+        .unconfirmed_flags(unconfirmed_flags),.trigger_valid(trigger_valid),.trigger_kind(trigger_kind),
+        .trigger_angle_q6(trigger_angle),.trigger_distance_mm(trigger_distance),.trigger_scan_id(trigger_scan_id),
+        .trigger_quality(trigger_quality),.trigger_x_mm(trigger_x),.trigger_y_mm(trigger_y),.map_point_quality(map_point_quality),.confirmed_point_valid(confirmed_point_valid),
         .forward_angle_q6(forward_angle),.offset_x_mm(offset_x),.offset_y_mm(offset_y),
         .body_front_mm(body_front),.body_rear_mm(body_rear),.body_left_mm(body_left),.body_right_mm(body_right),
         .drive_margin_mm(drive_margin),.turn_margin_mm(turn_margin),.contact_margin_mm(contact_margin),
@@ -251,10 +286,11 @@ module robot_subsystem (
     // C1 nominal10Hz revolutions get a300ms complete-scan allowance here;
     // the driver's independent sector/node watchdogs remain in force too.
     reg [5:0] complete_scan_age;
+    reg complete_scan_seen;
     always @(posedge clk or negedge reset_n)begin
-        if(!reset_n)complete_scan_age<=63;
-        else if(!scan_enable || !lidar_running)complete_scan_age<=63;
-        else if(scan_complete)complete_scan_age<=0;
+        if(!reset_n)begin complete_scan_age<=63;complete_scan_seen<=0;end
+        else if(!scan_enable || !lidar_running)begin complete_scan_age<=63;complete_scan_seen<=0;end
+        else if(scan_complete)begin complete_scan_age<=0;complete_scan_seen<=1;end
         else if(tick_10ms && complete_scan_age!=63)complete_scan_age<=complete_scan_age+1'b1;
     end
     assign avoid_lidar_ready=lidar_ready && complete_scan_age<30;
@@ -278,7 +314,7 @@ module robot_subsystem (
     wire signed [17:0] nav_front=$signed({2'b00,body_front});
     wire signed [17:0] nav_left=$signed({2'b00,body_left})+$signed({2'b00,drive_margin});
     wire signed [17:0] nav_right=$signed({2'b00,body_right})+$signed({2'b00,drive_margin});
-    wire nav_ahead_hit=map_point_valid && nav_point_x>=nav_front &&
+    wire nav_ahead_hit=confirmed_point_valid && nav_point_x>=nav_front &&
         nav_point_x<=nav_front+18'sd400 && nav_point_y<=nav_left && nav_point_y>=-nav_right &&
         {17'd0,body_point_x}<=mission_forward_envelope;
     reg nav_ahead_work,nav_ahead_pending,nav_ahead_published;
@@ -296,6 +332,22 @@ module robot_subsystem (
     end
     wire nav_obstacle_ahead=body_guard_ready && avoid_lidar_ready &&
         (nav_ahead_work || nav_ahead_published || nav_ahead_hit);
+    reg lookahead_record_valid;
+    reg [15:0] lookahead_record_scan,lookahead_record_distance;
+    reg [14:0] lookahead_record_angle;
+    reg [5:0] lookahead_record_quality;
+    reg signed [15:0] lookahead_record_x,lookahead_record_y;
+    always @(posedge clk or negedge reset_n)begin
+        if(!reset_n)begin
+            lookahead_record_valid<=0;lookahead_record_scan<=0;lookahead_record_distance<=0;
+            lookahead_record_angle<=0;lookahead_record_quality<=0;lookahead_record_x<=0;lookahead_record_y<=0;
+        end else if(map_reset)lookahead_record_valid<=0;
+        else if(nav_ahead_hit && !nav_ahead_work)begin
+            lookahead_record_valid<=1;lookahead_record_scan<=lidar_scans[15:0];
+            lookahead_record_distance<=map_point_distance;lookahead_record_angle<=map_point_angle;
+            lookahead_record_quality<=map_point_quality;lookahead_record_x<=body_point_x;lookahead_record_y<=body_point_y;
+        end
+    end
     robot_visual_laser u_visual_laser(
         .clk(clk),.reset_n(reset_n),.tick_10ms(tick_10ms),.clear(map_reset || page!=5),
         .scan_start(scan_start),.point_valid(map_point_valid),.point_x(body_point_x),.point_y(body_point_y),
@@ -441,7 +493,7 @@ module robot_subsystem (
         .map_integrated_id(map_integrated_id),.map_integrated_valid(map_integrated_valid),
         .map_integrated_pulse(map_integrated_pulse),
         .planner_busy(planner_busy),.planner_done(planner_done),.planner_reachable(planner_reachable),
-        .planner_next_x(next_x),.planner_next_y(next_y),.planner_start(planner_start),.planner_cancel(planner_cancel),
+        .planner_next_x(next_x),.planner_next_y(next_y),.planner_next_is_connector(planner_connector),.planner_start(planner_start),.planner_cancel(planner_cancel),
         .planner_current_x(plan_current_x),.planner_current_y(plan_current_y),.planner_goal_x(plan_goal_x),.planner_goal_y(plan_goal_y),
         .nav_command_valid(mission_command_valid),.nav_command(mission_command),.nav_goal_x(mission_goal_x),.nav_goal_y(mission_goal_y),
         .nav_arrival_tolerance_mm(mission_arrival_tolerance),
@@ -453,6 +505,9 @@ module robot_subsystem (
         .clk(clk),.reset_n(reset_n),.start(planner_start && !planner_cancel && !map_reset),
         .cancel(planner_cancel || map_reset),
         .current_x(plan_current_x),.current_y(plan_current_y),.goal_x(plan_goal_x),.goal_y(plan_goal_y),
+        .current_x_mm(robot_x),.current_y_mm(robot_y),.next_is_connector(planner_connector),
+        .reject_valid(planner_reject_valid),.reject_x(planner_reject_x),.reject_y(planner_reject_y),
+        .reject_cell(planner_reject_cell),.reject_reason(planner_reject_reason),.start_check_phase(planner_start_phase),
         .heading_q6(heading_q6),
         .clearance_radius_mm(rotation_radius),
         .map_ready(map_ready),.map_frozen(map_frozen),.freeze_map(freeze_map),.busy(planner_busy),.done(planner_done),
@@ -474,21 +529,23 @@ module robot_subsystem (
         .manual_heading_hold(page==5 ? 1'b1 : recovery_state==2 ? 1'b0 : manual_heading_hold),.turn_heading_mdeg(remote_turn_active ? remote_turn_heading : page==5 ? follow_heading : turn_heading),.goal_x_mm(mission_goal_x),.goal_y_mm(mission_goal_y),
         .turn_half_direction(remote_turn_active ? remote_half_direction : 2'd0),
         .cruise_counts(cruise),.turn_counts(turn_speed),.arrival_tolerance_mm(mission_arrival_tolerance),
-        .avoid_enable(!manual_view && !remote_turn_active),.lidar_valid(avoid_lidar_ready),.clear_front_mm(front),.clear_left_mm(left),.clear_right_mm(right),.clear_rear_mm(rear),
+        .avoid_enable(!manual_view),.lidar_valid(avoid_lidar_ready),.clear_front_mm(front),.clear_left_mm(left),.clear_right_mm(right),.clear_rear_mm(rear),
         // Legacy radial thresholds are unused with BODY_GUARD=1. Actual gaps
         // come from the runtime body-frame envelope, not a550mm sensor radius.
         .stop_clearance_mm(16'd0),.slow_clearance_mm(16'd0),.rotate_clearance_mm(16'd0),
         .body_guard_ready(body_guard_ready),.body_front_stop(body_front_stop),.body_rear_stop(body_rear_stop),
         .body_front_slow(body_front_slow),.body_turn_stop(body_turn_stop),
         .body_nav_ahead(nav_obstacle_ahead),
-        .body_coverage(body_coverage),
+        .body_coverage(body_free_coverage),
         .lidar_correction_valid(correction_valid && !manual_active && !manual_turn_active && !remote_turn_active && !clear_map && !pose_set && !encoder_zeroed),
         .lidar_correction_x_mm(correction_x),.lidar_correction_y_mm(correction_y),
         .run_request(nav_run),.target_speed_left(nav_target_left),.target_speed_right(nav_target_right),
         .x_mm(robot_x),.y_mm(robot_y),.heading_mdeg(robot_heading),.heading_q6(heading_q6),.pose_valid(pose_valid),
         .gyro_calibrated(gyro_calibrated),.calibrating(calibrating),.status(nav_status),.fault(nav_fault),.pose_update(pose_update),.turn_complete_pulse(nav_turn_complete),
         .recommended_side(recommended_side),.correction_allowed(correction_allowed),.correction_ready(correction_ready),
-        .correction_accepted(correction_ack),.correction_count(correction_count)
+        .correction_accepted(correction_ack),.correction_count(correction_count),
+        .diagnostic_gyro_fresh(gyro_fresh_diag),.diagnostic_gyro_age(gyro_age_diag),
+        .diagnostic_required_coverage(nav_required_coverage)
     );
     assign target_left=!remote_turn_active && manual_view && manual_active ? manual_target_left : nav_target_left;
     assign target_right=!remote_turn_active && manual_view && manual_active ? manual_target_right : nav_target_right;
@@ -502,7 +559,7 @@ module robot_subsystem (
         .point_valid(map_point_valid),.scan_start(scan_start),.scan_id(lidar_scans[15:0]),
         .integrated_scan_id(map_integrated_id),.integrated_scan_valid(map_integrated_valid),
         .integrated_scan_pulse(map_integrated_pulse),
-        .angle_q6({1'b0,map_point_angle}),.distance_mm(map_point_distance),.quality(6'd1),
+        .angle_q6({1'b0,map_point_angle}),.distance_mm(map_point_distance),.quality(map_point_quality),
         .pose_valid(world_map_pose_valid),.local_scan(map_local),.pose_x_mm(map_pose_x),
         .pose_y_mm(map_pose_y),.pose_heading_q6(map_pose_heading),
         .forward_angle_q6(forward_angle),.lidar_offset_x_mm(offset_x),.lidar_offset_y_mm(offset_y),
@@ -510,6 +567,7 @@ module robot_subsystem (
         .correction_enable(!map_local && world_map_pose_valid && !manual_active && !manual_turn_active && !remote_turn_active && !map_reset),.correction_ack(correction_ack),
         .freeze_map(freeze_map),.map_frozen(map_frozen),.plan_rd_en(plan_read_en),.plan_rd_x(plan_read_x),.plan_rd_y(plan_read_y),
         .plan_rd_cell(plan_read_cell),.plan_rd_valid(plan_read_valid),
+        .diagnostic_seed_valid(map_seed_valid),.diagnostic_seed_done(map_seed_done),
         .map_ready(map_ready),.busy(map_busy),.point_count(map_points),.dropped_points(map_dropped),.out_of_bounds(map_oob),.scan_count(map_scans),
         .correction_valid(correction_valid),.correction_x_mm(correction_x),.correction_y_mm(correction_y),
         .match_score(match_score),.match_baseline(match_baseline),.match_margin(match_margin),
@@ -520,8 +578,122 @@ module robot_subsystem (
         .tick_10ms(tick_10ms),.pose_update(pose_update),.local_scan(map_local),.pose_valid(pose_valid),
         .x_mm(robot_x),.y_mm(robot_y),.heading_q6(heading_q6),
         .body_front_mm(body_front),.body_rear_mm(body_rear),.body_left_mm(body_left),.body_right_mm(body_right),
-        .pixel_model(map_car_model)
+        .goal_x_mm(goal_x),.goal_y_mm(goal_y),.leg_x_mm(mission_goal_x),.leg_y_mm(mission_goal_y),
+        .leg_valid(mission_active),.follow_car(map_follow_car),.pixel_overlay_model(map_overlay_model),
+        .pixel_follow_car(map_follow_car_pixel),.pixel_model(map_car_model)
     );
+    // Diagnostic predicates are sampled BEFORE priority/text encoding.
+    // No long point/mission arithmetic can cascade through this display path.
+    // These registers are NOT used by the immediate motion-stop chain.
+    reg [16:0] diagnostic_conditions_q;
+    reg [7:0] reject_diagnostic;
+    always @(posedge clk or negedge reset_n)begin
+        if(!reset_n)diagnostic_conditions_q<=0;
+        else begin
+            diagnostic_conditions_q[0]<=(!scan_enable || !lidar_running || !complete_scan_seen);
+            diagnostic_conditions_q[1]<=(complete_scan_age>=30);
+            diagnostic_conditions_q[2]<=(!gyro_valid || !gyro_calibrated || calibrating);
+            diagnostic_conditions_q[3]<=(!gyro_fresh_diag);
+            diagnostic_conditions_q[4]<=(projection_bad || last_scan_bad);
+            diagnostic_conditions_q[5]<=(!lidar_ready || !body_guard_ready);
+            diagnostic_conditions_q[6]<=(virtual_contact);
+            diagnostic_conditions_q[7]<=(nav_obstacle_ahead);
+            diagnostic_conditions_q[8]<=((body_front_stop && nav_required_coverage[0]) || (body_rear_stop && nav_required_coverage[3]) || (body_turn_stop && nav_required_coverage==15));
+            diagnostic_conditions_q[9]<=((body_free_coverage & nav_required_coverage)!=nav_required_coverage);
+            diagnostic_conditions_q[10]<=(map_local);
+            diagnostic_conditions_q[11]<=(mission_waiting_map);
+            diagnostic_conditions_q[12]<=(effective_planner_error==8);
+            diagnostic_conditions_q[13]<=(effective_planner_error==2);
+            diagnostic_conditions_q[14]<=(effective_planner_error==9);
+            diagnostic_conditions_q[15]<=(effective_planner_error==3);
+            diagnostic_conditions_q[16]<=(no_path || effective_planner_error==4);
+        end
+    end
+    always @* begin
+        reject_diagnostic=0;
+        if(diagnostic_conditions_q[0])reject_diagnostic=1;
+        else if(diagnostic_conditions_q[1])reject_diagnostic=2;
+        else if(diagnostic_conditions_q[2])reject_diagnostic=3;
+        else if(diagnostic_conditions_q[3])reject_diagnostic=4;
+        else if(diagnostic_conditions_q[4])reject_diagnostic=5;
+        else if(diagnostic_conditions_q[5])reject_diagnostic=1;
+        else if(diagnostic_conditions_q[6])reject_diagnostic=8;
+        else if(diagnostic_conditions_q[7])reject_diagnostic=16;
+        else if(diagnostic_conditions_q[8])reject_diagnostic=7;
+        else if(diagnostic_conditions_q[9])reject_diagnostic=6;
+        else if(diagnostic_conditions_q[10])reject_diagnostic=9;
+        else if(diagnostic_conditions_q[11])reject_diagnostic=10;
+        else if(diagnostic_conditions_q[12])reject_diagnostic=11;
+        else if(diagnostic_conditions_q[13])reject_diagnostic=12;
+        else if(diagnostic_conditions_q[14])reject_diagnostic=13;
+        else if(diagnostic_conditions_q[15])reject_diagnostic=14;
+        else if(diagnostic_conditions_q[16])reject_diagnostic=15;
+    end
+    wire [15:0] diagnostic_trigger_delta=lookahead_record_scan-trigger_scan_id;
+    wire diagnostic_use_lookahead=lookahead_record_valid &&
+        (!trigger_valid || !diagnostic_trigger_delta[15]) &&
+        !virtual_contact && !body_front_stop && !body_rear_stop && !body_turn_stop;
+    wire diagnostic_trigger_valid=diagnostic_use_lookahead || trigger_valid;
+    wire [5:0] diagnostic_trigger_kind=diagnostic_use_lookahead ? 6'b100000 : {1'b0,trigger_kind};
+    wire [15:0] diagnostic_trigger_scan=diagnostic_use_lookahead ? lookahead_record_scan : trigger_scan_id;
+    wire [14:0] diagnostic_trigger_angle=diagnostic_use_lookahead ? lookahead_record_angle : trigger_angle;
+    wire [15:0] diagnostic_trigger_distance=diagnostic_use_lookahead ? lookahead_record_distance : trigger_distance;
+    wire [5:0] diagnostic_trigger_quality=diagnostic_use_lookahead ? lookahead_record_quality : trigger_quality;
+    wire signed [15:0] diagnostic_trigger_x=diagnostic_use_lookahead ? lookahead_record_x : trigger_x;
+    wire signed [15:0] diagnostic_trigger_y=diagnostic_use_lookahead ? lookahead_record_y : trigger_y;
+    wire [1535:0] diag_words;
+    assign diag_words[0+:32]=32'h4c440101;
+    assign diag_words[32+:32]={nav_fault,mission_error,planner_error,4'd0,nav_status};
+    assign diag_words[64+:32]={16'd0,gyro_age_diag,gyro_fresh_diag,gyro_calibrated,calibrating,gyro_valid,lidar_ready,avoid_lidar_ready,body_guard_ready,scan_enable,lidar_running,pose_valid};
+    assign diag_words[96+:32]={8'd0,body_scan_period,body_scan_age,complete_scan_age,projection_bad,last_scan_bad,2'd0};
+    assign diag_words[128+:32]={lidar_scans[15:0],map_integrated_id};
+    assign diag_words[160+:32]={2'd0,scan_raw_nodes,scan_usable_nodes,scan_invalid_nodes};
+    assign diag_words[192+:32]={12'd0,scan_parse_errors,scan_overruns,body_coverage};
+    assign diag_words[224+:32]=direction_point_counts;
+    assign diag_words[256+:32]={11'd0,nav_required_coverage,body_free_coverage,unconfirmed_flags,body_front_stop,body_rear_stop,body_front_slow,body_turn_stop,virtual_contact,diagnostic_trigger_valid,2'd0};
+    assign diag_words[288+:32]={10'd0,diagnostic_trigger_kind,diagnostic_trigger_scan};
+    assign diag_words[320+:32]={1'd0,diagnostic_trigger_angle,diagnostic_trigger_distance};
+    assign diag_words[352+:32]={26'd0,diagnostic_trigger_quality};
+    assign diag_words[384+:32]={diagnostic_trigger_x,diagnostic_trigger_y};
+    assign diag_words[416+:32]=robot_x;
+    assign diag_words[448+:32]=robot_y;
+    assign diag_words[480+:32]=robot_heading;
+    assign diag_words[512+:32]={heading_q6,body_self_points};
+    assign diag_words[544+:32]={24'd0,map_local,map_ready,map_busy,map_seed_valid,map_seed_done,map_integrated_valid,map_frozen,world_map_pose_valid};
+    assign diag_words[576+:32]={{22{planner_reject_x[9]}},planner_reject_x};
+    assign diag_words[608+:32]={{22{planner_reject_y[9]}},planner_reject_y};
+    assign diag_words[640+:32]={22'd0,planner_reject_valid,planner_reject_reason,planner_reject_cell,planner_start_phase};
+    assign diag_words[672+:32]={16'd0,rotation_radius};
+    assign diag_words[704+:32]={body_front,body_rear};
+    assign diag_words[736+:32]={body_left,body_right};
+    assign diag_words[768+:32]={offset_x,offset_y};
+    assign diag_words[800+:32]={17'd0,forward_angle};
+    assign diag_words[832+:32]=rx_bytes;
+    assign diag_words[864+:32]=node_count;
+    assign diag_words[896+:32]=point_count;
+    assign diag_words[928+:32]=uart_errors;
+    assign diag_words[960+:32]=packet_errors;
+    assign diag_words[992+:32]=map_dropped;
+    assign diag_words[1024+:32]=map_oob;
+    assign diag_words[1056+:32]=map_points;
+    assign diag_words[1088+:32]=goal_x;
+    assign diag_words[1120+:32]=goal_y;
+    assign diag_words[1152+:32]=mission_goal_x;
+    assign diag_words[1184+:32]=mission_goal_y;
+    assign diag_words[1216+:32]={17'd0,mission_waiting_path,mission_waiting_map,mission_active,no_path,planner_busy,planner_connector,planner_done,planner_reachable,nav_run,6'd0};
+    assign diag_words[1248+:32]={24'd0,reject_diagnostic};
+    assign diag_words[1280+:32]={filtered_front,filtered_rear};
+    assign diag_words[1312+:32]={filtered_left,filtered_right};
+    assign diag_words[1344+:32]={drive_margin,turn_margin};
+    assign diag_words[1376+:32]={16'd0,contact_margin};
+    assign diag_words[1408+:32]=map_scans;
+    assign diag_words[1440+:32]=correction_count;
+    assign diag_words[1472+:32]={29'd0,diagnostic_use_lookahead,lookahead_record_valid,complete_scan_seen};
+    assign diag_words[1504+:32]=32'd0;
+    robot_diag_snapshot u_diag_snapshot(.clk(clk),.reset_n(reset_n),.capture(diagnostic_capture),
+        .epoch_event(tick_10ms || map_reset || scan_start || pose_update || gyro_sample || map_integrated_pulse || map_point_valid || confirmed_point_valid),
+        .live_words(diag_words),.read_index(diagnostic_index),.read_data(diagnostic_data),
+        .busy(diagnostic_busy),.valid(diagnostic_valid),.epoch(diagnostic_epoch));
     // LCD and UART consume the indexed byte stream in this subsystem.
     // Explicitly omit the unused parallel compatibility frame registers.
     robot_status_text #(.PARALLEL_COMPAT(0)) u_status(
@@ -530,7 +702,7 @@ module robot_subsystem (
         .follow_gain(follow_gain),.follow_cap(follow_cap),
         .follow_diagnostic(follow_diagnostic),.follow_dog_score(follow_dog_score),
         .follow_pan_us(follow_report[111:96]),.follow_tilt_us(follow_report[95:80]),.visual_x(visual_x),.visual_y(visual_y),
-        .planner_error(effective_planner_error),.waiting_map(mission_waiting_map),.waiting_path(mission_waiting_path),
+        .reject_diagnostic(reject_diagnostic),.planner_error(effective_planner_error),.waiting_map(mission_waiting_map),.waiting_path(mission_waiting_path),
         .clk(clk),.reset_n(reset_n),.page(page),.subpage(subpage),.armed(armed),.geometry_valid(geometry_valid),
         .motor_armed(motor_armed),.motor_running(motor_running),.motor_selected_wheel(motor_selected_wheel),
         .motor_mode_position(motor_mode_position),
@@ -829,9 +1001,13 @@ module robot_map_car_pose(
     input wire signed [31:0] x_mm,y_mm,
     input wire [15:0] heading_q6,
     input wire [15:0] body_front_mm,body_rear_mm,body_left_mm,body_right_mm,
+    input wire signed [31:0] goal_x_mm,goal_y_mm,leg_x_mm,leg_y_mm,
+    input wire leg_valid,follow_car,
+    output reg [29:0] pixel_overlay_model,
+    output reg pixel_follow_car,
     output reg [39:0] pixel_model
 );
-    reg [39:0] held_model;
+    reg [70:0] held_model;
     reg request,ack;
     (* async_reg="true" *) reg [2:0] request_sync,ack_sync;
     reg [2:0] direction;
@@ -846,6 +1022,10 @@ module robot_map_car_pose(
         else direction=7;
     end
     wire signed [31:0] grid_x=(x_mm+32'sd4096)>>>6,grid_y=(y_mm+32'sd4096)>>>6;
+    wire signed [31:0] goal_gx=(goal_x_mm+32'sd4096)>>>6,goal_gy=(goal_y_mm+32'sd4096)>>>6;
+    wire signed [31:0] leg_gx=(leg_x_mm+32'sd4096)>>>6,leg_gy=(leg_y_mm+32'sd4096)>>>6;
+    wire goal_inside=goal_x_mm>=-4096 && goal_x_mm<4096 && goal_y_mm>=-4096 && goal_y_mm<4096;
+    wire leg_inside=leg_x_mm>=-4096 && leg_x_mm<4096 && leg_y_mm>=-4096 && leg_y_mm<4096;
     wire coordinates_inside=x_mm>=-4096 && x_mm<4096 && y_mm>=-4096 && y_mm<4096;
     wire [16:0] front_rounded={1'b0,body_front_mm}+17'd63;
     wire [16:0] rear_rounded={1'b0,body_rear_mm}+17'd63;
@@ -856,7 +1036,10 @@ module robot_map_car_pose(
         else begin
             ack_sync<={ack_sync[1:0],ack};
             if(request==ack_sync[2] && (local_scan ? tick_10ms : pose_update && pose_valid))begin
-                held_model<={local_scan || coordinates_inside,
+                held_model<={follow_car,
+                    !local_scan && goal_inside,goal_gx[6:0],goal_gy[6:0],
+                    !local_scan && leg_valid && leg_inside,leg_gx[6:0],leg_gy[6:0],
+                    local_scan || coordinates_inside,
                     local_scan ? 3'd0 : direction,
                     front_rounded[10:6],rear_rounded[10:6],left_rounded[10:6],right_rounded[10:6],
                     local_scan ? 7'd64 : grid_x[6:0],local_scan ? 7'd64 : grid_y[6:0],2'b00};
@@ -865,11 +1048,11 @@ module robot_map_car_pose(
         end
     end
     always @(posedge pixel_clk or negedge reset_n)begin
-        if(!reset_n)begin request_sync<=0;ack<=0;pixel_model<=0;end
+        if(!reset_n)begin request_sync<=0;ack<=0;pixel_model<=0;pixel_overlay_model<=0;pixel_follow_car<=0;end
         else begin
             request_sync<={request_sync[1:0],request};
             if(request_sync[2]!=ack && pixel_idle)begin
-                pixel_model<=held_model;ack<=request_sync[2];
+                pixel_model<=held_model[39:0];pixel_overlay_model<=held_model[69:40];pixel_follow_car<=held_model[70];ack<=request_sync[2];
             end
         end
     end
@@ -1229,5 +1412,40 @@ module robot_follow_pwm(
         else if(phase==0)begin applied_us<=pulse_us;phase<=1;end
         else if(phase==999999)phase<=0;
         else phase<=phase+1'b1;
+    end
+endmodule
+
+// Host-requested serial snapshot. RAM stores a frozen record, not a wide FF
+// bank. Word47 marks producer changes during the 96-clock acquisition.
+module robot_diag_snapshot(
+    input wire clk,reset_n,capture,epoch_event,
+    input wire [1535:0] live_words,
+    input wire [5:0] read_index,
+    output wire [31:0] read_data,
+    output reg busy,valid,
+    output reg [15:0] epoch
+);
+    (* syn_ramstyle="block_ram" *) reg [31:0] memory[0:63];
+    reg [31:0] held_word,ram_q;
+    reg [5:0] write_index;
+    reg phase,mixed;
+    assign read_data=valid ? ram_q : 32'd0;
+    always @(posedge clk)begin
+        if(busy && phase)memory[write_index]<=held_word;
+        else ram_q<=memory[read_index];
+    end
+    always @(posedge clk or negedge reset_n)begin
+        if(!reset_n)begin busy<=0;valid<=0;epoch<=0;write_index<=0;phase<=0;mixed<=0;held_word<=0;end
+        else if(capture && !busy)begin
+            busy<=1;valid<=0;epoch<=epoch+1'b1;write_index<=0;phase<=0;mixed<=0;
+        end else if(busy)begin
+            if(epoch_event)mixed<=1;
+            if(!phase)begin
+                if(write_index==47)held_word<={15'd0,mixed || epoch_event,epoch};
+                else held_word<=live_words[{write_index,5'd0}+:32];
+                phase<=1;
+            end else if(write_index==47)begin busy<=0;valid<=1;phase<=0;end
+            else begin write_index<=write_index+1'b1;phase<=0;end
+        end
     end
 endmodule

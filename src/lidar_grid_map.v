@@ -69,7 +69,8 @@ module lidar_grid_map #(
     input wire rd_clk, rd_en,
     input wire [MAP_BITS-1:0] rd_x, rd_y,
     output wire [1:0] rd_cell,
-    output reg rd_valid
+    output reg rd_valid,
+    output wire diagnostic_seed_valid,diagnostic_seed_done
 );
     localparam MAP_SIDE = (1 << MAP_BITS);
     localparam MAP_CELLS = (1 << (2*MAP_BITS));
@@ -562,6 +563,8 @@ module lidar_grid_map #(
     // Only HERE IS ZERO's fresh world origin has an axis-aligned measured
     // footprint. Skip other headings/poses rather than invent an outward box.
     wire seed_origin_valid=!local_scan && pose_valid && pose_x_mm==0 && pose_y_mm==0 && pose_heading_q6==0 && body_seed_dimensions;
+    assign diagnostic_seed_valid=seed_origin_valid;
+    assign diagnostic_seed_done=body_seed_done;
     wire signed [31:0] seed_x=ORIGIN_X_MM+$signed({1'b0,clear_addr[MAP_BITS-1:0],{CELL_MM_BITS{1'b0}}});
     wire signed [31:0] seed_y=ORIGIN_Y_MM+$signed({1'b0,clear_addr[2*MAP_BITS-1:MAP_BITS],{CELL_MM_BITS{1'b0}}});
     // Outward-rounded chassis dimensions are reduced by1mm. Seed only cells
