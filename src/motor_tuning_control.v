@@ -31,7 +31,11 @@ module motor_tuning_control #(parameter integer CLK_HZ=50000000)(
     output reg signed [31:0] selected_value,
     output wire [31:0] selected_step
 );
-    reg signed [32:0] requested_value;
+    // All stored editable values lie within +/-2000000 and local steps are
+    // at most256. A signed23-bit local sum is exact, without the old33-bit
+    // selected-wheel -> add -> limit critical path. Direct32-bit UART writes
+    // are still compared at full width before they can enter storage.
+    reg signed [22:0] requested_value;
     reg signed [31:0] bounded_value;
     reg signed [31:0] low_limit, high_limit;
     wire take_action=ui_action_valid || uart_action_valid;
@@ -79,12 +83,18 @@ module motor_tuning_control #(parameter integer CLK_HZ=50000000)(
             8,9:high_limit=1;
             default:begin end
         endcase
-        if (act==19) requested_value={effective_argument[31],effective_argument};
-        else if (act==5) requested_value={selected_value[31],selected_value}-$signed({1'b0,selected_step});
-        else requested_value={selected_value[31],selected_value}+$signed({1'b0,selected_step});
-        if (requested_value<$signed({low_limit[31],low_limit})) bounded_value=low_limit;
-        else if (requested_value>$signed({high_limit[31],high_limit})) bounded_value=high_limit;
-        else bounded_value=requested_value[31:0];
+        requested_value=0;
+        if (act==19)begin
+            if(effective_argument<low_limit)bounded_value=low_limit;
+            else if(effective_argument>high_limit)bounded_value=high_limit;
+            else bounded_value=effective_argument;
+        end else begin
+            if(act==5)requested_value=$signed(selected_value[22:0])-$signed({14'd0,selected_step[8:0]});
+            else requested_value=$signed(selected_value[22:0])+$signed({14'd0,selected_step[8:0]});
+            if(requested_value<$signed(low_limit[22:0]))bounded_value=low_limit;
+            else if(requested_value>$signed(high_limit[22:0]))bounded_value=high_limit;
+            else bounded_value={{9{requested_value[22]}},requested_value};
+        end
     end
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin

@@ -18,10 +18,10 @@ CORE = [
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--wsl', help='Windows host: WSL distribution containing Icarus')
+    ap.add_argument('--only', choices=('unit','navigation','subsystem','motor'))
     ap.add_argument('--prim', type=Path, default=Path(
         'D:/GOWIN/Gowin_V1.9.11.03_Education_x64/IDE/simlib/gw5a/prim_sim.v'))
     args = ap.parse_args()
-    assert args.prim.is_file(), 'Official Gowin RAM/GSR simulation model required'
     out = ROOT / 'tmp/preset-hdl'
     out.mkdir(parents=True, exist_ok=True)
 
@@ -41,9 +41,14 @@ def main():
         'navigation': ('tb_preset_navigation', ['tests/tb_preset_navigation.v',
             'src/robot_preset_demo.v', 'src/robot_navigation.v', 'src/unsigned_divmod.v']),
         'subsystem': ('tb_preset_subsystem', ['tests/tb_preset_subsystem.v', *CORE]),
+        'motor': ('tb_motor_edit_equivalence', ['tests/tb_motor_edit_equivalence.v',
+            'tests/reference/motor_tuning_control_reference.v', 'src/motor_tuning_control.v']),
     }
+    selected = {args.only: cases[args.only]} if args.only else cases
+    if 'subsystem' in selected:
+        assert args.prim.is_file(), 'Official Gowin RAM/GSR simulation model required'
     evidence = {'hardware_tested': False, 'runs': []}
-    for name, (top, sources) in cases.items():
+    for name, (top, sources) in selected.items():
         paths = sources + ([linux(args.prim) if args.wsl else str(args.prim)] if name == 'subsystem' else [])
         vvp = f'tmp/preset-hdl/{name}.vvp'
         compiled = run(['iverilog', '-g2012', '-s', top, '-o', vvp, *paths])
@@ -61,8 +66,9 @@ def main():
         if not passed:
             print(tested.stderr)
             break
-    evidence['all_passed'] = len(evidence['runs']) == len(cases) and all(r['passed'] for r in evidence['runs'])
-    (out / 'result.json').write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+    evidence['all_passed'] = len(evidence['runs']) == len(selected) and all(r['passed'] for r in evidence['runs'])
+    evidence['selected_only'] = args.only
+    (out / ('result-'+args.only+'.json' if args.only else 'result.json')).write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
     raise SystemExit(0 if evidence['all_passed'] else 1)
 
 
