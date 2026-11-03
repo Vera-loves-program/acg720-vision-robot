@@ -17,6 +17,12 @@ module tb_preset_navigation;
     wire ready=lidar && guard_ready && calibrated && !calibrating;
     integer k,checks=0,frames=0,sum_yaw=0,last_yaw=0,delta=0;
     reg [15:0] held_elapsed;
+    wire staged_enable,staged_valid,staged_hold,staged_avoid;
+    wire [2:0] staged_cmd;
+    wire [1:0] staged_half;
+    wire signed [15:0] staged_left,staged_right;
+    wire signed [31:0] staged_heading,staged_gx,staged_gy;
+    wire [15:0] staged_cruise,staged_turn,staged_tolerance;
     robot_preset_demo #(.DRIVE1_TICKS(8),.DRIVE2_TICKS(8),.DRIVE3_TICKS(8),
         .SEARCH_DRIVE_TICKS(8),.PAUSE_TICKS(5)) demo(
         .clk(clk),.reset_n(reset_n),.tick_10ms(tick),.start(start),.search_mode(search),
@@ -25,17 +31,29 @@ module tb_preset_navigation;
         .phase(phase),.seconds_left(seconds_left),.command_valid(cv),.command(cmd),
         .speed(speed),.turn_heading(target),.servo_enable(servo),.pan_us(),.tilt_us()
     );
+    robot_navigation_command_stage stage(
+        .clk(clk),.reset_n(reset_n),.cancel(cancel),
+        .in_enable(engaged && moving && !cancel),.in_valid(cv),.in_command(cmd),
+        .in_hold(1'b1),.in_avoid(1'b1),.in_half_direction(2'd0),
+        .in_left(speed),.in_right(speed),.in_heading(target),.in_goal_x(32'sd0),.in_goal_y(32'sd0),
+        .in_cruise(16'd10),.in_turn(16'd12),.in_tolerance(16'd5),
+        .enable(staged_enable),.valid(staged_valid),.command(staged_cmd),
+        .hold_heading(staged_hold),.avoid(staged_avoid),.half_direction(staged_half),
+        .left_speed(staged_left),.right_speed(staged_right),.heading(staged_heading),
+        .goal_x(staged_gx),.goal_y(staged_gy),.cruise(staged_cruise),
+        .turn_speed(staged_turn),.tolerance(staged_tolerance)
+    );
     robot_navigation #(.BODY_GUARD(1),.GUARD_EXPLICIT_TURN(1)) nav(
         .clk(clk),.reset_n(reset_n),.tick_10ms(tick),.safety_stop(cancel),
-        .motion_enable(engaged && moving && !cancel),
+        .motion_enable(staged_enable),
         .encoder_position_left(enc_left),.encoder_position_right(enc_right),.encoder_zeroed(1'b0),
         .gyro_z(gyro),.gyro_sample(gyro_sample),.gyro_valid(1'b1),.gyro_invert(1'b0),
         .geometry_valid(1'b1),.wheel_mm_per_rev(16'd204),.encoder_counts_per_rev(16'd1469),.track_mm(16'd213),
         .pose_set(1'b0),.pose_x_mm(32'sd0),.pose_y_mm(32'sd0),.pose_heading_mdeg(32'sd0),
-        .command_valid(cv),.command(cmd),.manual_left(speed),.manual_right(speed),.manual_heading_hold(1'b1),
-        .turn_heading_mdeg(target),.turn_half_direction(2'd0),.goal_x_mm(32'sd0),.goal_y_mm(32'sd0),
-        .cruise_counts(16'd10),.turn_counts(16'd12),.arrival_tolerance_mm(16'd5),
-        .avoid_enable(1'b1),.lidar_valid(lidar),.clear_front_mm(16'd1000),.clear_left_mm(16'd1000),
+        .command_valid(staged_valid),.command(staged_cmd),.manual_left(staged_left),.manual_right(staged_right),.manual_heading_hold(staged_hold),
+        .turn_heading_mdeg(staged_heading),.turn_half_direction(staged_half),.goal_x_mm(staged_gx),.goal_y_mm(staged_gy),
+        .cruise_counts(staged_cruise),.turn_counts(staged_turn),.arrival_tolerance_mm(staged_tolerance),
+        .avoid_enable(staged_avoid),.lidar_valid(lidar),.clear_front_mm(16'd1000),.clear_left_mm(16'd1000),
         .clear_right_mm(16'd1000),.clear_rear_mm(16'd1000),.stop_clearance_mm(16'd0),
         .slow_clearance_mm(16'd0),.rotate_clearance_mm(16'd0),.body_guard_ready(guard_ready),
         .body_front_stop(front_stop),.body_rear_stop(1'b0),.body_front_slow(1'b0),

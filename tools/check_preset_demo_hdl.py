@@ -9,6 +9,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 CORE = [
     'src/robot_subsystem.v', 'src/robot_preset_demo.v', 'src/robot_ui_control.v',
+    'src/robot_navigation_command_stage.v',
     'src/robot_control_panel.v', 'src/robot_status_text.v', 'src/robot_navigation.v',
     'src/unsigned_divmod.v', 'src/rplidar_c1.v', 'src/lidar_grid_map.v',
     'src/lidar_path_planner.v', 'src/robot_mission_control.v',
@@ -18,7 +19,7 @@ CORE = [
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--wsl', help='Windows host: WSL distribution containing Icarus')
-    ap.add_argument('--only', choices=('unit','navigation','subsystem','motor'))
+    ap.add_argument('--only', choices=('unit','navigation','subsystem','motor','stage'))
     ap.add_argument('--prim', type=Path, default=Path(
         'D:/GOWIN/Gowin_V1.9.11.03_Education_x64/IDE/simlib/gw5a/prim_sim.v'))
     args = ap.parse_args()
@@ -39,10 +40,13 @@ def main():
     cases = {
         'unit': ('tb_robot_preset_demo', ['tests/tb_robot_preset_demo.v', 'src/robot_preset_demo.v']),
         'navigation': ('tb_preset_navigation', ['tests/tb_preset_navigation.v',
-            'src/robot_preset_demo.v', 'src/robot_navigation.v', 'src/unsigned_divmod.v']),
+            'src/robot_preset_demo.v', 'src/robot_navigation.v', 'src/unsigned_divmod.v',
+            'src/robot_navigation_command_stage.v']),
         'subsystem': ('tb_preset_subsystem', ['tests/tb_preset_subsystem.v', *CORE]),
         'motor': ('tb_motor_edit_equivalence', ['tests/tb_motor_edit_equivalence.v',
             'tests/reference/motor_tuning_control_reference.v', 'src/motor_tuning_control.v']),
+        'stage': ('tb_navigation_command_stage', ['tests/tb_navigation_command_stage.v',
+            'src/robot_navigation_command_stage.v']),
     }
     selected = {args.only: cases[args.only]} if args.only else cases
     if 'subsystem' in selected:

@@ -163,12 +163,15 @@ module robot_subsystem (
         end
     end
     wire demo_owns=demo_engaged || demo_command_valid || demo_start;
-    wire demo_cancel=safety_stop || emergency_stop_pulse || explicit_local_stop ||
+    wire demo_hard_cancel=safety_stop || emergency_stop_pulse || explicit_local_stop ||
         remote_takeover || remote_active || remote_turn_active || ui_motor_fault || !touch_ready ||
         (snapshot_valid && snapshot_cancel) || shutdown_requested || battery_a_low ||
-        page!=5 || (subpage!=0 && subpage!=3) ||
-        demo_cancel_tap;
-    wire demo_permit=demo_engaged && demo_moving && !demo_cancel && gains_ready_q;
+        pose_set || encoder_zeroed || clear_map;
+    wire demo_cancel=demo_hard_cancel || page!=5 || (subpage!=0 && subpage!=3) || demo_cancel_tap;
+    // A page exit clears engaged on the next50MHz edge. Keep asynchronous/
+    // direct STOP conditions here, rather than reintroducing a page decoder
+    // into the motor arithmetic path. Page exits therefore add at most20ns.
+    wire demo_permit=demo_engaged && demo_moving && !demo_hard_cancel && !demo_cancel_tap && gains_ready_q;
     wire demo_ready=gains_ready_q && geometry_valid && gyro_ready && !calibrating &&
         avoid_lidar_ready && body_guard_ready;
     wire normal_pan_pwm,normal_tilt_pwm,demo_pan_pwm,demo_tilt_pwm;
@@ -515,21 +518,47 @@ module robot_subsystem (
         .path_length(path_length),.expanded_nodes(expanded_nodes),.plan_rd_en(plan_read_en),
         .plan_rd_x(plan_read_x),.plan_rd_y(plan_read_y),.plan_rd_cell(plan_read_cell),.plan_rd_valid(plan_read_valid)
     );
+    wire nav_stage_cancel=safety_stop || emergency_stop_pulse || explicit_local_stop ||
+        ui_motor_fault || pose_set || encoder_zeroed || clear_map || remote_takeover ||
+        !touch_ready || (snapshot_valid && snapshot_cancel);
+    wire staged_enable,staged_valid,staged_hold,staged_avoid;
+    wire [2:0] staged_command;
+    wire [1:0] staged_half;
+    wire signed [15:0] staged_left,staged_right;
+    wire signed [31:0] staged_heading,staged_goal_x,staged_goal_y;
+    wire [15:0] staged_cruise,staged_turn,staged_tolerance;
+    robot_navigation_command_stage u_nav_stage(
+        .clk(clk),.reset_n(reset_n),.cancel(nav_stage_cancel),
+        .in_enable(demo_owns ? demo_permit : remote_turn_permit || (page==5 ? (follow_mission ? nav_permit : follow_permit) : manual_view ? manual_permit : nav_permit)),
+        .in_valid(demo_owns ? demo_command_valid : remote_turn_abort || remote_turn_start || (!remote_turn_active && (page==5 && !follow_mission ? follow_command_valid : manual_view ? ui_command_valid : mission_command_valid))),
+        .in_command(demo_owns ? demo_command : remote_turn_abort ? 3'd0 : remote_turn_start ? 3'd2 : page==5 && !follow_mission ? follow_command : manual_view ? (ui_command==2 ? 3'd2 : ui_command==4 ? 3'd4 : 3'd0) : mission_command),
+        .in_left(demo_owns ? demo_speed : page==5 ? follow_speed : recovery_state==2 ? recovery_speed : manual_left),
+        .in_right(demo_owns ? demo_speed : page==5 ? follow_speed : recovery_state==2 ? recovery_speed : manual_right),
+        .in_hold(page==5 ? 1'b1 : recovery_state==2 ? 1'b0 : manual_heading_hold),
+        .in_heading(demo_owns ? demo_heading : remote_turn_active ? remote_turn_heading : page==5 ? follow_heading : turn_heading),
+        .in_goal_x(mission_goal_x),.in_goal_y(mission_goal_y),
+        .in_half_direction(remote_turn_active ? remote_half_direction : 2'd0),
+        .in_cruise(avoid_view ? 16'd5 : cruise),.in_turn(turn_speed),.in_tolerance(mission_arrival_tolerance),
+        .in_avoid(!manual_view && !remote_turn_active),
+        .enable(staged_enable),.valid(staged_valid),.command(staged_command),
+        .left_speed(staged_left),.right_speed(staged_right),.hold_heading(staged_hold),
+        .heading(staged_heading),.goal_x(staged_goal_x),.goal_y(staged_goal_y),
+        .half_direction(staged_half),.cruise(staged_cruise),.turn_speed(staged_turn),
+        .tolerance(staged_tolerance),.avoid(staged_avoid)
+    );
     robot_navigation #(.BODY_GUARD(1),.GUARD_EXPLICIT_TURN(1)) u_navigation(
         .clk(clk),.reset_n(reset_n),.tick_10ms(tick_10ms),.safety_stop(safety_stop),
-        .motion_enable(demo_owns ? demo_permit : remote_turn_permit || (page==5 ? (follow_mission ? nav_permit : follow_permit) : manual_view ? manual_permit : nav_permit)),
+        .motion_enable(staged_enable),
         .encoder_position_left(position_left),.encoder_position_right(position_right),.encoder_zeroed(encoder_zeroed),
         .gyro_z(gyro_z),.gyro_sample(gyro_sample),.gyro_valid(gyro_valid),.gyro_invert(gyro_invert),
         .geometry_valid(geometry_valid),.wheel_mm_per_rev(circumference),.encoder_counts_per_rev(counts_per_rev),.track_mm(track),
         .pose_set(pose_set),.pose_x_mm(set_x),.pose_y_mm(set_y),.pose_heading_mdeg(set_heading),
-        .command_valid(demo_owns ? demo_command_valid : remote_turn_abort || remote_turn_start || (!remote_turn_active && (page==5 && !follow_mission ? follow_command_valid : manual_view ? ui_command_valid : mission_command_valid))),
-        .command(demo_owns ? demo_command : remote_turn_abort ? 3'd0 : remote_turn_start ? 3'd2 : page==5 && !follow_mission ? follow_command : manual_view ? (ui_command==2 ? 3'd2 : ui_command==4 ? 3'd4 : 3'd0) : mission_command),
-        .manual_left(demo_owns ? demo_speed : page==5 ? follow_speed : recovery_state==2 ? recovery_speed : manual_left),
-        .manual_right(demo_owns ? demo_speed : page==5 ? follow_speed : recovery_state==2 ? recovery_speed : manual_right),
-        .manual_heading_hold(page==5 ? 1'b1 : recovery_state==2 ? 1'b0 : manual_heading_hold),.turn_heading_mdeg(demo_owns ? demo_heading : remote_turn_active ? remote_turn_heading : page==5 ? follow_heading : turn_heading),.goal_x_mm(mission_goal_x),.goal_y_mm(mission_goal_y),
-        .turn_half_direction(remote_turn_active ? remote_half_direction : 2'd0),
-        .cruise_counts(avoid_view ? 16'd5 : cruise),.turn_counts(turn_speed),.arrival_tolerance_mm(mission_arrival_tolerance),
-        .avoid_enable(!manual_view && !remote_turn_active),.lidar_valid(avoid_lidar_ready),.clear_front_mm(front),.clear_left_mm(left),.clear_right_mm(right),.clear_rear_mm(rear),
+        .command_valid(staged_valid),.command(staged_command),
+        .manual_left(staged_left),.manual_right(staged_right),.manual_heading_hold(staged_hold),
+        .turn_heading_mdeg(staged_heading),.goal_x_mm(staged_goal_x),.goal_y_mm(staged_goal_y),
+        .turn_half_direction(staged_half),.cruise_counts(staged_cruise),.turn_counts(staged_turn),
+        .arrival_tolerance_mm(staged_tolerance),
+        .avoid_enable(staged_avoid),.lidar_valid(avoid_lidar_ready),.clear_front_mm(front),.clear_left_mm(left),.clear_right_mm(right),.clear_rear_mm(rear),
         // Legacy radial thresholds are unused with BODY_GUARD=1. Actual gaps
         // come from the runtime body-frame envelope, not a550mm sensor radius.
         .stop_clearance_mm(16'd0),.slow_clearance_mm(16'd0),.rotate_clearance_mm(16'd0),
