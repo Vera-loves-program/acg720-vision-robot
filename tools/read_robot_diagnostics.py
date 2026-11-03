@@ -9,12 +9,16 @@ from pathlib import Path
 import re
 import time
 
-REASONS={0:'ready/no classified rejection',1:'scan communication/config not ready',
+REASONS={0:'no live rejection classified; inspect mission/planner errors',1:'scan communication/config not ready',
  2:'complete scan expired',3:'gyro not valid/calibrated',4:'gyro expired',
  5:'projection/scan processing overrun',6:'required direction measurement UNKNOWN',
  7:'confirmed near obstacle',8:'virtual near contact',9:'map not world mode',
  10:'waiting map integration',11:'start UNKNOWN',12:'start OCCUPIED',
  13:'goal UNKNOWN',14:'goal OCCUPIED',15:'no known route',16:'confirmed NAV lookahead hit'}
+
+MISSION_ERRORS={0:'none',13:'map refresh timeout',14:'pose unavailable',15:'map unavailable',
+ 16:'virtual contact',17:'precise final leg blocked',18:'NAV sensors stale',
+ 19:'NAV fault',20:'coordinates outside map',21:'motion permit unavailable'}
 def signed(x,bits=32):
     x &= (1<<bits)-1
     return x-(1<<bits) if x & (1<<(bits-1)) else x
@@ -51,6 +55,19 @@ def decode_words(w):
       scan_seen=bool(w[46]&1),lookahead_record_valid=bool(w[46]&2),trigger_is_lookahead=bool(w[46]&4),snapshot_epoch=w[47]&65535,mixed_epoch=bool(w[47]&65536),words=w)
 
 ACK=re.compile(r'^\[ACK (OK|ERR)\]\s*(\d+),(\d+),(\d+),(\d+),(\d+),(-?\d+)\s*$')
+
+def format_summary(record):
+    """Keep mission rejection visible even if the live-cause classifier is0."""
+    scan,grid=record['scan'],record['map']
+    error=record['mission_error']
+    return (f"nav={record['nav_status']} fault={record['nav_fault']} "
+      f"mission={error}({MISSION_ERRORS.get(error,'unclassified')}) planner={record['planner_error']} "
+      f"cause={record['reason']} scan={scan['scan_id']} integrated={scan['integrated_id']} "
+      f"age10ms={scan['complete_age_ticks']} bad={scan['work_bad']} overruns={scan['overruns']} "
+      f"world_capture={grid['world_capture_valid']} local={grid['local']} frozen={grid['frozen']} "
+      f"reject_valid={grid['reject_valid']} cell=({grid['rejected_fine_x']},{grid['rejected_fine_y']}) "
+      f"raw={grid['rejected_cell']} reject_reason={grid['reject_reason']} phase={grid['phase']} "
+      f"pose={record['pose']} goal={record['goal']} mixed={record['mixed_epoch']}")
 def query(port,seq,field,value,timeout=3):
     port.write(f'#{seq},10,0,{field},{value}\n'.encode('ascii'))
     end=time.monotonic()+timeout
@@ -82,7 +99,8 @@ def main():
                 words.append(query(port,seq,0,index));seq=(seq+1)&65535
             record=decode_words(words);record['wall_time']=time.strftime('%Y-%m-%dT%H:%M:%S%z')
             output.write(json.dumps(record,ensure_ascii=False)+'\n');output.flush()
-            print(record['reason'],'scan',record['scan'],'trigger',record['obstacle'],'mixed',record['mixed_epoch'])
+            print(format_summary(record),flush=True)
+            print('scan evidence',record['scan'],'trigger (may be historical)',record['obstacle'],flush=True)
             time.sleep(max(0,args.interval-(time.monotonic()-t)))
 
 if __name__=='__main__':main()

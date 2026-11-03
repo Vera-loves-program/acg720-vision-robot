@@ -1,0 +1,162 @@
+{
+  "software_version": 22,
+  "bundle_revision": 4,
+  "package": "output\\releases\\acg720-orangepi-v22-r4-code.zip",
+  "bytes": 142586,
+  "sha256": "f13080b6f751911bf7fbc51b57e5be537627c147f6f73313c5d70664a808ef1b",
+  "source_evidence": {
+    "software_version": 22,
+    "bundle_revision": 4,
+    "timestamp_utc": "2026-11-03T12:01:10.869681+00:00",
+    "source_sha256": {
+      "pc/usb_gimbal.py": "9f56458340aa75870cd6b70d0ae6ac52d5979826281a8bc80218f2946b7e32c5",
+      "pc/usb_gimbal_ui.html": "467ae84ffa0cb9088ea8e6fe9adc2e02f51c19433a39ba194ac20d9bf6d946d3",
+      "pc/robot_follow.py": "4f72844aece4a59a69f4b4fc7b3142564c3fb852dfe8dd0d32a2caf984a00d95",
+      "pc/target_tracking.py": "4f512e4333c6e28a4b021df649d5a81f4d75921dfdba11608d5a0d4f82464f16"
+    },
+    "teammate_revision3_source_sha256": {
+      "pc/usb_gimbal.py": "f1f4e1c4ab53403775faa02911eed551a1e47363285eb7c23d2206b6538873aa",
+      "pc/usb_gimbal_ui.html": "7db7430cc955ecc646d8c02145871d1d51d0240105426d7b911806e4a8e9d3f3",
+      "pc/robot_follow.py": "c3df9fd179c0e7de81d69450fad17e74ab5bf7a770b622135a324e829a0b166d",
+      "pc/target_tracking.py": "7d6a05fc35aa8c7434aa943a1ba3b306c67e41be2018368d0ce0d9ae7c5b158a"
+    },
+    "opencv_available": false,
+    "camera_tested": false,
+    "hardware_tested": false,
+    "real_model_inference_tested": false,
+    "runs": [
+      {
+        "script": "tools/check_face_mode_scheduling.py",
+        "passed": true,
+        "tests": 7,
+        "exit_code": 0,
+        "log": "tmp\\pi-merge-20261103\\checks\\check_face_mode_scheduling.log",
+        "command": [
+          "C:\\Users\\Vera\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+          "-X",
+          "utf8",
+          "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tools\\check_face_mode_scheduling.py"
+        ]
+      },
+      {
+        "script": "tools/check_tracking_response.py",
+        "passed": true,
+        "tests": 6,
+        "exit_code": 0,
+        "log": "tmp\\pi-merge-20261103\\checks\\check_tracking_response.log",
+        "command": [
+          "C:\\Users\\Vera\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+          "-X",
+          "utf8",
+          "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tools\\check_tracking_response.py"
+        ]
+      },
+      {
+        "script": "tools/check_independent_face_tracking.py",
+        "passed": true,
+        "tests": 10,
+        "exit_code": 0,
+        "log": "tmp\\pi-merge-20261103\\checks\\check_independent_face_tracking.log",
+        "command": [
+          "C:\\Users\\Vera\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+          "-X",
+          "utf8",
+          "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tools\\check_independent_face_tracking.py"
+        ]
+      },
+      {
+        "script": "tools/check_usb_gimbal.py",
+        "passed": true,
+        "tests": 57,
+        "exit_code": 0,
+        "log": "tmp\\pi-merge-20261103\\checks\\check_usb_gimbal.log",
+        "command": [
+          "C:\\Users\\Vera\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+          "-X",
+          "utf8",
+          "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tools\\check_usb_gimbal.py"
+        ]
+      },
+      {
+        "script": "tools/check_robot_follow.py",
+        "passed": true,
+        "tests": 9,
+        "exit_code": 0,
+        "log": "tmp\\pi-merge-20261103\\checks\\check_robot_follow.log",
+        "command": [
+          "C:\\Users\\Vera\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+          "-X",
+          "utf8",
+          "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tools\\check_robot_follow.py"
+        ]
+      },
+      {
+        "script": "tools/check_visual_task.py",
+        "passed": true,
+        "tests": 11,
+        "exit_code": 0,
+        "log": "tmp\\pi-merge-20261103\\checks\\check_visual_task.log",
+        "command": [
+          "C:\\Users\\Vera\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+          "-X",
+          "utf8",
+          "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tools\\check_visual_task.py"
+        ]
+      },
+      {
+        "script": "tools/check_tilt_operating_window.py",
+        "passed": true,
+        "tests": 3,
+        "exit_code": 0,
+        "log": "tmp\\pi-merge-20261103\\checks\\check_tilt_operating_window.log",
+        "command": [
+          "C:\\Users\\Vera\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+          "-X",
+          "utf8",
+          "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tools\\check_tilt_operating_window.py"
+        ]
+      },
+      {
+        "script": "tools/check_target_tracking.py",
+        "passed": true,
+        "tests": 37,
+        "exit_code": 0,
+        "log": "tmp\\pi-merge-20261103\\checks\\check_target_tracking.log",
+        "command": [
+          "C:\\Users\\Vera\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+          "-X",
+          "utf8",
+          "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tools\\check_target_tracking.py"
+        ]
+      },
+      {
+        "script": "tools/check_gimbal_tracking_memory.py",
+        "passed": true,
+        "tests": 5,
+        "exit_code": 0,
+        "log": "tmp\\pi-merge-20261103\\checks\\check_gimbal_tracking_memory.log",
+        "command": [
+          "C:\\Users\\Vera\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python.exe",
+          "-X",
+          "utf8",
+          "D:\\GOWIN_PROJECTS\\acg720_vision_robot\\tools\\check_gimbal_tracking_memory.py"
+        ]
+      }
+    ],
+    "tests": 145,
+    "all_passed": true
+  },
+  "shell_bundle_tests": {
+    "tests": 2,
+    "passed": true,
+    "hardware_actions": false
+  },
+  "fpga_visual_pwm_compatible": true,
+  "fpga_pwm_hdl_checks": 8,
+  "fpga_pwm_source_sha256": "42a2432fee917bb7b3d7b220da840cbac623249a6b6598379caed4cc456224af",
+  "fpga_pwm_test": "tests/tb_follow_pwm_frame.v",
+  "fpga_pwm_test_sha256": "80bdf9182bcd363e7a57ecc63f751302c83fdba1df56b728025da90edf808e83",
+  "model_or_calibration_overwritten": false,
+  "pi_deployed": false,
+  "hardware_tested": false
+}

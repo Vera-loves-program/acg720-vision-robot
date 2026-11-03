@@ -55,7 +55,7 @@ module robot_navigation #(parameter BODY_GUARD=0)(
     output reg pose_update,
     output reg turn_complete_pulse,
     output reg [1:0] recommended_side,
-    output wire correction_allowed, correction_ready,
+    output wire correction_allowed, correction_ready,mapping_allowed,
     output reg correction_accepted,
     output reg [31:0] correction_count
     ,output wire diagnostic_gyro_fresh
@@ -339,6 +339,12 @@ module robot_navigation #(parameter BODY_GUARD=0)(
     // together on a manual pose calibration or encoder reset.
     assign correction_allowed=pose_valid && !calibrating && !pose_set &&
         !encoder_zeroed && abs32(distance_q8)<=512 && abs32(gyro_step)<=2000;
+    // Per-ray odometry projection is separate from scan-match correction.
+    //8mm/10ms is1/8 of a64mm map cell and covers the measured30-count
+    // cruise (~4.17mm/10ms). Rotation, gyro freshness and fault restrictions
+    // remain identical; the lower2mm correction threshold is NOT relaxed.
+    assign mapping_allowed=pose_valid && !calibrating && !pose_set &&
+        !encoder_zeroed && abs32(distance_q8)<=2048 && abs32(gyro_step)<=2000;
     assign correction_ready=correction_allowed && state==6 && !correction_wait_drop &&
         abs32({{16{lidar_correction_x_mm[15]}},lidar_correction_x_mm})<=128 &&
         abs32({{16{lidar_correction_y_mm[15]}},lidar_correction_y_mm})<=128;

@@ -140,7 +140,7 @@ module robot_subsystem (
     wire signed [31:0] mission_goal_x,mission_goal_y;
     wire [7:0] nav_fault;
     wire [1:0] recommended_side;
-    wire nav_run,pose_update,correction_allowed,correction_ready,correction_ack,nav_turn_complete;
+    wire nav_run,pose_update,correction_allowed,correction_ready,correction_ack,nav_turn_complete,mapping_allowed;
     wire signed [15:0] nav_target_left,nav_target_right;
     wire [31:0] correction_count;
     wire ui_armed,follow_armed,follow_permit,follow_command_valid;
@@ -307,22 +307,35 @@ module robot_subsystem (
     wire signed [31:0] mission_dy=mission_goal_y-robot_y;
     wire [31:0] mission_abs_dx=mission_dx[31] ? -mission_dx : mission_dx;
     wire [31:0] mission_abs_dy=mission_dy[31] ? -mission_dy : mission_dy;
-    wire [32:0] mission_forward_envelope={1'b0,mission_abs_dx}+{1'b0,mission_abs_dy}+
-        {17'd0,body_front}+{17'd0,drive_margin};
+    // Split the position subtraction/absolute-value/addition from the live
+    // point comparison and navigation MODE input. Keep all33 bits: distant
+    // signed goals must not wrap into a short stopping envelope.
+    wire nav_ahead_reset=map_reset || !avoid_lidar_ready || !body_guard_ready || nav_status==4 ||
+        (ui_command_valid && ui_command==3) || (follow_command_valid && follow_command==3) ||
+        (mission_command_valid && mission_command==3);
+    reg [32:0] mission_forward_envelope;
+    reg nav_envelope_ready;
+    always @(posedge clk or negedge reset_n)begin
+        if(!reset_n)begin mission_forward_envelope<=0;nav_envelope_ready<=0;end
+        else begin
+            mission_forward_envelope<={1'b0,mission_abs_dx}+{1'b0,mission_abs_dy}+
+                {17'd0,body_front}+{17'd0,drive_margin};
+            nav_envelope_ready<=!nav_ahead_reset;
+        end
+    end
     wire signed [17:0] nav_point_x={{2{body_point_x[15]}},body_point_x};
     wire signed [17:0] nav_point_y={{2{body_point_y[15]}},body_point_y};
     wire signed [17:0] nav_front=$signed({2'b00,body_front});
     wire signed [17:0] nav_left=$signed({2'b00,body_left})+$signed({2'b00,drive_margin});
     wire signed [17:0] nav_right=$signed({2'b00,body_right})+$signed({2'b00,drive_margin});
-    wire nav_ahead_hit=confirmed_point_valid && nav_point_x>=nav_front &&
+    wire nav_ahead_hit=nav_envelope_ready && !nav_ahead_reset &&
+        confirmed_point_valid && nav_point_x>=nav_front &&
         nav_point_x<=nav_front+18'sd400 && nav_point_y<=nav_left && nav_point_y>=-nav_right &&
         {17'd0,body_point_x}<=mission_forward_envelope;
     reg nav_ahead_work,nav_ahead_pending,nav_ahead_published;
     always @(posedge clk or negedge reset_n)begin
         if(!reset_n)begin nav_ahead_work<=0;nav_ahead_pending<=0;nav_ahead_published<=0;end
-        else if(map_reset || !avoid_lidar_ready || !body_guard_ready || nav_status==4 ||
-                (ui_command_valid && ui_command==3) || (follow_command_valid && follow_command==3) ||
-                (mission_command_valid && mission_command==3))begin
+        else if(nav_ahead_reset)begin
             nav_ahead_work<=0;nav_ahead_pending<=0;nav_ahead_published<=0;
         end else begin
             if(scan_start)begin nav_ahead_pending<=nav_ahead_work;nav_ahead_work<=0;end
@@ -330,7 +343,8 @@ module robot_subsystem (
             if(scan_complete)nav_ahead_published<=nav_ahead_pending;
         end
     end
-    wire nav_obstacle_ahead=body_guard_ready && avoid_lidar_ready &&
+    wire nav_obstacle_ahead=nav_envelope_ready && !nav_ahead_reset &&
+        body_guard_ready && avoid_lidar_ready &&
         (nav_ahead_work || nav_ahead_published || nav_ahead_hit);
     reg lookahead_record_valid;
     reg [15:0] lookahead_record_scan,lookahead_record_distance;
@@ -393,13 +407,14 @@ module robot_subsystem (
     wire [7:0] effective_planner_error=mission_error!=0 ? mission_error : planner_error;
     wire [2:0] recovery_state;
     wire signed [15:0] recovery_speed;
-    // correction_allowed already bounds translation to2mm/10ms (0.2m/s)
-    // and gyro change to0.2deg/10ms (20deg/s). These limits pause WORLD
+    // Per-point mapping permits8mm/10ms (0.8m/s), while actual scan-match
+    // correction retains2mm/10ms. Both bound gyro change to0.2deg/10ms.
+    // These limits pause WORLD
     // acquisition only; body-frame LOCAL LIVE remains available while moving.
     // Publishing predicted poses at100Hz does not make an old IMU sample
     // fresh. The60Hz gyro normally refreshes in16.7ms; require its separate
     // age below3 ticks for world writes, while NAV retains its200ms policy.
-    wire world_map_pose_valid=pose_valid && correction_allowed && map_pose_seen && map_pose_slow && map_pose_age<2 && static_gyro_age<3;
+    wire world_map_pose_valid=pose_valid && mapping_allowed && map_pose_seen && map_pose_slow && map_pose_age<2 && static_gyro_age<3;
     always @(posedge clk or negedge reset_n)begin
         if(!reset_n)begin
             map_local_previous<=1;map_pose_age<=3;map_pose_seen<=0;map_pose_slow<=0;
@@ -413,7 +428,7 @@ module robot_subsystem (
                 // before this pulse. Latch all three at ONE commit, then each
                 // incoming lidar point captures that coherent 10ms sample.
                 map_pose_x<=robot_x;map_pose_y<=robot_y;map_pose_heading<=heading_q6;
-                map_pose_seen<=1;map_pose_slow<=correction_allowed;map_pose_age<=0;
+                map_pose_seen<=1;map_pose_slow<=mapping_allowed;map_pose_age<=0;
             end
         end
     end
@@ -542,7 +557,7 @@ module robot_subsystem (
         .run_request(nav_run),.target_speed_left(nav_target_left),.target_speed_right(nav_target_right),
         .x_mm(robot_x),.y_mm(robot_y),.heading_mdeg(robot_heading),.heading_q6(heading_q6),.pose_valid(pose_valid),
         .gyro_calibrated(gyro_calibrated),.calibrating(calibrating),.status(nav_status),.fault(nav_fault),.pose_update(pose_update),.turn_complete_pulse(nav_turn_complete),
-        .recommended_side(recommended_side),.correction_allowed(correction_allowed),.correction_ready(correction_ready),
+        .recommended_side(recommended_side),.correction_allowed(correction_allowed),.correction_ready(correction_ready),.mapping_allowed(mapping_allowed),
         .correction_accepted(correction_ack),.correction_count(correction_count),
         .diagnostic_gyro_fresh(gyro_fresh_diag),.diagnostic_gyro_age(gyro_age_diag),
         .diagnostic_required_coverage(nav_required_coverage)
@@ -564,7 +579,7 @@ module robot_subsystem (
         .pose_y_mm(map_pose_y),.pose_heading_q6(map_pose_heading),
         .forward_angle_q6(forward_angle),.lidar_offset_x_mm(offset_x),.lidar_offset_y_mm(offset_y),
         .body_front_mm(body_front),.body_rear_mm(body_rear),.body_left_mm(body_left),.body_right_mm(body_right),
-        .correction_enable(!map_local && world_map_pose_valid && !manual_active && !manual_turn_active && !remote_turn_active && !map_reset),.correction_ack(correction_ack),
+        .correction_enable(!map_local && world_map_pose_valid && correction_allowed && !manual_active && !manual_turn_active && !remote_turn_active && !map_reset),.correction_ack(correction_ack),
         .freeze_map(freeze_map),.map_frozen(map_frozen),.plan_rd_en(plan_read_en),.plan_rd_x(plan_read_x),.plan_rd_y(plan_read_y),
         .plan_rd_cell(plan_read_cell),.plan_rd_valid(plan_read_valid),
         .diagnostic_seed_valid(map_seed_valid),.diagnostic_seed_done(map_seed_done),
@@ -606,7 +621,7 @@ module robot_subsystem (
             diagnostic_conditions_q[13]<=(effective_planner_error==2);
             diagnostic_conditions_q[14]<=(effective_planner_error==9);
             diagnostic_conditions_q[15]<=(effective_planner_error==3);
-            diagnostic_conditions_q[16]<=(no_path || effective_planner_error==4);
+            diagnostic_conditions_q[16]<=(effective_planner_error==4);
         end
     end
     always @* begin

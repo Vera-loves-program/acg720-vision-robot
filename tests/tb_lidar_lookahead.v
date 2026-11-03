@@ -10,6 +10,24 @@ module tb_lidar_lookahead;
  wire ready,front_stop,rear_stop,slow,turn_stop,contact,mv,confirmed,ahead,run,calibrated;
  wire[3:0] free_cov,nav_status;wire signed[15:0] bx,by,left_speed,right_speed;
  integer checks=0,mapped=0,confirmed_count=0,budget;
+ // A second instance exercises exact command-edge coincidences directly.
+ // The first instance below still runs the real guard/NAV integration.
+ reg trst=0,tmap=0,tlidar=1,tguard=1,tconfirmed=0;
+ reg tui=0,tfollow=0,tmission=0;
+ reg[3:0] tstatus=0;
+ reg signed[31:0] tx=1000,ty=0;
+ reg signed[15:0] tpoint_x=600,tpoint_y=0;
+ wire tahead;
+ actual_root_lookahead timing_lookahead(
+  .clk(clk),.reset_n(trst),.map_reset(tmap),.avoid_lidar_ready(tlidar),.body_guard_ready(tguard),
+  .scan_start(1'b0),.scan_complete(1'b0),.nav_status(tstatus),
+  .ui_command_valid(tui),.follow_command_valid(tfollow),.mission_command_valid(tmission),
+  .ui_command(3'd3),.follow_command(3'd3),.mission_command(3'd3),
+  .mission_goal_x(tx),.mission_goal_y(ty),.robot_x(32'sd0),.robot_y(32'sd0),
+  .body_front(16'd232),.body_left(16'd119),.body_right(16'd119),.drive_margin(16'd20),
+  .body_point_x(tpoint_x),.body_point_y(tpoint_y),.map_point_valid(tconfirmed),
+  .confirmed_point_valid(tconfirmed),.nav_obstacle_ahead(tahead)
+ );
  lidar_body_guard guard(
   .clk(clk),.reset_n(rst),.tick_10ms(tick),.active(1'b1),.point_valid(pv),.scan_start(start),
   .angle_q6(angle),.forward_angle_q6(15'd0),.distance_mm(distance),.quality(quality),
@@ -66,7 +84,7 @@ module tb_lidar_lookahead;
    issue(3);frame;frame;check(run && left_speed>0 && right_speed>0,"actual NAV GOTO is driving");
   end
  endtask
- integer saved_map,saved_confirmed;
+ integer saved_map,saved_confirmed,source;
  initial begin
   setup;saved_map=mapped;saved_confirmed=confirmed_count;
   node(0,417);
@@ -85,7 +103,34 @@ module tb_lidar_lookahead;
   node(0,567);node(64,567);
   check(!ahead && run,"confirmed point beyond final stopping envelope does not block shorter trip");
   issue(0);frame;check(!run,"manual STOP remains effective");
-  $display("PASS tb_lidar_lookahead: %0d clocked assertions; actual guard/root lookahead/NAV, isolated-noise negative control, pair/contact/envelope/STOP",checks);$finish;
+  // All three GO sources must suppress an already latched old long envelope
+  // immediately, including a confirmed ray coincident with the new command.
+  for(source=0;source<3;source=source+1)begin
+   trst=0;tx=1000;ty=0;tconfirmed=0;tui=0;tfollow=0;tmission=0;step;
+   trst=1;repeat(3)step;tconfirmed=1;#1;
+   check(tahead,"long goal accepts a confirmed600mm corridor point");step;
+   tx=300;tui=source==0;tfollow=source==1;tmission=source==2;#1;
+   check(!tahead,"new GO immediately masks old latched lookahead");step;
+   tui=0;tfollow=0;tmission=0;#1;
+   check(!tahead,"new short goal cannot consume old large envelope during refill");step;
+   check(!tahead,"new short goal excludes600mm return after envelope refill");
+  end
+  // Recoveries are deliberately one clock: no stale large envelope or old
+  // work bit survives map reset, sensor loss, guard loss or rotation.
+  tx=1000;tconfirmed=0;repeat(2)step;tconfirmed=1;#1;check(tahead,"long envelope restored");step;
+  tmap=1;#1;check(!tahead,"map reset immediately masks lookahead");step;tmap=0;#1;
+  check(!tahead,"map reset recovery waits fresh envelope clock");step;check(tahead,"map reset recovery resumes confirmed observation");
+  tlidar=0;#1;check(!tahead,"sensor loss masks lookahead");step;tlidar=1;#1;
+  check(!tahead,"sensor recovery waits fresh envelope clock");step;check(tahead,"sensor recovery resumes observation");
+  tguard=0;#1;check(!tahead,"guard loss masks lookahead");step;tguard=1;#1;
+  check(!tahead,"guard recovery waits fresh envelope clock");step;check(tahead,"guard recovery resumes observation");
+  tstatus=4;#1;check(!tahead,"rotation masks old heading corridor");step;tstatus=5;#1;
+  check(!tahead,"rotation exit waits fresh envelope clock");step;check(tahead,"rotation exit resumes observation");
+  tconfirmed=0;tx=32'sh80000000;ty=32'sh80000000;repeat(2)step;
+  check(timing_lookahead.mission_forward_envelope==33'd4294967548,"full33bit envelope preserves two signed-minimum magnitudes");
+  tx=32'sh7fffffff;ty=32'sh7fffffff;repeat(2)step;
+  check(timing_lookahead.mission_forward_envelope==33'd4294967546,"full33bit envelope preserves two signed-maximum magnitudes");
+  $display("PASS tb_lidar_lookahead: %0d clocked assertions; actual guard/root lookahead/NAV, noise/pair/contact/STOP, GO edge/refill/turn/sensor/map-reset/33bit limits",checks);$finish;
  end
  initial begin #100000000;$fatal(1,"lookahead TB watchdog");end
 endmodule

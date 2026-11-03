@@ -239,6 +239,8 @@ class FollowLink:
         pulse=(cfg.angle_to_pulse(self.initial_tilt_angle) if
                self.initial_tilt_angle is not None and cfg.calibrated else self.initial['tilt'])
         return dict(software_version=SOFTWARE_VERSION, source=str(Path(__file__).resolve()),
+                    bundle_revision=getattr(app,'software_revision',None),
+                    software_label=getattr(app,'software_info',{}).get('label'),
                     source_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16],
                     config=str(app.config_path), requested_tilt_angle_deg=self.initial_tilt_angle,
                     tilt_pwm_us=pulse, table_angle_estimate_deg=cfg.pulse_to_angle(pulse),
@@ -249,6 +251,8 @@ class FollowLink:
         try:info=self.pose_info(app)
         except (ValueError,RuntimeError) as exc:
             info=dict(software_version=SOFTWARE_VERSION, source=str(Path(__file__).resolve()),
+                      bundle_revision=getattr(app,'software_revision',None),
+                      software_label=getattr(app,'software_info',{}).get('label'),
                       config=str(app.config_path), pose_error=str(exc),physical_angle_feedback=False)
         self.record('runtime',**info)
         self.runtime_info=info
@@ -273,6 +277,16 @@ class FollowLink:
         self.record('vision', sequence=frame.sequence, captured=frame.arrived_at,
                     detections=frame.detections, pose=frame.gimbal_at_arrival)
 
+    def browser_selection(self):
+        """Web selection replaces old LCD class/search/side-follow ownership.
+
+        PWM stays enabled. The browser's explicit start follows its own
+        tracker; no stale wheel reference or selected LCD ID carries over.
+        """
+        self.auto_select=False;self.auto_reference=False;self.geometry_active=False
+        self.registry.selected=0;self.follower=PanFollower();self.visual.cancel()
+        self.error=None;self.error_code=0  # A validated explicit selection retries a failed class command.
+
     def tracking_boxes(self, frame):
         selected = self.registry.tracks.get(self.registry.selected)
         if selected is None:
@@ -281,7 +295,10 @@ class FollowLink:
         # association/reacquisition. The catalog's pixel-only association is
         # for human selection; it must not veto camera-motion compensation.
         kind = selected['box']['kind']
-        return [b for b in frame.detections if b.get('kind') == kind and b.get('score',0) >= ADMISSION_SCORE]
+        # Face-only hysteresis admits .40 observations while retaining the
+        # established .50 dog gate and the catalogue's .50 acquisition gate.
+        return [b for b in frame.detections if b.get('kind') == kind and
+                (kind=='human' or b.get('score',0)>=ADMISSION_SCORE)]
 
     def confirm(self, frame, update):
         if update.get('status') == 'tracking' and update.get('target'):

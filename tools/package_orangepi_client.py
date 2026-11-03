@@ -19,11 +19,12 @@ FILES = (
     "docs/六题演示与修复验收_20261025.md", "docs/视觉雷达协议_v20.md",
     "docs/上层135度与90度下限_v21.md",
     "docs/香橙派v22人脸与小狗测试.md",
+    "docs/香橙派v22修订4云台整合_20261103.md",
     "docs/香橙派与FPGA跟随联调_20261025.md", "docs/FPGA视觉跟随通信协议_20261025.md",
     "config/gimbal.example.json",
     "tools/fix_orangepi_apt.py",
 )
-GUIDE = "docs/香橙派v22人脸与小狗测试.md"
+GUIDE = "docs/香橙派v22修订4云台整合_20261103.md"
 PREFIX = "acg720_vision"
 
 
@@ -53,10 +54,10 @@ def main():
     guide_text=guide_text.replace('(六题演示与修复验收_20261025.md)', '(docs/六题演示与修复验收_20261025.md)')
     guide_text=guide_text.replace('(上层135度与90度下限_v21.md)', '(docs/上层135度与90度下限_v21.md)')
     entries["README.md"] = guide_text.encode('utf-8')
-    manifest = {"client_bundle_version": 22, "bundle_revision": 2, "shell_line_endings": "LF", "minimum_python": "3.10",
+    manifest = {"client_bundle_version": 22, "bundle_revision": 4, "shell_line_endings": "LF", "minimum_python": "3.10",
                 "dog_model_included": model.is_file() and not args.code_only,
                 "face_model_included": face.is_file() and not args.code_only,
-                "fpga_profile": "core-r7", "entry_point": "client.py",
+                "fpga_profile": "core-r7-and-lidar-moving-20261103-compatible", "entry_point": "client.py",
                 "usb_camera_and_gimbal": True, "default_pwm_backend": "mock",
                 "root_folder": PREFIX,
                 "sha256": {name: hashlib.sha256(data).hexdigest() for name, data in entries.items()}}

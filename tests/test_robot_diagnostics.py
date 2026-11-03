@@ -7,6 +7,19 @@ spec=importlib.util.spec_from_file_location('robot_diag',Path(__file__).resolve(
 diag=importlib.util.module_from_spec(spec);spec.loader.exec_module(diag)
 
 class DiagnosticsTests(unittest.TestCase):
+    def test_no_live_rejection_does_not_hide_a_mission_failure(self):
+        words=[0]*48;words[0]=0x4c440101
+        words[1]=(17<<16)|(4<<8)|11
+        result=diag.decode_words(words)
+        self.assertEqual(result['reason_code'],0)
+        self.assertEqual(result['mission_error'],17)
+        self.assertEqual(result['planner_error'],4)
+        summary=diag.format_summary(result)
+        self.assertIn('mission=17(precise final leg blocked)',summary)
+        self.assertIn('planner=4',summary)
+        self.assertIn('nav=11',summary)
+        self.assertNotIn('ready/no',summary)
+
     def test_record_keeps_unknown_hit_visibility_and_signed_grid_separate(self):
         words=[0]*48;words[0]=0x4c440101
         words[1]=(0x02<<24)|(14<<16)|(8<<8)|8
