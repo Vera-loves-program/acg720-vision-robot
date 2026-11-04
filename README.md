@@ -49,3 +49,7 @@ python tools/package_orangepi_client.py --code-only --output output/releases/acg
 仓库不包含位流、更新ZIP、模型权重、照片或每台车标定；新成员另行取得模型及 `config/gimbal.json`、`config/visual_task.json`。保留第三方版权，不额外授予厂商IP许可。
 
 [文档索引](docs/README.md) 中的历史R7/v22修订2数据仅作溯源，当前版本以本页及本次验证记录为准。
+
+## 开源协议
+
+项目原创源码与文档采用 [MIT License](LICENSE)，允许使用、修改和分发，须保留版权与许可声明。高云IP、第三方参考代码、依赖及模型分别遵守原授权，具体范围见 [第三方声明](THIRD_PARTY_NOTICES.md)。

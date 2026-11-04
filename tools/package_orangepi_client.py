@@ -8,6 +8,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
+    "LICENSE", "THIRD_PARTY_NOTICES.md",
     "client.py",
     "pc/udp_probe.py", "pc/udp_video_viewer.py", "pc/capture_dataset.py",
     "pc/video_stream.py", "pc/ui_telemetry.py", "pc/highgui_window.py", "pc/requirements.txt",
