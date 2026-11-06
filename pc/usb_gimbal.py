@@ -27,16 +27,17 @@ from gimbal_control import GimbalController, GimbalError, SysfsPWMBackend, defau
 from target_tracking import CameraCalibration, TargetTracker, TrackerConfig, gimbal_centering_delta, mount_image_sign
 from gimbal_image_calibration import normalize_sample, fit_image_calibration, calibrated_centering_delta, calibrated_centering_offset
 from usb_camera import UsbCamera, hardware_inventory
+from tracking_servo import TrackingServo
 
 ROOT = Path(__file__).resolve().parents[1]
-SOFTWARE_REVISION = 4
-SOFTWARE_LABEL = 'v22修订4'
+SOFTWARE_REVISION = 6
+SOFTWARE_LABEL = 'v22修订6'
 _UNSPECIFIED_MODE = object()
 BROWSER_HEARTBEAT_ERROR = '浏览器心跳已过期，PWM已关闭；连接恢复后请重新点击开启本轴PWM'
 SPEED_PROFILES = {
-    'slow': dict(slew=150, gain=2., normalized_gain_dps=35., max_rate_dps=25.),
-    'normal': dict(slew=600, gain=3., normalized_gain_dps=60., max_rate_dps=45.),
-    'fast': dict(slew=1200, gain=4., normalized_gain_dps=90., max_rate_dps=75.),
+    'slow': dict(slew=150, gain=2., normalized_gain_dps=35., max_rate_dps=25., min_rate_dps=0., max_accel_dps2=90.),
+    'normal': dict(slew=600, gain=3., normalized_gain_dps=60., max_rate_dps=45., min_rate_dps=0., max_accel_dps2=180.),
+    'fast': dict(slew=1200, gain=4., normalized_gain_dps=90., max_rate_dps=75., min_rate_dps=0., max_accel_dps2=300.),
 }
 
 
@@ -119,6 +120,7 @@ class GimbalApp:
         self.tracking_angles = None
         self.tracking_directions = dict(pan=0, tilt=0)
         self.tracking_limits = dict(pan=False, tilt=False)
+        self._live_servo = TrackingServo()
         self._clear_tracking_memory()
         self._control_time = None
         self._processed_sequence = 0
@@ -242,19 +244,12 @@ class GimbalApp:
                     self.follow_link.confirm(result, self.tracking_result)
                 update = self.tracking_result
                 if update.get('status') != 'tracking':
-                    if update.get('status') in ('searching', 'reacquiring', 'ambiguous', 'missing'):
-                        if self.tracking_memory['phase'] in ('idle', 'live'):
-                            # Cancel queued live lead. The observation has
-                            # already produced ONE absolute goal, never a
-                            # velocity to integrate again on every empty frame.
-                            self._hold_tracking(clear_memory=False)
-                            self._memory_active = self.tracking_memory['goal'] is not None
-                            self._memory_angles = None
-                        self.tracking_memory['phase'] = (
-                            'centering_last_seen' if self._memory_active else
-                            'reacquiring' if update.get('status') == 'reacquiring' else 'waiting')
-                    else:
-                        self._hold_tracking()
+                    # A missing face is not permission to execute a raw old
+                    # offset: it may already have been inside the stop band.
+                    # Keep association/reacquisition, cancel all pending motion.
+                    self._hold_tracking(clear_memory=False)
+                    self.tracking_memory['phase'] = (
+                        'reacquiring' if update.get('status') == 'reacquiring' else 'waiting')
                 else:
                     # Image left/up are local camera directions. An over-top
                     # head reverses PAN's image effect after TILT passes90deg;
@@ -282,6 +277,9 @@ class GimbalApp:
                                 motion.update(empirical)
                                 source = 'sampled_image_jacobian'
                     self._remember_tracking_goal(result, update, pan, capture_tilt, source)
+                    update.update(error_px=dict(x=update.get('yaw_error_normalized', 0)*result.width/2,
+                                                y=update.get('pitch_error_normalized', 0)*result.height/2),
+                                  observation_age_s=max(0., now-result.arrived_at))
                     update.update(pose_compensation=source,
                                   control_source=source,
                                   tilt_pose_deg=motion['tilt_deg'],
@@ -298,42 +296,45 @@ class GimbalApp:
                         update.update(body_direction=None, body_direction_valid=False,
                                       world_direction=None, world_direction_valid=False,
                                       gimbal_angle_source='sampled_centering_no_absolute_pose')
-                    if self.tracking_angles is None:
-                        self.tracking_angles = {axis: axes[axis]['angle_deg'] for axis in ('pan', 'tilt')}
-                    for axis, change in (('pan', motion['delta_pan_deg']),
-                                         ('tilt', motion['delta_tilt_deg'])):
-                        if axes[axis]['angle_deg'] is None:
-                            raise ValueError('Both axes require measured angle calibration')
-                        points = self.config['axes'][axis]['calibration_points']
-                        actual = axes[axis]['angle_deg']
-                        previous = self.tracking_angles[axis]
-                        self.tracking_limits[axis] = False
-                        if not change:
-                            self.gimbal.hold(axis)
-                            self.tracking_angles[axis] = actual
-                            self.tracking_directions[axis] = 0
-                            continue
-                        if change * self.tracking_directions[axis] < 0:
-                            previous = actual  # A reversing target cancels old-direction lead immediately.
-                        self.tracking_directions[axis] = 1 if change > 0 else -1
-                        requested = previous + change
-                        # Keep fractional angles across frames (PWM rounds to
-                        # integer us), but never queue a large invisible motion.
-                        cfg = self.tracker.config
-                        lead = max(.25, cfg.max_rate_dps * min(.2, 2 * cfg.max_control_dt_s))
-                        requested = max(actual - lead, min(actual + lead, requested))
+                    capture_angles = dict(pan=pan, tilt=capture_tilt)
+                    if any(value is None for value in capture_angles.values()):
+                        raise ValueError('Both axes require measured angle calibration')
+                    rates = dict(pan=motion['pan_rate_dps'], tilt=motion['tilt_rate_dps'])
+                    for axis in ('pan', 'tilt'):
+                        if not rates[axis]:
+                            self.tracking_memory['goal'][axis] = axes[axis]['angle_deg']
                         low, high = self.gimbal.angle_limits(axis)
-                        angle = max(low, min(high, requested))
-                        self.tracking_limits[axis] = requested <= low or requested >= high
-                        self.tracking_angles[axis] = angle  # No integration beyond a mechanical limit.
-                        self.gimbal.set_angle(axis, angle, tracking=True)
-            if self.tracking and self._memory_active and not stale and not self.error and not (self.camera and self.camera.error):
-                self._advance_tracking_memory(control_dt)
+                        goal = self.tracking_memory['goal'][axis]
+                        self.tracking_limits[axis] = bool(rates[axis] and (goal <= low or goal >= high))
+                    self._live_servo.observe(goal=self.tracking_memory['goal'],
+                        capture_angles=capture_angles, rates=rates,
+                        frame_time=result.arrived_at, now=now,
+                        max_rate_dps=self.tracker.config.max_rate_dps,
+                        max_accel_dps2=self.tracker.config.max_accel_dps2)
+            if self.tracking and not stale and not self.error and not (self.camera and self.camera.error):
+                axes = self.gimbal.snapshot()['axes']
+                commands = self._live_servo.step(now=now, elapsed=control_dt,
+                    angles={axis: axes[axis]['angle_deg'] for axis in ('pan', 'tilt')},
+                    max_age_s=self.max_age)
+                if not commands:
+                    self.gimbal.hold()
+                for axis, command in commands.items():
+                    if command is None:
+                        self.gimbal.hold(axis)
+                        continue
+                    low, high = self.gimbal.angle_limits(axis)
+                    goal = self.tracking_memory['goal'][axis]
+                    self.tracking_limits[axis] = goal <= low or goal >= high
+                    self.gimbal.set_angle(axis, max(low, min(high, command)), tracking=True)
+                self.tracking_angles = ({axis: commands.get(axis) if commands.get(axis) is not None
+                                        else axes[axis]['angle_deg'] for axis in ('pan', 'tilt')}
+                                        if commands else None)
             self.gimbal.tick(now)
             if self.follow_link:
                 self.follow_link.send(self, now)
 
     def _clear_tracking_memory(self):
+        self._live_servo.reset()
         self.tracking_memory = dict(phase='idle', last_seen_sequence=None,
                                    goal=None, source=None, limited=False)
         self._memory_seen_at = None
@@ -391,38 +392,8 @@ class GimbalApp:
         self._memory_active = False
         self._memory_angles = None
 
-    def _advance_tracking_memory(self, elapsed):
-        """Slew toward the saved finite goal; never recompute it from an old image."""
-        cfg = self.tracker.config
-        dt = min(.1, cfg.max_control_dt_s, elapsed)
-        axes = self.gimbal.snapshot()['axes']
-        if self._memory_angles is None:
-            self._memory_angles = {axis: axes[axis]['angle_deg'] for axis in ('pan', 'tilt')}
-        reached = True
-        for axis in ('pan', 'tilt'):
-            actual = axes[axis]['angle_deg']
-            if actual is None or not axes[axis]['armed']:
-                self._hold_tracking()
-                return
-            goal = self.tracking_memory['goal'][axis]
-            previous = self._memory_angles[axis]
-            step = cfg.max_rate_dps * dt
-            command = previous + max(-step, min(step, goal - previous))
-            # Bound pending lead when the configured PWM slew is slower than
-            # this angular motion. Fractional angles survive PWM quantization.
-            lead = max(.25, cfg.max_rate_dps * min(.2, 2*cfg.max_control_dt_s))
-            command = max(actual-lead, min(actual+lead, command))
-            self._memory_angles[axis] = command
-            self.gimbal.set_angle(axis, command, tracking=True)
-            pulse = self.gimbal.axes[axis].angle_to_pulse(goal)
-            reached &= axes[axis]['output_us'] == pulse
-        if reached or cfg.max_rate_dps == 0:
-            self._hold_tracking(clear_memory=False)
-            self._memory_active = False
-            self.tracking_memory['phase'] = ('reacquiring' if
-                (self.tracking_result or {}).get('status') == 'reacquiring' else 'waiting')
-
     def _hold_tracking(self, *, clear_memory=True):
+        self._live_servo.reset()
         self.gimbal.hold()
         self.tracking_angles = None
         self.tracking_directions = dict(pan=0, tilt=0)
@@ -458,17 +429,23 @@ class GimbalApp:
             memory['last_seen_age_s'] = (None if self._memory_seen_at is None else
                                           max(0, time.monotonic() - self._memory_seen_at))
             return dict(gimbal=gimbal, config=view_config, software=dict(self.software_info),
+                        configuration=dict(path=str(self.config_path.resolve()),
+                            sha256=hashlib.sha256(self.config_path.read_bytes()).hexdigest() if self.config_path.is_file() else None,
+                            mtime_ns=self.config_path.stat().st_mtime_ns if self.config_path.is_file() else None),
                         fpga_follow=None if self.follow_link is None else dict(
                             software_version='v22',target_kind=self.follow_link.auto_kind,
                             startup_pose=getattr(self.follow_link,'runtime_info',None),
                             standalone=self.standalone, selected_id=self.follow_link.registry.selected,
                             reference=self.follow_link.follower.reference,
                             forward_sign=self.follow_link.follower.forward_sign,
+                            report_age_s=(max(0., time.monotonic()-self.follow_link.report_at)
+                                          if getattr(self.follow_link,'report_at',None) is not None else None),
                             fpga=self.follow_link.report, error=self.follow_link.error,
                             log=str(self.follow_link.log_path)),
                         image_calibration=self._calibration_state(),
                         tracking_pose=pose,
                         tracking_memory=memory,
+                        tracking_servo=self._live_servo.snapshot(),
                         tracking=self.tracking, tracking_result=deepcopy(self.tracking_result),
                         target_selected=self.target_selected,
                         tracking_preflight=self._tracking_preflight(),
@@ -704,7 +681,7 @@ class GimbalApp:
                     return result
                 # Explicit manual input pauses tracking, but does not cancel
                 # an unrelated manual slew on the other axis.
-                if self.tracking:
+                if self.tracking and action in ('manual_enable', 'manual_jog', 'manual_pulse', 'mark_limit'):
                     self.tracking = False
                     self._hold_tracking()
                 if action == 'manual_enable':
@@ -765,22 +742,18 @@ class GimbalApp:
                 supplied = data.get('tracking')
                 names = ('deadband', 'normalized_gain_dps', 'max_rate_dps', 'filter_time_constant_s',
                          'deadband_hysteresis', 'min_rate_dps', 'max_control_dt_s')
-                if not isinstance(supplied, dict) or set(supplied) != set(names):
-                    raise ValueError('请填写完整的七项跟踪参数')
-                options.update({name: finite(supplied[name], name) for name in names})
+                if (not isinstance(supplied, dict) or not set(names) <= set(supplied) or
+                        set(supplied) - set(names) - {'gain', 'max_accel_dps2'}):
+                    raise ValueError('请填写跟踪参数，刷新页面以载入当前字段')
+                options.update({name: finite(value, name) for name,value in supplied.items()})
                 candidate = deepcopy(self.config)
                 candidate['tracking'] = options
+                camera = candidate.get('camera', {})
+                tracker = self._new_tracker(self.latest.width if self.latest else camera.get('width', 640),
+                                            self.latest.height if self.latest else camera.get('height', 480),candidate)
+                atomic_json(self.config_path, candidate)
                 self.tracking = False
                 self._hold_tracking()
-                previous = self.config
-                try:
-                    self.config = candidate
-                    camera = candidate.get('camera', {})
-                    tracker = self._new_tracker(self.latest.width if self.latest else camera.get('width', 640),
-                                                self.latest.height if self.latest else camera.get('height', 480))
-                finally:
-                    self.config = previous
-                atomic_json(self.config_path, candidate)
                 self.config = candidate
                 self.tracker = tracker
                 self.config_generation += 1
@@ -905,6 +878,7 @@ class GimbalApp:
         except GimbalError as exc:
             raise ValueError('本轴配置无效：' + str(exc)) from exc
         raw = candidate['axes'][axis]
+        self.gimbal.validate_axis_config_change(axis, raw, clear_pending=clear_pending)
         cfg = parsed[axis]
         low = cfg.safe_min_us if cfg.configured else cfg.explore_min_us
         high = cfg.safe_max_us if cfg.configured else cfg.explore_max_us
@@ -920,10 +894,15 @@ class GimbalApp:
         except OSError as exc:
             raise ValueError(f'配置保存失败：{self.config_path}；请检查目录权限后重试。{exc}') from exc
         self.gimbal.apply_axis_config(axis, raw, clear_pending=clear_pending)
+        was_tracking = self.tracking
+        if was_tracking:
+            self.tracking = False
+            self._hold_tracking()
         self.config = candidate
         self.config_generation += 1
         self.tracking_result = None
-        return {'saved': str(self.config_path), 'axis': axis, 'gimbal': self.gimbal.snapshot()}
+        return {'saved': str(self.config_path), 'axis': axis, 'gimbal': self.gimbal.snapshot(),
+                'tracking_paused': was_tracking}
 
     def _apply_pending_limits(self, axis, *, reset_angles=False):
         pending = self.gimbal.snapshot()['axes'][axis]['manual']
@@ -1133,6 +1112,10 @@ class VisionWorker:
                 image = frame.image
                 with self.app.lock:
                     calibration = deepcopy(self.app.config.get('camera', {}))
+                    # Tracker is deliberately absent until publish() binds
+                    # the first frame (and after a camera/config reset).
+                    # Read the validated setting without dereferencing it.
+                    center_band = self.app.config.get('tracking', {}).get('deadband', TrackerConfig.deadband)
                     generation = self.app.config_generation
                     inference_kind = self.app._detection_kind()
                 if inference_kind!=last_kind:
@@ -1161,7 +1144,11 @@ class VisionWorker:
                     cv2.putText(preview, f'{index}: {box["kind"]} {box["score"]:.2f}',
                                 (round(box['x1']), max(18, round(box['y1']) - 5)),
                                 cv2.FONT_HERSHEY_SIMPLEX, .5, color, 1)
-                cv2.drawMarker(preview, (w // 2, h // 2), (0, 220, 220), cv2.MARKER_CROSS, 18, 1)
+                center = (round(calibration.get('cx', w/2)), round(calibration.get('cy', h/2)))
+                cv2.drawMarker(preview, center, (0, 220, 220), cv2.MARKER_CROSS, 18, 1)
+                bx, by = round(w*.5*center_band), round(h*.5*center_band)
+                cv2.rectangle(preview, (center[0]-bx, center[1]-by),
+                              (center[0]+bx, center[1]+by), (0, 180, 180), 1)
                 mode='FACE' if inference_kind=='human' else 'DOG' if inference_kind=='dog' else 'BOTH'
                 dog_text='skip' if inference_kind=='human' else f'{dog_ms:.0f}ms'
                 face_text='skip' if inference_kind=='dog' else f'{face_ms:.0f}ms'

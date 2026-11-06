@@ -67,8 +67,8 @@ commands=[
  dict(action='capture_burst',category='positive'),
  dict(action='cancel_capture'),
  dict(action='save_tracking',tracking=dict(deadband=.04,normalized_gain_dps=50,
-     max_rate_dps=20,filter_time_constant_s=.06,deadband_hysteresis=.015,
-     min_rate_dps=2,max_control_dt_s=.2)),
+     gain=2,max_rate_dps=20,max_accel_dps2=180,filter_time_constant_s=.06,deadband_hysteresis=.015,
+     min_rate_dps=0,max_control_dt_s=.1)),
  dict(action='disable'),
 ]
 pan_points=[dict(pulse_us=380,angle_deg=45),dict(pulse_us=1882,angle_deg=180),dict(pulse_us=2550,angle_deg=240)]
@@ -186,25 +186,28 @@ with tempfile.TemporaryDirectory(prefix='usb-ui-fixture-',dir=test_root) as temp
             offcenter=[dict(kind='dog',score=.9,x1=290,y1=110,x2=450,y2=270)]
             publish(101,offcenter)
             app._control_once(now[0])
+            held={axis:app.gimbal.snapshot()['axes'][axis]['output_us'] for axis in ('pan','tilt')}
             now[0]+=.02
             publish(102,[])
             app._control_once(now[0])
-            centering=request(app)['body']
-            assert centering['tracking'] and centering['target_selected']
-            assert centering['tracking_memory']['phase']=='centering_last_seen'
-            goal=centering['tracking_memory']['goal']
-            assert goal is not None
+            lost=request(app)['body']
+            assert lost['tracking'] and lost['target_selected']
+            assert lost['tracking_memory']['phase']=='waiting'
+            assert lost['tracking_servo']['goal'] is None
             for axis in ('pan','tilt'):
-                points=config['axes'][axis]['calibration_points']
-                assert min(p['angle_deg'] for p in points)<=goal[axis]<=max(p['angle_deg'] for p in points)
-            for step in range(600):
+                assert lost['gimbal']['axes'][axis]['target_us']==held[axis]
+                assert lost['gimbal']['axes'][axis]['output_us']==held[axis]
+            for step in range(30):
                 now[0]+=.02
                 if step%25==0: assert request(app,dict(action='heartbeat'))['status']==200
-                publish(103+step,[])
+                if step%5==0: publish(103+step//5,[])
                 app._control_once(now[0])
                 waiting=request(app)['body']
-                if waiting['tracking_memory']['phase']=='waiting': break
-            else: raise AssertionError('last observed centering never completed')
+                assert waiting['tracking_memory']['phase']=='waiting'
+                assert waiting['tracking_servo']['goal'] is None
+                for axis in ('pan','tilt'):
+                    assert waiting['gimbal']['axes'][axis]['target_us']==held[axis]
+                    assert waiting['gimbal']['axes'][axis]['output_us']==held[axis]
             assert waiting['tracking'] and waiting['target_selected']
             now[0]+=app.tracker.config.loss_gap_s+.02
             assert request(app,dict(action='heartbeat'))['status']==200
@@ -212,6 +215,9 @@ with tempfile.TemporaryDirectory(prefix='usb-ui-fixture-',dir=test_root) as temp
             app._control_once(now[0])
             long_wait=request(app)['body']
             assert long_wait['tracking'] and long_wait['target_selected']
+            for axis in ('pan','tilt'):
+                assert long_wait['gimbal']['axes'][axis]['target_us']==held[axis]
+                assert long_wait['gimbal']['axes'][axis]['output_us']==held[axis]
             now[0]+=.04
             publish(1001,[dict(boxes[0]),dict(boxes[0])])
             app._control_once(now[0])
@@ -238,7 +244,7 @@ with tempfile.TemporaryDirectory(prefix='usb-ui-fixture-',dir=test_root) as temp
             paused_after=request(app)['body']
             assert not paused_after['tracking']
             assert before=={axis:paused_after['gimbal']['axes'][axis]['target_us'] for axis in ('pan','tilt')}
-            fixtures.update(memory_states=dict(centering=centering,waiting=waiting,long_wait=long_wait,
+            fixtures.update(memory_states=dict(lost=lost,waiting=waiting,long_wait=long_wait,
                 ambiguous=ambiguous,reacquiring1=reacquiring[0],reacquiring2=reacquiring[1],
                 resumed=reacquiring[2],paused=paused,paused_after=paused_after))
             poses=[]
@@ -289,7 +295,8 @@ if (result.error || result.status !== 0) throw result.error || new Error(result.
 const fixtures = JSON.parse(result.stdout);
 let state = fixtures.initial, consumed = 0, records = fixtures.records;
 const html = fs.readFileSync(path.join(root,'pc/usb_gimbal_ui.html'),'utf8');
-assert.equal((html.match(/v18/g)||[]).length,2,'title/header must show this package version');
+assert.ok(html.includes('id="softwareVersion"'),'header must display the running package version');
+assert.ok(!html.includes('v18'),'the page must not hard-code the old package version');
 assert.ok(!html.includes('save_tracking_direction'),'pose compensation must not add a manual direction API or button');
 assert.ok(!html.includes('跟反了'),'automatic pose compensation must not require manual sign changes');
 const nodes = new Map();
@@ -330,6 +337,8 @@ vm.runInContext(html.split('<script>')[1].split('</script>')[0],context,{filenam
 async function main() {
   await new Promise(setImmediate);
   assert.equal(consumed,1,'initial page load may only send heartbeat');
+  assert.equal(nodes.get('softwareVersion').textContent,state.software.label);
+  assert.equal(context.document.title,'相机与云台 · '+state.software.label);
   assert.ok(nodes.get('backend').textContent.includes('MOCK'));
   assert.ok(Object.values(state.gimbal.axes).every(axis=>!axis.armed));
   for(const axis of Object.values(state.gimbal.axes)) for(const key of ['draft_us','enabled','recorded_min_us','recorded_max_us','pending_min_us','pending_max_us','settled','fine_us','coarse_us','numeric_min_us','numeric_max_us','absolute_min_us','absolute_max_us']) assert.ok(key in axis.manual,'actual snapshot missing '+key);
@@ -490,17 +499,17 @@ async function main() {
   assert.ok(nodes.get('trackingModelState').textContent.includes('几何姿态模型'));
   await context.allOff(); assert.ok(Object.values(state.gimbal.axes).every(axis=>!axis.armed));
   assert.equal(consumed,records.length,'all image calibration commands must come from the actual UI callbacks');
-  const expectedMemoryText={centering:'正在对准最后观测位置',waiting:'等待目标重现',long_wait:'等待目标重现',ambiguous:'歧义',reacquiring1:'1/3',reacquiring2:'2/3',resumed:'正在跟踪',paused:'已暂停',paused_after:'不会自动恢复'};
+  const expectedMemoryText={lost:'目标暂离，保持当前命令',waiting:'目标暂离，保持当前命令',long_wait:'目标暂离，保持当前命令',ambiguous:'歧义',reacquiring1:'1/3',reacquiring2:'2/3',resumed:'正在跟踪',paused:'已暂停',paused_after:'不会自动恢复'};
   for(const [name,memoryState] of Object.entries(fixtures.memory_states)) {
     context.providedState=structuredClone(memoryState);
     vm.runInContext('state=providedState;renderState()',context);
     const message=nodes.get('trackingSelectionNote').textContent,summary=nodes.get('trackingState').textContent;
     assert.ok(summary.includes(expectedMemoryText[name]),`${name}: ${summary}`);
-    if(name==='waiting'||name==='long_wait') {
-      assert.ok(message.includes('最后一次预测移动已结束'));
+    if(name==='lost'||name==='waiting'||name==='long_wait') {
+      assert.ok(message.includes('不执行旧画面预测移动'));
       assert.ok(!message.includes('已对准')&&!message.includes('已居中'),'a predicted or limited goal does not establish actual centering');
     }
-    if(name==='ambiguous')assert.ok(summary.includes('暂不接管'),'ambiguity must not assert that an active prediction has already stopped');
+    if(name==='ambiguous')assert.ok(summary.includes('保持当前命令')&&message.includes('不执行旧画面预测移动'),'ambiguous targets must hold, without executing an old prediction');
     if(name.startsWith('paused'))assert.equal(memoryState.tracking,false);
     else {
       assert.equal(memoryState.tracking,true); assert.equal(memoryState.target_selected,true);
@@ -517,6 +526,6 @@ async function main() {
     assert.ok(message.includes(index===1?'控制退化':'自动'));
     if(index===1)assert.equal(pose.near_vertical,true);
   }
-  console.log(`PASS: actual UI callbacks + ${previousResponses+consumed} real Python HTTP responses and real memory/reacquisition/pose snapshots; manual control, TILT645..2420, burst, per-axis angles, calibration and mount, last-observation centering then waiting, ambiguous targets wait,3-frame reacquisition auto-resumes, manual pause never auto-resumes.`);
+  console.log(`PASS: actual UI callbacks + ${previousResponses+consumed} real Python HTTP responses and real memory/reacquisition/pose snapshots; manual control, TILT645..2420, burst, per-axis angles, calibration and mount, target loss immediately holds PWM across 50Hz ticks/10Hz frames, ambiguous targets hold,3-frame reacquisition auto-resumes, manual pause never auto-resumes.`);
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

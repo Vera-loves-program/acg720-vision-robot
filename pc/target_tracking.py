@@ -116,8 +116,9 @@ class TrackerConfig:
     # Smoothing uses capture-time intervals, never variable inference duration.
     filter_time_constant_s: float = .06
     deadband_hysteresis: float = .015
-    min_rate_dps: float = 2.0
+    min_rate_dps: float = 0.0
     face_acquire_score: float = .50
+    max_accel_dps2: float = 180.0
 
     def __post_init__(self):
         if not all(_finite(value) for value in self.__dict__.values()):
@@ -137,6 +138,8 @@ class TrackerConfig:
             raise ValueError("Invalid association size/margin or future tolerance")
         if self.filter_time_constant_s < 0 or self.min_rate_dps < 0:
             raise ValueError("Filter time constant and minimum rate must be nonnegative")
+        if not 0 < self.max_accel_dps2 <= 2000:
+            raise ValueError("Acceleration must lie in (0,2000] degrees/s^2")
         if not 0 <= self.deadband_hysteresis < 1:
             raise ValueError("Deadband hysteresis must lie in [0,1) of image half-size")
 

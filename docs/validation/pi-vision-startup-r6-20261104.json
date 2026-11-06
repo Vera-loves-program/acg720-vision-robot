@@ -1,0 +1,124 @@
+{
+  "base_commit": "02fb0e57f90ad6d2e4eb98fbc1c1e710376455e8",
+  "version": 22,
+  "revision": 6,
+  "field_report": {
+    "version_loaded": "v22修订5",
+    "source_sha256_prefix": "269f460abbe4fe9b",
+    "error": "'NoneType' object has no attribute 'config'"
+  },
+  "root_cause": "VisionWorker read tracker.config before the first publish, and after save_config resets tracker=None.",
+  "fix": "Read deadband from already validated configuration, independent of tracker creation.",
+  "checks": [
+    {
+      "script": "tools/check_vision_worker_startup.py",
+      "exit_code": 0,
+      "log": "Actual worker source SHA256: 635b76e81f8f95fb15985208e6bf10ea0046fbee834322400c01edda4a6fc495\nVISION engines: {\"state\": \"enabled\", \"dog\": true, \"face\": true, \"error\": null}\nVISION mode: preview; both detectors\nVISION mode: preview; both detectors\nVISION mode: preview; both detectors\nVISION mode: preview; both detectors\nVISION mode: preview; both detectors\ntest_cold_start_with_detection_publishes_box_and_preview (__main__.VisionStartupTests.test_cold_start_with_detection_publishes_box_and_preview) ... ok\ntest_cold_start_without_detection_publishes_default_preview (__main__.VisionStartupTests.test_cold_start_without_detection_publishes_default_preview) ... ok\ntest_custom_deadband_saved_before_first_frame_is_used_by_preview (__main__.VisionStartupTests.test_custom_deadband_saved_before_first_frame_is_used_by_preview) ... ok\ntest_legacy_negative_control_after_config_reset_reproduces_black_screen (__main__.VisionStartupTests.test_legacy_negative_control_after_config_reset_reproduces_black_screen) ... ok\ntest_legacy_negative_control_cold_start_reproduces_none_config_black_screen (__main__.VisionStartupTests.test_legacy_negative_control_cold_start_reproduces_none_config_black_screen) ... ok\ntest_real_config_reset_then_first_frame_reinitializes_tracker (__main__.VisionStartupTests.test_real_config_reset_then_first_frame_reinitializes_tracker) ... ok\n\n----------------------------------------------------------------------\nRan 6 tests in 0.022s\n\nOK\n"
+    },
+    {
+      "script": "tools/check_independent_face_tracking.py",
+      "exit_code": 0,
+      "log": "FOLLOW prepared: {\"software_version\": \"v22\", \"source\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\pc\\\\robot_follow.py\", \"bundle_revision\": 6, \"software_label\": \"v22修订6\", \"source_sha256\": \"cf9495ab259e4f77\", \"config\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\tmp\\\\tmploi663__\\\\gimbal.json\", \"requested_tilt_angle_deg\": 135.0, \"tilt_pwm_us\": 1075, \"table_angle_estimate_deg\": 135.0143061516452, \"tilt_operating_min_deg\": 90.0, \"pan_initial_pwm_us\": 1200, \"physical_angle_feedback\": false}\nFOLLOW prepared: {\"software_version\": \"v22\", \"source\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\pc\\\\robot_follow.py\", \"bundle_revision\": 6, \"software_label\": \"v22修订6\", \"source_sha256\": \"cf9495ab259e4f77\", \"config\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\tmp\\\\tmpjuqesa6_\\\\gimbal.json\", \"requested_tilt_angle_deg\": 135.0, \"tilt_pwm_us\": 1075, \"table_angle_estimate_deg\": 135.0143061516452, \"tilt_operating_min_deg\": 90.0, \"pan_initial_pwm_us\": 1200, \"physical_angle_feedback\": false}\nFOLLOW prepared: {\"software_version\": \"v22\", \"source\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\pc\\\\robot_follow.py\", \"bundle_revision\": 6, \"software_label\": \"v22修订6\", \"source_sha256\": \"cf9495ab259e4f77\", \"config\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\tmp\\\\tmp8tkpucpk\\\\gimbal.json\", \"requested_tilt_angle_deg\": 135.0, \"tilt_pwm_us\": 1075, \"table_angle_estimate_deg\": 135.0143061516452, \"tilt_operating_min_deg\": 90.0, \"pan_initial_pwm_us\": 1200, \"physical_angle_feedback\": false}\nFOLLOW prepared: {\"software_version\": \"v22\", \"source\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\pc\\\\robot_follow.py\", \"bundle_revision\": 6, \"software_label\": \"v22修订6\", \"source_sha256\": \"cf9495ab259e4f77\", \"config\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\tmp\\\\tmplilppixd\\\\gimbal.json\", \"requested_tilt_angle_deg\": 135.0, \"tilt_pwm_us\": 1075, \"table_angle_estimate_deg\": 135.0143061516452, \"tilt_operating_min_deg\": 90.0, \"pan_initial_pwm_us\": 1200, \"physical_angle_feedback\": false}\nFOLLOW prepared: {\"software_version\": \"v22\", \"source\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\pc\\\\robot_follow.py\", \"bundle_revision\": 6, \"software_label\": \"v22修订6\", \"source_sha256\": \"cf9495ab259e4f77\", \"config\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\tmp\\\\tmpd7aaumk5\\\\gimbal.json\", \"requested_tilt_angle_deg\": 135.0, \"tilt_pwm_us\": 1075, \"table_angle_estimate_deg\": 135.0143061516452, \"tilt_operating_min_deg\": 90.0, \"pan_initial_pwm_us\": 1200, \"physical_angle_feedback\": false}\nFOLLOW prepared: {\"software_version\": \"v22\", \"source\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\pc\\\\robot_follow.py\", \"bundle_revision\": 6, \"software_label\": \"v22修订6\", \"source_sha256\": \"cf9495ab259e4f77\", \"config\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\tmp\\\\tmpqa09qr7n\\\\gimbal.json\", \"requested_tilt_angle_deg\": 135.0, \"tilt_pwm_us\": 1075, \"table_angle_estimate_deg\": 135.0143061516452, \"tilt_operating_min_deg\": 90.0, \"pan_initial_pwm_us\": 1200, \"physical_angle_feedback\": false}\nFOLLOW prepared: {\"software_version\": \"v22\", \"source\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\pc\\\\robot_follow.py\", \"bundle_revision\": 6, \"software_label\": \"v22修订6\", \"source_sha256\": \"cf9495ab259e4f77\", \"config\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\tmp\\\\tmpf8jwr6l2\\\\gimbal.json\", \"requested_tilt_angle_deg\": 135.0, \"tilt_pwm_us\": 1075, \"table_angle_estimate_deg\": 135.0143061516452, \"tilt_operating_min_deg\": 90.0, \"pan_initial_pwm_us\": 1200, \"physical_angle_feedback\": false}\nFOLLOW runtime: {\"software_version\": \"v22\", \"source\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\pc\\\\robot_follow.py\", \"bundle_revision\": 6, \"software_label\": \"v22修订6\", \"source_sha256\": \"cf9495ab259e4f77\", \"config\": \"D:\\\\GOWIN_PROJECTS\\\\acg720_obstacle_resume\\\\tmp\\\\tmpf8jwr6l2\\\\gimbal.json\", \"requested_tilt_angle_deg\": 135.0, \"tilt_pwm_us\": 1075, \"table_angle_estimate_deg\": 135.0143061516452, \"tilt_operating_min_deg\": 90.0, \"pan_initial_pwm_us\": 1200, \"physical_angle_feedback\": false}\nVISION dog unavailable: mock model failed\nVISION human unavailable: mock model failed\nVISION dog failed: mock inference failed\n..........\n----------------------------------------------------------------------\nRan 10 tests in 0.036s\n\nOK\n"
+    },
+    {
+      "script": "tools/check_usb_gimbal.py",
+      "exit_code": 0,
+      "log": "VISION mode: preview; both detectors\ntest_close_before_start_and_waiting_newest_are_safe (__main__.CameraLifecycleTests.test_close_before_start_and_waiting_newest_are_safe) ... ok\ntest_mocked_capture_read_failure_releases_capture_and_wakes_waiter (__main__.CameraLifecycleTests.test_mocked_capture_read_failure_releases_capture_and_wakes_waiter) ... ok\ntest_angle_storage_failure_keeps_active_tracking_and_both_pending_targets (__main__.GimbalIntegrationTests.test_angle_storage_failure_keeps_active_tracking_and_both_pending_targets) ... ok\ntest_axis_form_explicit_reset_only_clears_selected_axis_measurements (__main__.GimbalIntegrationTests.test_axis_form_explicit_reset_only_clears_selected_axis_measurements) ... ok\ntest_axis_form_rejects_reversed_or_incomplete_limits_and_outside_start (__main__.GimbalIntegrationTests.test_axis_form_rejects_reversed_or_incomplete_limits_and_outside_start) ... ok\ntest_axis_form_saves_limits_steps_and_start_without_camera_calibration (__main__.GimbalIntegrationTests.test_axis_form_saves_limits_steps_and_start_without_camera_calibration) ... ok\ntest_axis_limits_never_silently_drop_old_angle_measurements (__main__.GimbalIntegrationTests.test_axis_limits_never_silently_drop_old_angle_measurements) ... ok\ntest_axis_steps_and_clear_limits_preserve_both_outputs_without_rearming (__main__.GimbalIntegrationTests.test_axis_steps_and_clear_limits_preserve_both_outputs_without_rearming) ... ok\ntest_burst_cancel_shutdown_and_stale_timeout_never_reuse_a_frame (__main__.GimbalIntegrationTests.test_burst_cancel_shutdown_and_stale_timeout_never_reuse_a_frame) ... ok\ntest_burst_save_failure_remains_in_capture_state_separate_from_control_error (__main__.GimbalIntegrationTests.test_burst_save_failure_remains_in_capture_state_separate_from_control_error) ... ok\ntest_burst_ten_distinct_raw_frames_does_not_block_control_or_heartbeat (__main__.GimbalIntegrationTests.test_burst_ten_distinct_raw_frames_does_not_block_control_or_heartbeat) ... ok\ntest_calibrated_pwm_off_preflight_explains_switches_and_enabling_then_reselection_is_ready (__main__.GimbalIntegrationTests.test_calibrated_pwm_off_preflight_explains_switches_and_enabling_then_reselection_is_ready) ... ok\ntest_calibration_flag_must_also_have_been_valid_at_frame_arrival (__main__.GimbalIntegrationTests.test_calibration_flag_must_also_have_been_valid_at_frame_arrival) ... ok\ntest_camera_failure_exits_inference_worker_instead_of_spinning_on_none (__main__.GimbalIntegrationTests.test_camera_failure_exits_inference_worker_instead_of_spinning_on_none) ... ok\ntest_capture_passes_original_pixels_to_encoder_and_marks_detections_not_ground_truth (__main__.GimbalIntegrationTests.test_capture_passes_original_pixels_to_encoder_and_marks_detections_not_ground_truth) ... ok\ntest_capture_time_pose_not_current_gimbal_pose_drives_direction_transform (__main__.GimbalIntegrationTests.test_capture_time_pose_not_current_gimbal_pose_drives_direction_transform) ... ok\ntest_construction_and_publishing_never_enable_pwm (__main__.GimbalIntegrationTests.test_construction_and_publishing_never_enable_pwm) ... ok\ntest_control_thread_exception_disables_and_close_joins (__main__.GimbalIntegrationTests.test_control_thread_exception_disables_and_close_joins) ... ok\ntest_explicit_target_selection_required (__main__.GimbalIntegrationTests.test_explicit_target_selection_required) ... ok\ntest_failed_configuration_write_leaves_old_file_but_outputs_disabled (__main__.GimbalIntegrationTests.test_failed_configuration_write_leaves_old_file_but_outputs_disabled) ... ok\ntest_five_second_browser_watchdog_disables_and_requires_explicit_rearm (__main__.GimbalIntegrationTests.test_five_second_browser_watchdog_disables_and_requires_explicit_rearm) ... ok\ntest_fractional_tracking_requests_accumulate_past_pwm_rounding (__main__.GimbalIntegrationTests.test_fractional_tracking_requests_accumulate_past_pwm_rounding) ... ok\ntest_inference_started_before_calibration_edit_cannot_publish_into_new_tracker (__main__.GimbalIntegrationTests.test_inference_started_before_calibration_edit_cannot_publish_into_new_tracker) ... ok\ntest_inference_worker_failure_disables_outputs_without_importing_real_cv2 (__main__.GimbalIntegrationTests.test_inference_worker_failure_disables_outputs_without_importing_real_cv2) ... ok\ntest_invalid_angle_save_keeps_disk_tracking_selection_and_pending_targets_unchanged (__main__.GimbalIntegrationTests.test_invalid_angle_save_keeps_disk_tracking_selection_and_pending_targets_unchanged) ... ok\ntest_invalid_camera_or_tracking_configuration_is_rejected_without_a_frame (__main__.GimbalIntegrationTests.test_invalid_camera_or_tracking_configuration_is_rejected_without_a_frame) ... ok\ntest_limit_conflict_preserves_old_angles_and_has_explicit_retry (__main__.GimbalIntegrationTests.test_limit_conflict_preserves_old_angles_and_has_explicit_retry) ... ok\ntest_limit_storage_failure_retains_pending_pair_and_outputs_for_retry (__main__.GimbalIntegrationTests.test_limit_storage_failure_retains_pending_pair_and_outputs_for_retry) ... ok\ntest_manual_range_extends_only_pan_and_preserves_measured_tilt_and_output (__main__.GimbalIntegrationTests.test_manual_range_extends_only_pan_and_preserves_measured_tilt_and_output) ... ok\ntest_manual_range_validation_and_storage_failures_preserve_disk_and_motion (__main__.GimbalIntegrationTests.test_manual_range_validation_and_storage_failures_preserve_disk_and_motion) ... ok\ntest_mark_limits_pair_persists_only_after_second_actual_settled_endpoint (__main__.GimbalIntegrationTests.test_mark_limits_pair_persists_only_after_second_actual_settled_endpoint) ... ok\ntest_measured_tracking_limit_does_not_wind_up_and_reversal_returns (__main__.GimbalIntegrationTests.test_measured_tracking_limit_does_not_wind_up_and_reversal_returns) ... ok\ntest_missing_without_a_live_observation_and_stale_frames_hold_pending_motion (__main__.GimbalIntegrationTests.test_missing_without_a_live_observation_and_stale_frames_hold_pending_motion) ... ok\ntest_new_frames_drive_only_once_and_out_of_order_frame_freezes (__main__.GimbalIntegrationTests.test_new_frames_drive_only_once_and_out_of_order_frame_freezes) ... ok\ntest_no_fpga_wheel_command_or_outbound_socket_is_produced (__main__.GimbalIntegrationTests.test_no_fpga_wheel_command_or_outbound_socket_is_produced) ... ok\ntest_preflight_distinguishes_current_output_outside_angle_table_from_unsaved_calibration (__main__.GimbalIntegrationTests.test_preflight_distinguishes_current_output_outside_angle_table_from_unsaved_calibration) ... ok\ntest_range_storage_failure_preserves_tracking_and_success_pauses_without_pwm_writes (__main__.GimbalIntegrationTests.test_range_storage_failure_preserves_tracking_and_success_pauses_without_pwm_writes) ... ok\ntest_record_extended_endpoints_does_not_lose_upper_axis_calibration (__main__.GimbalIntegrationTests.test_record_extended_endpoints_does_not_lose_upper_axis_calibration) ... ok\ntest_reselect_holds_old_pending_targets_immediately (__main__.GimbalIntegrationTests.test_reselect_holds_old_pending_targets_immediately) ... ok\ntest_safe_window_required_even_for_explicit_manual_arm (__main__.GimbalIntegrationTests.test_safe_window_required_even_for_explicit_manual_arm) ... ok\ntest_save_configuration_disables_pwm_and_persists_no_runtime_enable (__main__.GimbalIntegrationTests.test_save_configuration_disables_pwm_and_persists_no_runtime_enable) ... ok\ntest_save_user_angle_tables_one_axis_at_a_time_preserves_enabled_pwm_and_targets (__main__.GimbalIntegrationTests.test_save_user_angle_tables_one_axis_at_a_time_preserves_enabled_pwm_and_targets) ... ok\ntest_select_does_not_accept_float_or_boolean_frame_identifiers (__main__.GimbalIntegrationTests.test_select_does_not_accept_float_or_boolean_frame_identifiers) ... ok\ntest_selection_cache_uses_selected_frame_and_rejects_expired_or_unknown_sequence (__main__.GimbalIntegrationTests.test_selection_cache_uses_selected_frame_and_rejects_expired_or_unknown_sequence) ... ok\ntest_shrinking_exploration_cannot_silently_exclude_a_pending_endpoint (__main__.GimbalIntegrationTests.test_shrinking_exploration_cannot_silently_exclude_a_pending_endpoint) ... ok\ntest_simple_manual_draft_enable_and_axis_disable_do_not_need_limits (__main__.GimbalIntegrationTests.test_simple_manual_draft_enable_and_axis_disable_do_not_need_limits) ... ok\ntest_successful_angle_save_pauses_tracking_without_pwm_off_and_requires_fresh_reselection (__main__.GimbalIntegrationTests.test_successful_angle_save_pauses_tracking_without_pwm_off_and_requires_fresh_reselection) ... ok\ntest_tracking_form_applies_without_intrinsics_and_pauses_without_disabling (__main__.GimbalIntegrationTests.test_tracking_form_applies_without_intrinsics_and_pauses_without_disabling) ... ok\ntest_tracking_form_rejects_incomplete_nonfinite_and_invalid_values (__main__.GimbalIntegrationTests.test_tracking_form_rejects_incomplete_nonfinite_and_invalid_values) ... ok\ntest_tracking_requested_lead_is_bounded_and_zero_rate_holds (__main__.GimbalIntegrationTests.test_tracking_requested_lead_is_bounded_and_zero_rate_holds) ... ok\ntest_uncalibrated_axes_cannot_track (__main__.GimbalIntegrationTests.test_uncalibrated_axes_cannot_track) ... ok\ntest_command_requires_session_token_and_valid_json_object (__main__.HttpIntegrationTests.test_command_requires_session_token_and_valid_json_object) ... ok\ntest_http_state_reports_mock_frame_and_direction_only (__main__.HttpIntegrationTests.test_http_state_reports_mock_frame_and_direction_only) ... ok\ntest_http_storage_failure_returns_503_without_enabling_outputs (__main__.HttpIntegrationTests.test_http_storage_failure_returns_503_without_enabling_outputs) ... ok\ntest_mjpeg_uses_published_fake_jpeg_without_opening_a_camera (__main__.HttpIntegrationTests.test_mjpeg_uses_published_fake_jpeg_without_opening_a_camera) ... ok\ntest_request_size_and_route_validation (__main__.HttpIntegrationTests.test_request_size_and_route_validation) ... ok\ntest_truncated_json_body_is_not_accepted_as_a_complete_command (__main__.HttpIntegrationTests.test_truncated_json_body_is_not_accepted_as_a_complete_command) ... ok\n\n----------------------------------------------------------------------\nRan 57 tests in 0.266s\n\nOK\n"
+    },
+    {
+      "script": "tests/test_orangepi_shell_bundle.py",
+      "exit_code": 0,
+      "log": "..\n----------------------------------------------------------------------\nRan 2 tests in 0.167s\n\nOK\n"
+    }
+  ],
+  "unittest_cases": 75,
+  "hardware_tested": false,
+  "real_model_inference_tested": false,
+  "source_sha256": {
+    "pc/usb_gimbal.py": "635b76e81f8f95fb15985208e6bf10ea0046fbee834322400c01edda4a6fc495",
+    "tools/check_vision_worker_startup.py": "9a72ad360f504a55d944a5fc375a7378b5a4c98f0b57657ae2ec7ce67f254f1d",
+    "tools/package_orangepi_client.py": "7e683a5977fbaa709fb5401772698f26bf97546c7e02195faecd9194c72159f0"
+  },
+  "bundle": {
+    "path": "output/releases/pi-tracking-r6-20261104/acg720-orangepi-v22-r6-code.zip",
+    "bytes": 158069,
+    "sha256": "e5be957a864d091204d1486a606be647836868e43a054a507f21236e841b80ab",
+    "manifest": {
+      "client_bundle_version": 22,
+      "bundle_revision": 6,
+      "shell_line_endings": "LF",
+      "minimum_python": "3.10",
+      "dog_model_included": false,
+      "face_model_included": false,
+      "fpga_profile": "core-r7-and-lidar-moving-20261103-compatible",
+      "entry_point": "client.py",
+      "usb_camera_and_gimbal": true,
+      "default_pwm_backend": "mock",
+      "root_folder": "acg720_vision",
+      "sha256": {
+        "client.py": "fdef196f9380f03c87d10013adc7d4abb5726c437ea4c13012d3cede17d1538f",
+        "pc/udp_probe.py": "72a85f5abb6549d700efdccc5bfe4a27da61f5558d386ef962711aed715edade",
+        "pc/udp_video_viewer.py": "7a275f45c7286d3c26259638c21673b275d52f0962d9aa68e37a649dd36ccf49",
+        "pc/capture_dataset.py": "2771ecf07edbf592999a1e2fb0f4608da63877cdafe635bde872725cc82d95e6",
+        "pc/video_stream.py": "a0f372070c51097e46a5aee7912df13f164b73f7209bef1245d7fd4cbb02fdfd",
+        "pc/ui_telemetry.py": "6a6bea47cfdb6de7aa9639d96b21c786cb9b6a7b8800dfeb168daa439d43a66e",
+        "pc/highgui_window.py": "6a6dd3540081c86c3b2bda5c66493b460821cd5cb97aa5686807be9e5b5cf68a",
+        "pc/requirements.txt": "37d91a082228a56578876bef9ba32cf5515cefa42833a71e237a095c8cee0937",
+        "pc/detect_dog.py": "be82e3429aeb2f2d5a99782103538cd62dab94681b52aa089b0e6b2e2203cbb2",
+        "pc/dog_inference.py": "4c1bbd398e9d69590e614829be7667da4068eac909558e1733fc679aeb49bf58",
+        "pc/detection_feedback.py": "60ab8194a3c79675c85fce7c2d8d67e69243524c51fd32202ce9cee2933355fc",
+        "pc/requirements-detection.txt": "2f62c62fcebb74c4dc5183522f2a3580f874849bb14cf09f486fd884bde3aad2",
+        "pc/face_inference.py": "a05884838d5c8d647b6d5221beb1c76265477bdc598b27e8700e62872033b3b4",
+        "pc/usb_camera.py": "bb11c7ded41d743958ffdbbf4cbb180ca3fb541b756a800d4bb6d2d3a6d66f20",
+        "pc/usb_gimbal.py": "635b76e81f8f95fb15985208e6bf10ea0046fbee834322400c01edda4a6fc495",
+        "pc/usb_gimbal_ui.html": "ed71b51a5f502819186ea39467180240143b0b54d70806fa2c92858e31a05b4c",
+        "pc/gimbal_control.py": "17893299e99cfb7ba0e7300abd224b04242cd92a98b0a983133cfc37887ce709",
+        "pc/target_tracking.py": "f29b15c9f303fec0be3a67797ef7cbcb823468afa50a0f439d47f66da3f58a9b",
+        "pc/tracking_servo.py": "9f37094aabecbe606eb6bd9bd438b17e010d9834fbe88c139aa5e37dbcff49f7",
+        "pc/gimbal_image_calibration.py": "32b31f702a2d0889fa6157ead776077d9e0afa97807120647abb0d37d30256cf",
+        "pc/calibrate_usb_camera.py": "cc7eb1fcc3a89caa451e09dfaad58e6b23efecdd76a9a10a07af5a37ce7326e1",
+        "pc/robot_follow.py": "cf9495ab259e4f7720352174211a6d55dcafb2bd4fa16d2b2ea988870a5038d7",
+        "pc/visual_task.py": "229bd10a36ce3b14108b19c4ebeee2884e04e4f58dcd627ca9ed3204395f21aa",
+        "tools/install_orangepi_poweroff.sh": "d7720bd0774318ba025e6ee05e2f5857ba7c9daad2c00037341601d36bd3898c",
+        "tools/fix_orangepi_follow_network.py": "2201095e831efa17b6e5c51fefcfd4245a579173d95f69c98555766d133c744d",
+        "tools/start_fpga_follow.sh": "bb3b523f9c7ce3be83022e9a1ab04548911b5b8fa49c9729a757ea39b4027946",
+        "tools/install_fpga_follow_service.sh": "f03ec4ff5321027ef6e27d0fa53951a2636b1eedee634d530d72a089b4e98a54",
+        "docs/六题演示与修复验收_20261025.md": "7c32e37a15f5faef8d042e19316551bc8856635f8db0bb894492d1db9ecde3ea",
+        "docs/视觉雷达协议_v20.md": "c6f459f7e2f33503af5cc4eac6a74b1cbe34e9b80bdae0fc5991a073b98c7140",
+        "docs/上层135度与90度下限_v21.md": "306e2016fcfe3b5d88ad4bceedd855791e60f43656405578a96b148d5c0b5352",
+        "docs/香橙派v22人脸与小狗测试.md": "78d7c87b1efbb6c419d06be758de3a02d2210e31c338d4590b654c9f14ed474f",
+        "docs/香橙派v22修订4云台整合_20261103.md": "93a6a0c478983cd1389c8a380547b970d2787f5e4264b0e612e98d367c3c599f",
+        "docs/香橙派v22修订5跟踪调参_20261104.md": "5f74b15323585daadbdf27a8677f5aeb956b84da3d6ccb8aa727c02102006dc5",
+        "docs/香橙派v22修订6启动修复_20261104.md": "81c6b8b654f2a72b57308df161684c5aba1bdd1d4a6adc2d576620a866c42cb7",
+        "docs/香橙派与FPGA跟随联调_20261025.md": "cebc114f57499cac21f5d919cd955da154cbb2f7b82379c0af9fab7d7ce35bcb",
+        "docs/FPGA视觉跟随通信协议_20261025.md": "c132fce78f5a194b8fcd5d23b6fda72cbfae5b86c8525171d53fac371723aa05",
+        "config/gimbal.example.json": "7834127e5dc473259b4da996633ab0c538fb6a93ce19f2c8f1b201b74e3f9ff6",
+        "tools/capture_gimbal_tracking.py": "b33ed3b93c17412416bd236e88da50e79991f54558abfd4cab6feae995de3e17",
+        "tools/fix_orangepi_apt.py": "cfe22c42d6913b86aec05958276d7cc251cfaac0e35e3c8331b6a9bc7bb64201",
+        "README.md": "f2403ba3c27723d2d8df5de93978f409a0dade1faefa0d44b2210ee14ac56a9f"
+      }
+    }
+  },
+  "calibration_modified": false,
+  "parameters_modified": false,
+  "fpga_modified": false,
+  "limits_from_user_and_controller_math": {
+    "pan_mechanical_us": [
+      380,
+      2550
+    ],
+    "tilt_mechanical_us": [
+      645,
+      2420
+    ],
+    "tilt_operating_us": [
+      645,
+      1555
+    ],
+    "tilt_135deg_us": 1076
+  },
+  "limitations": [
+    "Actual Worker/app/publish executes; camera, OpenCV, numpy, model outputs and codec are Mock.",
+    "Four positive first-frame cases and two negative controls; not a claim of live video restored until field update."
+  ]
+}
